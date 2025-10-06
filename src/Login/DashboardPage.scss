@@ -1,0 +1,118 @@
+// src/Pages/DashboardPage.scss
+$primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+$primary-color: #667eea;
+$secondary-color: #764ba2;
+$success-color: #38a169;
+
+.dashboard-container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: $primary-gradient;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.dashboard-card {
+  background: #fff;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  width: 450px;
+  text-align: center;
+  animation: fadeIn 0.5s ease-in-out;
+
+  .dashboard-title {
+    color: $primary-color;
+    margin-bottom: 25px;
+    font-size: 24px;
+    font-weight: 600;
+  }
+
+  .user-info {
+    background: #f7fafc;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    text-align: left;
+
+    h3 {
+      color: $primary-color;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin: 5px 0;
+      color: #4a5568;
+    }
+  }
+
+  .protected-section {
+    margin-bottom: 25px;
+
+    .fetch-btn {
+      background: $success-color;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s ease;
+      margin-bottom: 15px;
+
+      &:hover {
+        opacity: 0.9;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .protected-data {
+      background: #edf2f7;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: left;
+
+      h4 {
+        color: $primary-color;
+        margin-bottom: 8px;
+      }
+
+      p {
+        color: #4a5568;
+        margin: 0;
+      }
+    }
+  }
+
+  .logout-btn {
+    background: #e53e3e;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s ease;
+    width: 100%;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

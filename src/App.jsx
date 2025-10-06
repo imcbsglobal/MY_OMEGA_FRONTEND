@@ -1,31 +1,98 @@
-import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import SideBar from "./components/BaseTemplate/SideBar";
-
-// HR Components
+import { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from "./Login/LoginPage";
 import CVManagement from "./components/HR/CVManagement";
 import InterviewManagement from "./components/HR/InterviewManagement";
 import OfferLetter from "./components/HR/OfferLetter";
-import EmployeeManagement from "./components/HR/EmployeeManagement";
-import Attendance from "./components/HR/Attendance";
+import EmployeeManagement from './components/HR/EmployeeManagement';
+import Attendance from './components/HR/Attendance';
+import SideBar from './components/BaseTemplate/SideBar';
+import './App.css';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check authentication on app load
+  useState(() => {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    setIsAuthenticated(false);
+  };
+
   return (
     <Router>
-      <div style={{ display: "flex" }}>
-        {/* Sidebar */}
-        <SideBar />
-
-        {/* Page Content */}
-        <div style={{ marginLeft: "80px", padding: "20px", flex: 1 }}>
+      <div className="app">
+        {/* Show sidebar only when authenticated */}
+        {isAuthenticated && <SideBar onLogout={handleLogout} />}
+        
+        <div className={isAuthenticated ? "app-content-with-sidebar" : "app-content-full"}>
           <Routes>
-            <Route path="/hr/cv-management" element={<CVManagement />} />
-            <Route path="/hr/interview-management" element={<InterviewManagement />} />
-            <Route path="/hr/offer-letter" element={<OfferLetter />} />
-            <Route path="/hr/employee-management" element={<EmployeeManagement />} />
-            <Route path="/hr/attendance" element={<Attendance />} />
-            <Route path="/hr/salary-certificate" element={<h2>Salary Certificate Page</h2>} />
-            <Route path="/hr/experience-certificate" element={<h2>Experience Certificate Page</h2>} />
+            {/* Login Route */}
+            <Route 
+              path="/login" 
+              element={
+                !isAuthenticated ? (
+                  <LoginPage onLogin={handleLogin} />
+                ) : (
+                  <Navigate to="/hr/cv-management" replace />
+                )
+              } 
+            />
+
+            {/* Protected HR Routes */}
+            <Route 
+              path="/hr/cv-management" 
+              element={
+                isAuthenticated ? <CVManagement /> : <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/hr/interview-management" 
+              element={
+                isAuthenticated ? <InterviewManagement /> : <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/hr/offer-letter" 
+              element={
+                isAuthenticated ? <OfferLetter /> : <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/hr/employee-management" 
+              element={
+                isAuthenticated ? <EmployeeManagement /> : <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/hr/attendance" 
+              element={
+                isAuthenticated ? <Attendance /> : <Navigate to="/login" replace />
+              } 
+            />
+
+            {/* Default Route */}
+            <Route 
+              path="/" 
+              element={
+                <Navigate to={isAuthenticated ? "/hr/cv-management" : "/login"} replace />
+              } 
+            />
+
+            {/* Catch all unknown routes */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </div>
