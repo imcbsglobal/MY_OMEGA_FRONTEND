@@ -480,7 +480,7 @@ function CVManagement() {
                   <div className="form-group">
                     <label className="form-label">Experience</label>
                     <input type="text" name="experience" value={cvToEdit.experience} onChange={handleEditInputChange} className="form-input" placeholder="Enter experience" />
-                  </div>
+                  </div> 
                 </div>
                 <div className="form-row">
                   <div className="form-group">
@@ -503,7 +503,7 @@ function CVManagement() {
                   <div className="form-group">
                     <label className="form-label">Remarks</label>
                     <input type="text" name="remarks" value={cvToEdit.remarks} onChange={handleEditInputChange} className="form-input" placeholder="Enter remarks" />
-                  </div>
+                  </div> 
                 </div>
               </div>
             </div>

@@ -6,6 +6,7 @@ import InterviewManagement from "./components/HR/InterviewManagement";
 import OfferLetter from "./components/HR/OfferLetter";
 import EmployeeManagement from './components/HR/EmployeeManagement';
 import Attendance from './components/HR/Attendance';
+import ExperienceCertificate from './components/HR/ExperienceCertificate';
 import SideBar from './components/BaseTemplate/SideBar';
 import './App.css';
 
@@ -80,6 +81,12 @@ function App() {
               path="/hr/attendance" 
               element={
                 isAuthenticated ? <Attendance /> : <Navigate to="/login" replace />
+              } 
+            />
+             <Route 
+              path="/hr/ExperienceCertificate" 
+              element={
+                isAuthenticated ? <ExperienceCertificate /> : <Navigate to="/login" replace />
               } 
             />
 

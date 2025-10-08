@@ -88,6 +88,15 @@ function SideBar({ onLogout }) {
                 📌 Attendance
               </NavLink>
             </li>
+             <li>
+              <NavLink
+                to="/hr/ExperienceCertificate"
+                className={({ isActive }) => (isActive ? "active" : "")}
+                onClick={() => setIsMobileOpen(false)}
+              >
+                🏅 ExperienceCertificate
+              </NavLink>
+            </li>
           </ul>
         )}
 
