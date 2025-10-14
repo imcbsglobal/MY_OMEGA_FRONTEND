@@ -6,9 +6,12 @@ import InterviewManagement from "./components/HR/InterviewManagement";
 import OfferLetter from "./components/HR/OfferLetter";
 import EmployeeManagement from './components/HR/EmployeeManagement';
 import Attendance from './components/HR/Attendance';
+import AttendanceSummary from './components/HR/AttendanceSummary';
+import PunchinPunchout from './components/HR/PunchinPunchout';
 import ExperienceCertificate from './components/HR/ExperienceCertificate';
 import SideBar from './components/BaseTemplate/SideBar';
 import './App.css';
+import LeaveManagement from "./components/HR/LeaveManagement";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -83,7 +86,25 @@ function App() {
                 isAuthenticated ? <Attendance /> : <Navigate to="/login" replace />
               } 
             />
+            <Route 
+              path="/hr/punchinpunchout" 
+              element={
+                isAuthenticated ? <PunchinPunchout /> : <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/hr/attendance/summary/:employeeId" 
+              element={
+                isAuthenticated ? <AttendanceSummary /> : <Navigate to="/login" replace />
+              } 
+            />
              <Route 
+              path="/hr/leave-management" 
+              element={
+                isAuthenticated ? <LeaveManagement /> : <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
               path="/hr/ExperienceCertificate" 
               element={
                 isAuthenticated ? <ExperienceCertificate /> : <Navigate to="/login" replace />
