@@ -1,37 +1,26 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./CVManagement.scss";
 
 function CVManagement() {
+  const navigate = useNavigate();
+  
+  // Debug logs
+  console.log("🔵 CVManagement component loaded");
+  console.log("🔵 Navigate function:", navigate);
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTitleFilter, setJobTitleFilter] = useState("");
   const [interviewStatusFilter, setInterviewStatusFilter] = useState("");
-  const [showAddCVForm, setShowAddCVForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [cvToDelete, setCVToDelete] = useState(null);
   const [cvToEdit, setCVToEdit] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [uploadedFile, setUploadedFile] = useState(null);
   const [showCVViewer, setShowCVViewer] = useState(false);
   const [currentCVUrl, setCurrentCVUrl] = useState(null);
   const itemsPerPage = 10;
   const [cvList, setCVList] = useState([]);
-  const [newCV, setNewCV] = useState({
-    name: "",
-    jobTitle: "",
-    place: "",
-    createdUser: "",
-    gender: "MALE",
-    address: "",
-    district: "",
-    phoneNumber: "",
-    education: "",
-    experience: "",
-    dob: "",
-    remarks: "",
-    cvSource: "DIRECT",
-    interviewStatus: "No"
-  });
 
   useEffect(() => {
     setCVList([
@@ -90,21 +79,12 @@ function CVManagement() {
   const endIndex = startIndex + itemsPerPage;
   const currentCVs = filteredCVs.slice(startIndex, endIndex);
 
-  const handleAddCV = () => setShowAddCVForm(true);
-
-  const handleCloseAddForm = () => {
-    setShowAddCVForm(false);
-    setUploadedFile(null);
-    setNewCV({
-      name: "", jobTitle: "", place: "", createdUser: "", gender: "MALE",
-      address: "", district: "", phoneNumber: "", education: "", experience: "",
-      dob: "", remarks: "", cvSource: "DIRECT", interviewStatus: "No"
-    });
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewCV(prev => ({ ...prev, [name]: value }));
+  // Navigate to Add CV Page
+  const handleAddCV = () => {
+    console.log("🟢 Add CV button clicked!");
+    console.log("🟢 Attempting to navigate to: /hr/add-cv");
+    navigate("/hr/add-cv");
+    console.log("🟢 Navigate function called!");
   };
 
   const handleEditInputChange = (e) => {
@@ -112,64 +92,39 @@ function CVManagement() {
     setCVToEdit(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.type === 'application/pdf') {
-        setUploadedFile(file);
-      } else {
-        alert('Please upload only PDF files');
-        e.target.value = '';
-      }
-    }
+  const handleDeleteCV = (cv) => { 
+    setCVToDelete(cv); 
+    setShowDeleteConfirm(true); 
   };
 
-  const handleRemoveFile = () => {
-    setUploadedFile(null);
-    const fileInput = document.getElementById('cv-file-input');
-    if (fileInput) fileInput.value = '';
-  };
-
-  const handleSubmitCV = () => {
-    if (!newCV.name.trim() || !newCV.jobTitle.trim()) {
-      alert("Please fill in at least name and job title"); return;
-    }
-    
-    let cvFileUrl = null;
-    if (uploadedFile) {
-      cvFileUrl = URL.createObjectURL(uploadedFile);
-    }
-    
-    const newCVObj = {
-      id: cvList.length + 1, no: cvList.length + 1,
-      createdDate: new Date().toLocaleDateString('en-GB', {
-        day: '2-digit', month: '2-digit', year: 'numeric'
-      }).replace(/\//g, '-'),
-      ...newCV, 
-      cvAttachment: uploadedFile ? true : false,
-      cvFileUrl: cvFileUrl,
-      createdUser: newCV.createdUser || "info@imcbsglobal.com"
-    };
-    setCVList(prev => [newCVObj, ...prev].map((cv, idx) => ({ ...cv, no: idx + 1 })));
-    
-    handleCloseAddForm();
-  };
-
-  const handleDeleteCV = (cv) => { setCVToDelete(cv); setShowDeleteConfirm(true); };
   const confirmDeleteCV = () => {
     if (cvToDelete) {
       const updated = cvList.filter(cv => cv.id !== cvToDelete.id);
       setCVList(updated.map((cv, idx) => ({ ...cv, no: idx + 1 })));
     }
-    setShowDeleteConfirm(false); setCVToDelete(null);
+    setShowDeleteConfirm(false); 
+    setCVToDelete(null);
   };
-  const cancelDeleteCV = () => { setShowDeleteConfirm(false); setCVToDelete(null); };
 
-  const handleEditCV = (cv) => { setCVToEdit({ ...cv }); setShowEditForm(true); };
-  const handleCloseEditForm = () => { setShowEditForm(false); setCVToEdit(null); };
+  const cancelDeleteCV = () => { 
+    setShowDeleteConfirm(false); 
+    setCVToDelete(null); 
+  };
+
+  const handleEditCV = (cv) => { 
+    setCVToEdit({ ...cv }); 
+    setShowEditForm(true); 
+  };
+
+  const handleCloseEditForm = () => { 
+    setShowEditForm(false); 
+    setCVToEdit(null); 
+  };
+
   const handleSubmitEdit = () => {
     if (!cvToEdit.name.trim() || !cvToEdit.jobTitle.trim()) {
-      alert("Please fill in at least name and job title"); return;
+      alert("Please fill in at least name and job title"); 
+      return;
     }
     setCVList(prev => prev.map(cv => cv.id === cvToEdit.id ? cvToEdit : cv));
     handleCloseEditForm();
@@ -205,7 +160,9 @@ function CVManagement() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <button className="add-btn-header" onClick={handleAddCV}>+ Add New</button>
+            <button className="add-btn-header" onClick={handleAddCV}>
+              + Add New
+            </button>
           </div>
         </div>
       </div>
@@ -286,140 +243,7 @@ function CVManagement() {
         </div>
       </div>
 
-      {showAddCVForm && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Add New CV</h2>
-              <button className="close-btn" onClick={handleCloseAddForm}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-container">
-                {/* CV Upload Section */}
-                <div className="cv-upload-section">
-                  <label className="form-label">Upload CV (PDF only)</label>
-                  <div className="file-upload-wrapper">
-                    <input
-                      type="file"
-                      id="cv-file-input"
-                      className="file-input"
-                      accept=".pdf"
-                      onChange={handleFileUpload}
-                    />
-                    <label htmlFor="cv-file-input" className="file-upload-label">
-                      <span className="upload-icon">📄</span>
-                      <div>
-                        <div className="upload-text">
-                          {uploadedFile ? uploadedFile.name : 'Click to upload CV (PDF only)'}
-                        </div>
-                        {!uploadedFile && (
-                          <div className="upload-subtext">Max file size: 5MB</div>
-                        )}
-                      </div>
-                    </label>
-                    {uploadedFile && (
-                      <div className="file-info">
-                        <span className="file-size">
-                          {(uploadedFile.size / 1024).toFixed(2)} KB
-                        </span>
-                        <button
-                          type="button"
-                          className="remove-file-btn"
-                          onClick={handleRemoveFile}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label required">Name</label>
-                    <input type="text" name="name" value={newCV.name} onChange={handleInputChange} className="form-input" placeholder="Enter name" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label required">Job Title</label>
-                    <input type="text" name="jobTitle" value={newCV.jobTitle} onChange={handleInputChange} className="form-input" placeholder="Enter job title" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Place</label>
-                    <input type="text" name="place" value={newCV.place} onChange={handleInputChange} className="form-input" placeholder="Enter place" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Created User</label>
-                    <input type="text" name="createdUser" value={newCV.createdUser} onChange={handleInputChange} className="form-input" placeholder="Enter email" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Gender</label>
-                    <select name="gender" value={newCV.gender} onChange={handleInputChange} className="form-input">
-                      <option value="MALE">MALE</option>
-                      <option value="FEMALE">FEMALE</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">District</label>
-                    <input type="text" name="district" value={newCV.district} onChange={handleInputChange} className="form-input" placeholder="Enter district" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Address</label>
-                    <input type="text" name="address" value={newCV.address} onChange={handleInputChange} className="form-input" placeholder="Enter address" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Phone Number</label>
-                    <input type="text" name="phoneNumber" value={newCV.phoneNumber} onChange={handleInputChange} className="form-input" placeholder="Enter phone number" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Education</label>
-                    <input type="text" name="education" value={newCV.education} onChange={handleInputChange} className="form-input" placeholder="Enter education" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Experience</label>
-                    <input type="text" name="experience" value={newCV.experience} onChange={handleInputChange} className="form-input" placeholder="Enter experience" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Date of Birth</label>
-                    <input type="text" name="dob" value={newCV.dob} onChange={handleInputChange} className="form-input" placeholder="DD/MM/YYYY" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">CV Source</label>
-                    <input type="text" name="cvSource" value={newCV.cvSource} onChange={handleInputChange} className="form-input" placeholder="Enter CV source" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Interview Status</label>
-                    <select name="interviewStatus" value={newCV.interviewStatus} onChange={handleInputChange} className="form-input">
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Remarks</label>
-                    <input type="text" name="remarks" value={newCV.remarks} onChange={handleInputChange} className="form-input" placeholder="Enter remarks" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-cancel" onClick={handleCloseAddForm}>Cancel</button>
-              <button className="btn btn-success" onClick={handleSubmitCV}>Submit</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Edit Form Modal */}
       {showEditForm && cvToEdit && (
         <div className="modal-overlay">
           <div className="modal">
@@ -515,6 +339,7 @@ function CVManagement() {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && cvToDelete && (
         <div className="modal-overlay">
           <div className="modal confirm-modal">
@@ -536,6 +361,7 @@ function CVManagement() {
         </div>
       )}
 
+      {/* CV Viewer Modal */}
       {showCVViewer && currentCVUrl && (
         <div className="modal-overlay" onClick={handleCloseCVViewer}>
           <div className="modal cv-viewer-modal" onClick={(e) => e.stopPropagation()}>

@@ -16,7 +16,7 @@ function ExperienceCertificate() {
     {
       id: 1,
       slNo: 1,
-      name: "LINAT KJ",
+      name: "PRIYA ",
       address: "Puthukkattil (h), Chennalode PH : 7907802917",
       phoneNumber: "8606673163",
       place: "CHENNALODE",
@@ -35,7 +35,7 @@ function ExperienceCertificate() {
     {
       id: 2,
       slNo: 2,
-      name: "SONA DSILVA",
+      name: "KAVYA S",
       address: "Chettivalappil(h),Manivayal, kalpetta PH : 9562635525",
       phoneNumber: "7025034326",
       place: "KALPETTA",

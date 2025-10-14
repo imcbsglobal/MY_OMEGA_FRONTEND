@@ -1,29 +1,16 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./OfferLetter.scss";
 
 function OfferLetter() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [showPopup, setShowPopup] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showCVGenerator, setShowCVGenerator] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState(null);
-  const [showAddCandidateForm, setShowAddCandidateForm] = useState(false);
   const [candidates, setCandidates] = useState([]);
-  const [newCandidate, setNewCandidate] = useState({
-    name: "",
-    jobTitle: "",
-    place: "",
-    district: "",
-    phoneNumber: "",
-    education: "",
-    experience: "",
-    dob: "",
-    remark: "",
-    cvSource: "",
-    interviewReview: "",
-    status: "WILLING"
-  });
 
   // Mock data
   useEffect(() => {
@@ -142,74 +129,6 @@ function OfferLetter() {
     setSelectedCandidate(null);
   };
 
-  const handleAddCandidate = () => {
-    setShowAddCandidateForm(true);
-  };
-
-  const handleCloseAddForm = () => {
-    setShowAddCandidateForm(false);
-    setNewCandidate({
-      name: "",
-      jobTitle: "",
-      place: "",
-      district: "",
-      phoneNumber: "",
-      education: "",
-      experience: "",
-      dob: "",
-      remark: "",
-      cvSource: "",
-      interviewReview: "",
-      status: "WILLING"
-    });
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewCandidate(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmitCandidate = () => {
-    if (!newCandidate.name.trim() || !newCandidate.jobTitle.trim()) {
-      alert("Please fill in at least name and job title");
-      return;
-    }
-
-    const newCandidateObj = {
-      id: candidates.length + 1,
-      no: candidates.length + 1,
-      createdDate: new Date().toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      }),
-      name: newCandidate.name,
-      jobTitle: newCandidate.jobTitle,
-      cvAttachment: false,
-      place: newCandidate.place,
-      generatedBy: "currentuser@example.com",
-      gender: "MALE",
-      district: newCandidate.district,
-      phoneNumber: newCandidate.phoneNumber,
-      education: newCandidate.education,
-      experience: newCandidate.experience,
-      dob: newCandidate.dob,
-      remark: newCandidate.remark,
-      cvSource: newCandidate.cvSource,
-      interviewReview: newCandidate.interviewReview || "No review added yet.",
-      status: newCandidate.status
-    };
-
-    setCandidates(prev => [newCandidateObj, ...prev].map((candidate, index) => ({
-      ...candidate,
-      no: index + 1
-    })));
-    handleCloseAddForm();
-  };
-
   const handleDownloadPDF = () => {
     console.log("Download PDF clicked for:", selectedCandidate?.name);
   };
@@ -217,6 +136,16 @@ function OfferLetter() {
   const handleGenerateOfferLetter = () => {
     console.log("Generate offer letter for:", selectedCandidate?.name);
     closePopup();
+  };
+
+  const handleAddOfferLetter = (candidate = null) => {
+    if (candidate) {
+      // Navigate to add offer letter page with candidate data
+      navigate('/hr/add-offer-letter', { state: { candidate } });
+    } else {
+      // Navigate to add offer letter page without specific candidate
+      navigate('/hr/add-offer-letter');
+    }
   };
 
   const handleStatusChange = (candidateId, newStatus) => {
@@ -251,10 +180,10 @@ function OfferLetter() {
               />
             </div>
             <button 
-              className="add-btn"
-              onClick={handleAddCandidate}
+              className="add-offer-letter-btn"
+              onClick={() => handleAddOfferLetter()}
             >
-              + Add New Candidate
+              + Add Offer Letter
             </button>
           </div>
         </div>
@@ -290,6 +219,7 @@ function OfferLetter() {
                 <th>CV SOURCE</th>
                 <th>STATUS</th>
                 <th>GENERATE DETAILS</th>
+                <th>OFFER LETTER</th>
                 <th>CLEAR</th>
               </tr>
             </thead>
@@ -339,6 +269,14 @@ function OfferLetter() {
                         Generate
                       </button>
                     </td>
+                    <td className="offer-letter-cell">
+                      <button 
+                        className="offer-letter-btn"
+                        onClick={() => handleAddOfferLetter(candidate)}
+                      >
+                        Create Offer
+                      </button>
+                    </td>
                     <td className="actions-cell">
                       <button 
                         className="clear-btn"
@@ -351,7 +289,7 @@ function OfferLetter() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="18" className="no-data">
+                  <td colSpan="19" className="no-data">
                     No candidates found
                   </td>
                 </tr>
@@ -360,191 +298,6 @@ function OfferLetter() {
           </table>
         </div>
       </div>
-
-      {/* Add Candidate Modal */}
-      {showAddCandidateForm && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-content">
-              <div className="modal-header">
-                <div className="modal-title-section">
-                  <h2>Add New Candidate</h2>
-                </div>
-                <button onClick={handleCloseAddForm} className="close-btn">×</button>
-              </div>
-
-              <div className="form-container">
-                <div className="form-step">
-                  <div className="form-section">
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Name *</label>
-                        <input
-                          type="text"
-                          name="name"
-                          value={newCandidate.name}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter candidate name"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Job Title *</label>
-                        <input
-                          type="text"
-                          name="jobTitle"
-                          value={newCandidate.jobTitle}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter job title"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Place</label>
-                        <input
-                          type="text"
-                          name="place"
-                          value={newCandidate.place}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter place"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">District</label>
-                        <input
-                          type="text"
-                          name="district"
-                          value={newCandidate.district}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter district"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Phone Number</label>
-                        <input
-                          type="text"
-                          name="phoneNumber"
-                          value={newCandidate.phoneNumber}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter phone number"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Education</label>
-                        <input
-                          type="text"
-                          name="education"
-                          value={newCandidate.education}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter education"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Experience</label>
-                        <input
-                          type="text"
-                          name="experience"
-                          value={newCandidate.experience}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter experience"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Date of Birth</label>
-                        <input
-                          type="text"
-                          name="dob"
-                          value={newCandidate.dob}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="DD/MM/YYYY"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">CV Source</label>
-                        <input
-                          type="text"
-                          name="cvSource"
-                          value={newCandidate.cvSource}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter CV source"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Status</label>
-                        <select 
-                          name="status"
-                          value={newCandidate.status}
-                          onChange={handleInputChange}
-                          className="form-input"
-                        >
-                          <option value="WILLING">Willing</option>
-                          <option value="NOT WILLING">Not Willing</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* <div className="form-row">
-                      <div className="form-group full-width">
-                        <label className="form-label">Remark</label>
-                        <textarea
-                          name="remark"
-                          value={newCandidate.remark}
-                          onChange={handleInputChange}
-                          className="form-textarea"
-                          placeholder="Enter remarks"
-                          rows="3"
-                        />
-                      </div>
-                    </div> */}
-
-                    {/* <div className="form-row">
-                      <div className="form-group full-width">
-                        <label className="form-label">Interview Review</label>
-                        <textarea
-                          name="interviewReview"
-                          value={newCandidate.interviewReview}
-                          onChange={handleInputChange}
-                          className="form-textarea"
-                          placeholder="Enter interview review"
-                          rows="4"
-                        />
-                      </div>
-                    </div> */}
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button className="btn btn-cancel" onClick={handleCloseAddForm}>
-                  Cancel
-                </button>
-                <button className="btn btn-success" onClick={handleSubmitCandidate}>
-                  Add Candidate
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && candidateToDelete && (

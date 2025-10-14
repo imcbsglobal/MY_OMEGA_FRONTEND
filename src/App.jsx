@@ -2,12 +2,17 @@ import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from "./Login/LoginPage";
 import CVManagement from "./components/HR/CVManagement";
+import AddCV from './components/HR/AddCV';
 import InterviewManagement from "./components/HR/InterviewManagement";
 import OfferLetter from "./components/HR/OfferLetter";
+import AddOfferLetter from "./components/HR/AddOfferLetter";
 import EmployeeManagement from './components/HR/EmployeeManagement';
+import AddEmployee from './components/HR/AddEmployee'; // ✅ New import
 import Attendance from './components/HR/Attendance';
 import ExperienceCertificate from './components/HR/ExperienceCertificate';
+import SalaryCertificate from './components/HR/SalaryCertificate';
 import SideBar from './components/BaseTemplate/SideBar';
+
 import './App.css';
 
 function App() {
@@ -59,6 +64,31 @@ function App() {
                 isAuthenticated ? <CVManagement /> : <Navigate to="/login" replace />
               } 
             />
+
+            {/* Add CV Route */}
+            <Route 
+              path="/hr/add-cv" 
+              element={
+                isAuthenticated ? <AddCV /> : <Navigate to="/login" replace />
+              } 
+            />
+
+            {/* Add Employee Route */}
+            <Route 
+              path="/hr/add-employee" 
+              element={
+                isAuthenticated ? <AddEmployee /> : <Navigate to="/login" replace />
+              } 
+            />
+
+            {/* Add Offer Letter Route */}
+            <Route 
+              path="/hr/add-offer-letter" 
+              element={
+                isAuthenticated ? <AddOfferLetter /> : <Navigate to="/login" replace />
+              } 
+            />
+
             <Route 
               path="/hr/interview-management" 
               element={
@@ -87,6 +117,12 @@ function App() {
               path="/hr/ExperienceCertificate" 
               element={
                 isAuthenticated ? <ExperienceCertificate /> : <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/hr/SalaryCertificate" 
+              element={
+                isAuthenticated ? <SalaryCertificate /> : <Navigate to="/login" replace />
               } 
             />
 

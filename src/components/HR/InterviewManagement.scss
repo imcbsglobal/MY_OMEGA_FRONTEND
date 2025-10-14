@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin: 8px; // Small thin margin around the entire page content
+  margin: 0px; // Small thin margin around the entire page content
 
   // Page Header (Fixed at top)
   .page-header {
@@ -139,7 +139,7 @@
     table-layout: fixed;
     
     thead th {
-      background: linear-gradient(135deg, #4a5568 0%, #4a5568 100%);
+      background: linear-gradient(135deg,  #4c51bf 0%,  #4c51bf 100%);
       color: white;
       padding: 0.5rem 0.3rem;
       text-align: left;
@@ -147,7 +147,7 @@
       font-size: 0.65rem;
       text-transform: uppercase;
       letter-spacing: 0.3px;
-      border-right: 1px solid #718096;
+      border-right: 1px solid  #4c51bf;
       position: sticky;
       top: 0;
       z-index: 10;

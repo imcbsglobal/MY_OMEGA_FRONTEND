@@ -96,6 +96,15 @@ function SideBar({ onLogout }) {
               >
                 🏅 ExperienceCertificate
               </NavLink>
+              <li>
+              <NavLink
+                to="/hr/SalaryCertificate"
+                className={({ isActive }) => (isActive ? "active" : "")}
+                onClick={() => setIsMobileOpen(false)}
+              >
+                💶 SalaryCertificate
+              </NavLink>
+            </li>
             </li>
           </ul>
         )}
