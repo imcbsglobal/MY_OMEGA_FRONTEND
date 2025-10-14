@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import "./SideBar.scss";
+import { FaUserClock } from "react-icons/fa";
+import { FaCalendarCheck } from "react-icons/fa";
+
 
 function SideBar({ onLogout }) {
   const [openMenu, setOpenMenu] = useState(true); // Start open by default
@@ -85,10 +88,31 @@ function SideBar({ onLogout }) {
                 className={({ isActive }) => (isActive ? "active" : "")}
                 onClick={() => setIsMobileOpen(false)}
               >
-                📌 Attendance
+                📌 Attendance Management
               </NavLink>
             </li>
-             <li>
+            <li>
+              <NavLink
+                to="/hr/PunchinPunchout"
+                className={({ isActive }) => (isActive ? "active" : "")}
+                onClick={() => setIsMobileOpen(false)}
+              >
+                <FaUserClock className="sidebar-icon" />
+                <span>Punch In / Punch Out</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/hr/leave-management"
+                className={({ isActive }) => (isActive ? "active" : "")}
+                onClick={() => setIsMobileOpen(false)}
+              >
+                <FaCalendarCheck className="sidebar-icon" />
+                <span>Leave Management</span>
+              </NavLink>
+            </li>
+
+            <li>
               <NavLink
                 to="/hr/ExperienceCertificate"
                 className={({ isActive }) => (isActive ? "active" : "")}
