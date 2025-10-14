@@ -1,8 +1,10 @@
 // src/Pages/LoginPage.jsx
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./LoginPage.scss";
 
 const LoginPage = ({ onLogin }) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,13 +33,24 @@ const LoginPage = ({ onLogin }) => {
         localStorage.setItem("user", JSON.stringify(data.user));
 
         // Mark user as logged in
-        onLogin();
+        if (onLogin) {
+          onLogin();
+        }
 
         console.log("Login successful:", data.user);
+        
+        // Navigate to users list page
+        navigate("/users");
       } else {
-        setError("Invalid email or password");
+        // Handle specific error messages from backend
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setError("Invalid email or password");
+        }
       }
     } catch (err) {
+      console.error("Login error:", err);
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
