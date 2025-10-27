@@ -1,3 +1,4 @@
+// AddUser.jsx - FIXED VERSION
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AddUser.scss';
@@ -6,7 +7,7 @@ function AddUser() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
-    user_id: '',
+    email: '',              // Changed from user_id to email
     password: '',
     user_level: 'User',
     job_role: '',
@@ -17,11 +18,13 @@ function AddUser() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const API_BASE = 'http://127.0.0.1:8000';
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -32,7 +35,6 @@ function AddUser() {
         ...prev,
         photo: file
       }));
-      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoPreview(reader.result);
@@ -46,47 +48,56 @@ function AddUser() {
     setError('');
     setLoading(true);
 
-    // Get the correct token key from localStorage (same as LoginPage uses)
-    const token = localStorage.getItem('accessToken');
-    
-    // Create FormData for file upload
-    const data = new FormData();
-    data.append('name', formData.name);
-    data.append('user_id', formData.user_id);
-    data.append('password', formData.password);
-    data.append('user_level', formData.user_level);
-    data.append('job_role', formData.job_role);
-    data.append('phone_number', formData.phone_number);
-    if (formData.photo) {
-      data.append('photo', formData.photo);
+    // Validate required fields
+    if (!formData.name || !formData.email || !formData.password) {
+      setError('Name, Email and Password are required.');
+      setLoading(false);
+      return;
     }
 
+    // Build FormData with correct field names matching Django model
+    const data = new FormData();
+    data.append('name', formData.name);
+    data.append('email', formData.email);           // Changed from user_id
+    data.append('password', formData.password);
+    data.append('user_level', formData.user_level);
+    
+    // Only append optional fields if they have values
+    if (formData.job_role) data.append('job_role', formData.job_role);
+    if (formData.phone_number) data.append('phone_number', formData.phone_number);
+    if (formData.photo) data.append('photo', formData.photo);
+
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/users/', {
+      const response = await fetch(`${API_BASE}/api/users/`, {
         method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
         body: data,
       });
+
+      let body = null;
+      try {
+        body = await response.json();
+      } catch (err) {
+        body = { detail: await response.text() };
+      }
 
       if (response.ok) {
         alert('User created successfully!');
         navigate('/user/list');
       } else {
-        const errorData = await response.json();
-        // Format error messages nicely
-        if (typeof errorData === 'object') {
-          const errorMessages = Object.entries(errorData)
+        // Show validation errors
+        if (response.status === 400 && body && typeof body === 'object') {
+          const errorMessages = Object.entries(body)
             .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
             .join('\n');
           setError(errorMessages);
+        } else if (response.status === 401) {
+          setError('Unauthorized: please login.');
         } else {
-          setError(JSON.stringify(errorData));
+          setError(typeof body === 'string' ? body : JSON.stringify(body));
         }
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(`Network error: ${err.message}\n\nMake sure backend is running at ${API_BASE}`);
       console.error('Create user error:', err);
     } finally {
       setLoading(false);
@@ -103,8 +114,15 @@ function AddUser() {
       </div>
       
       {error && (
-        <div className="error-message">
-          <pre>{error}</pre>
+        <div className="error-message" style={{
+          background: '#fee',
+          border: '1px solid #fcc',
+          padding: '12px',
+          borderRadius: '4px',
+          marginBottom: '16px',
+          color: '#c00'
+        }}>
+          <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{error}</pre>
         </div>
       )}
       
@@ -123,15 +141,18 @@ function AddUser() {
           </div>
 
           <div className="form-group">
-            <label>User ID *</label>
+            <label>Email *</label>
             <input
-              type="text"
-              name="user_id"
-              value={formData.user_id}
+              type="email"
+              name="email"
+              value={formData.email}
               onChange={handleChange}
-              placeholder="Enter unique user ID"
+              placeholder="Enter email address"
               required
             />
+            <small style={{ color: '#666', fontSize: '12px' }}>
+              This will be used as the unique user ID
+            </small>
           </div>
 
           <div className="form-group">
@@ -141,7 +162,8 @@ function AddUser() {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="Enter password"
+              placeholder="Enter password (min 6 characters)"
+              minLength={6}
               required
             />
           </div>
@@ -161,36 +183,36 @@ function AddUser() {
           </div>
 
           <div className="form-group">
-            <label>Job Role *</label>
+            <label>Job Role</label>
             <input
               type="text"
               name="job_role"
               value={formData.job_role}
               onChange={handleChange}
-              placeholder="Enter job role"
-              required
+              placeholder="Enter job role (optional)"
             />
           </div>
 
           <div className="form-group">
-            <label>Phone Number *</label>
+            <label>Phone Number</label>
             <input
               type="text"
               name="phone_number"
               value={formData.phone_number}
               onChange={handleChange}
-              placeholder="+1234567890"
-              required
+              placeholder="+1234567890 (optional)"
             />
+            <small style={{ color: '#666', fontSize: '12px' }}>
+              Format: +1234567890 (7-15 digits)
+            </small>
           </div>
 
           <div className="form-group full-width">
-            <label>Photo *</label>
+            <label>Photo (Optional)</label>
             <input
               type="file"
               onChange={handleFileChange}
               accept="image/*"
-              required
             />
             {photoPreview && (
               <div className="photo-preview">

@@ -1,39 +1,41 @@
+// SideBar.jsx
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import "./SideBar.scss";
-import { FaUserClock, FaCalendarCheck, FaUsersCog, FaUserPlus } from "react-icons/fa";
+import { FaUserClock, FaCalendarCheck, FaUsersCog } from "react-icons/fa";
 
-function SideBar({ onLogout }) {
+function SideBar() {
   const [openHRMenu, setOpenHRMenu] = useState(true);
   const [openUserMenu, setOpenUserMenu] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const navigate = useNavigate();
+
+  // ✅ read logged-in user (should include is_superuser from /me)
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   const toggleHRMenu = () => setOpenHRMenu(!openHRMenu);
   const toggleUserMenu = () => setOpenUserMenu(!openUserMenu);
   const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      onLogout();
-      navigate("/login");
-    }
+    if (!window.confirm("Are you sure you want to logout?")) return;
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    localStorage.removeItem("user");
+    navigate("/login", { replace: true });
   };
 
   return (
     <>
-      {/* Mobile Hamburger Button */}
       <button className="hamburger" onClick={toggleMobile}>
         {isMobileOpen ? "✖" : "☰"}
       </button>
 
       <div className={`sidebar ${isMobileOpen ? "open" : ""}`}>
-        {/* Sidebar Header */}
         <div className="sidebar-header">
           <h2 className="sidebar-brand">HR System</h2>
         </div>
 
-        {/* HR Menu Section */}
         <h3 className="sidebar-title" onClick={toggleHRMenu}>
           👥 HR Management
           <span className="arrow">{openHRMenu ? "▲" : "▼"}</span>
@@ -41,11 +43,6 @@ function SideBar({ onLogout }) {
 
         {openHRMenu && (
           <ul className="sidebar-menu">
-            <li>
-              <NavLink to="/hr/cv-management" className={({ isActive }) => (isActive ? "active" : "")} onClick={() => setIsMobileOpen(false)}>
-                📄 CV Management
-              </NavLink>
-            </li>
             <li>
               <NavLink to="/hr/interview-management" className={({ isActive }) => (isActive ? "active" : "")} onClick={() => setIsMobileOpen(false)}>
                 👤 Interview Management
@@ -78,20 +75,9 @@ function SideBar({ onLogout }) {
                 <span>Leave Management</span>
               </NavLink>
             </li>
-            <li>
-              <NavLink to="/hr/ExperienceCertificate" className={({ isActive }) => (isActive ? "active" : "")} onClick={() => setIsMobileOpen(false)}>
-                🏅 Experience Certificate
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/hr/SalaryCertificate" className={({ isActive }) => (isActive ? "active" : "")} onClick={() => setIsMobileOpen(false)}>
-                💶 Salary Certificate
-              </NavLink>
-            </li>
           </ul>
         )}
 
-        {/* USER MANAGEMENT SECTION */}
         <h3 className="sidebar-title" onClick={toggleUserMenu}>
           🧑 User Management
           <span className="arrow">{openUserMenu ? "▲" : "▼"}</span>
@@ -105,10 +91,22 @@ function SideBar({ onLogout }) {
                 <span>User List</span>
               </NavLink>
             </li>
+
+            {/* ✅ Super Admin–only link */}
+            {user?.is_superuser && (
+              <li>
+                <NavLink
+                  to="/admin/user-control"
+                  className={({ isActive }) => (isActive ? "active" : "")}
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  🔒 User Control
+                </NavLink>
+              </li>
+            )}
           </ul>
         )}
 
-        {/* Logout Button at Bottom */}
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={handleLogout}>
             🚪 Logout
@@ -116,7 +114,6 @@ function SideBar({ onLogout }) {
         </div>
       </div>
 
-      {/* Overlay for mobile */}
       {isMobileOpen && <div className="sidebar-overlay" onClick={toggleMobile} />}
     </>
   );

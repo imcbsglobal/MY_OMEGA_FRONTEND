@@ -1,6 +1,6 @@
 .add-user-page {
   padding: 24px;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
 
   .page-header {
@@ -52,6 +52,8 @@
     padding: 32px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-left: 180px;
+    margin-right: -100px;
 
     .form-grid {
       display: grid;
@@ -155,3 +157,5 @@
     }
   }
 }
+
+
