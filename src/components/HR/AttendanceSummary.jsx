@@ -1,88 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './AttendanceSummary.scss';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
 
 function AttendanceSummary() {
   const { employeeId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
-  const year = searchParams.get('year') || '2025';
-  const month = searchParams.get('month') || '10';
+  const year = searchParams.get('year') || new Date().getFullYear().toString();
+  const month = searchParams.get('month') || (new Date().getMonth() + 1).toString();
 
   const [selectedUser, setSelectedUser] = useState(employeeId);
-  const [selectedMonth, setSelectedMonth] = useState(`${year}-${month.toString().padStart(2, '0')}`);
+  const [selectedMonth, setSelectedMonth] = useState(`${year}-${month.padStart(2, '0')}`);
+  const [employees, setEmployees] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
+  const [attendanceDetails, setAttendanceDetails] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // Sample employee data - replace with actual data from API
-  const employees = [
-    { id: '1', name: 'ADILA NESIRIN', email: 'adilanezrin27@gmail.com' },
-    { id: '2', name: 'AJAY MATHEW', email: 'ajay.02mathew@gmail.com' },
-    { id: '3', name: 'AJIN K AGUSTIAN', email: 'ajinajin063@gmail.com' }
-  ];
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const token = localStorage.getItem('access_token');
+  const isAdmin = user.is_admin || user.is_staff || user.is_superuser;
 
-  const currentEmployee = employees.find(emp => emp.id === selectedUser) || employees[0];
-
-  // Generate sample attendance data for the month
-  const generateAttendanceDetails = () => {
-    const details = [];
-    const [selectedYear, selectedMonthNum] = selectedMonth.split('-').map(Number);
-    const daysInMonth = new Date(selectedYear, selectedMonthNum, 0).getDate();
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(selectedYear, selectedMonthNum - 1, i);
-      const dayName = dayNames[date.getDay()];
-      
-      // Skip future dates
-      if (date > new Date()) continue;
-      
-      let status = 'Verified Full Day';
-      let punchIn = `${8 + Math.floor(Math.random() * 2)}:${10 + Math.floor(Math.random() * 20)} AM`;
-      let punchOut = `0${5 + Math.floor(Math.random() * 2)}:${10 + Math.floor(Math.random() * 50)} PM`;
-      let punchInLocation = 'Vythiri';
-      let punchOutLocation = Math.random() > 0.8 ? 'Kalpetta' : 'Vythiri';
-      let note = '';
-      
-      // Add some variety
-      if (dayName === 'Sunday') continue;
-      if (i % 10 === 0) {
-        status = 'Half Day(Unverified)';
-        punchOut = '01:30 PM';
-      }
-      if (i === 4) {
-        note = '🔵';
-      }
-      
-      details.push({
-        date: `${i.toString().padStart(2, '0')} ${monthNames[selectedMonthNum - 1]} ${selectedYear}`,
-        day: dayName,
-        status,
-        punchIn,
-        punchOut,
-        punchInLocation,
-        punchOutLocation,
-        note
-      });
+  useEffect(() => {
+    if (isAdmin) {
+      fetchEmployees();
     }
-    
-    return details;
+  }, []);
+
+  useEffect(() => {
+    fetchAttendanceSummary();
+    fetchAttendanceDetails();
+  }, [selectedUser, selectedMonth]);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/users/brief_list/`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setEmployees(response.data);
+    } catch (err) {
+      console.error("Error fetching employees:", err);
+    }
   };
 
-  const attendanceDetails = generateAttendanceDetails();
+  const fetchAttendanceSummary = async () => {
+    setLoading(true);
+    try {
+      const [selectedYear, selectedMonthNum] = selectedMonth.split('-');
+      const response = await axios.get(
+        `${API_BASE_URL}/attendance/attendance/summary/`,
+        {
+          params: {
+            user_id: selectedUser,
+            month: selectedMonthNum,
+            year: selectedYear
+          },
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setSummaryData(response.data);
+    } catch (err) {
+      console.error("Error fetching summary:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Calculate summary counts
-  const fullDaysUnverified = 0;
-  const verifiedFullDays = attendanceDetails.filter(d => d.status === 'Verified Full Day').length;
-  const halfDaysUnverified = attendanceDetails.filter(d => d.status === 'Half Day(Unverified)').length;
-  const verifiedHalfDays = 0;
-  const leaves = 0;
-  const [selectedYear, selectedMonthNum] = selectedMonth.split('-').map(Number);
-  const daysInMonth = new Date(selectedYear, selectedMonthNum, 0).getDate();
-  const notMarked = daysInMonth - attendanceDetails.length;
+  const fetchAttendanceDetails = async () => {
+    try {
+      const [selectedYear, selectedMonthNum] = selectedMonth.split('-');
+      const response = await axios.get(
+        `${API_BASE_URL}/attendance/attendance/`,
+        {
+          params: {
+            user_id: selectedUser,
+            month: selectedMonthNum,
+            year: selectedYear
+          },
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      const data = response.data.results || response.data;
+      const formatted = data.map(record => {
+        const date = new Date(record.date);
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        
+        let statusDisplay = 'Full Day';
+        if (record.status === 'half') {
+          statusDisplay = record.verification_status === 'verified' ? 'Verified Half Day' : 'Half Day(Unverified)';
+        } else if (record.status === 'full') {
+          statusDisplay = record.verification_status === 'verified' ? 'Verified Full Day' : 'Full Day(Unverified)';
+        } else if (record.status === 'leave') {
+          statusDisplay = record.verification_status === 'verified' ? 'Verified Leave' : 'Leave';
+        } else if (record.status === 'wfh') {
+          statusDisplay = 'Work From Home';
+        }
+        
+        return {
+          date: `${date.getDate().toString().padStart(2, '0')} ${monthNames[date.getMonth()]} ${date.getFullYear()}`,
+          day: dayNames[date.getDay()],
+          status: statusDisplay,
+          punchIn: record.punch_in_time ? new Date(record.punch_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+          punchOut: record.punch_out_time ? new Date(record.punch_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'Not punched out',
+          punchInLocation: record.punch_in_location || 'N/A',
+          punchOutLocation: record.punch_out_location || 'Not available',
+          note: record.note || '',
+          workingHours: record.working_hours || 0
+        };
+      });
+      
+      setAttendanceDetails(formatted);
+    } catch (err) {
+      console.error("Error fetching attendance details:", err);
+    }
+  };
 
   const getStatusClass = (status) => {
-    if (status === 'Verified Full Day') return 'status-verified';
+    if (status.includes('Verified Full')) return 'status-verified';
+    if (status.includes('Verified Half')) return 'status-verified-half';
     if (status.includes('Half')) return 'status-half';
     if (status.includes('Leave')) return 'status-leave';
     if (status.includes('WFH')) return 'status-wfh';
@@ -91,36 +132,43 @@ function AttendanceSummary() {
 
   const handleGoClick = () => {
     const [newYear, newMonth] = selectedMonth.split('-');
-    window.location.href = `/attendance/summary/${selectedUser}/?year=${newYear}&month=${parseInt(newMonth)}`;
+    navigate(`/hr/attendance/summary/${selectedUser}?year=${newYear}&month=${parseInt(newMonth)}`);
   };
 
   const handleLocationClick = (location) => {
-    // Open Google Maps with the location
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-    window.open(mapsUrl, '_blank');
+    if (location && location !== 'N/A' && location !== 'Not available') {
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+      window.open(mapsUrl, '_blank');
+    }
   };
+
+  const currentEmployee = isAdmin 
+    ? employees.find(emp => emp.id === parseInt(selectedUser))
+    : user;
 
   return (
     <div className="attendance-summary-container">
-      {/* Header - CV Management Style */}
+      {/* Header */}
       <div className="summary-header">
         <div className="header-content">
           <h1 className="page-title">
-            Attendance Summary for {currentEmployee.name}
+            Attendance Summary for {currentEmployee?.name || 'Loading...'}
           </h1>
           
           <div className="header-actions">
-            <div className="control-group">
-              <label>Select User</label>
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-              >
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.name}</option>
-                ))}
-              </select>
-            </div>
+            {isAdmin && employees.length > 0 && (
+              <div className="control-group">
+                <label>Select User</label>
+                <select
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
+                >
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="control-group">
               <label>Select Month</label>
@@ -139,39 +187,48 @@ function AttendanceSummary() {
       </div>
 
       {/* Summary Cards */}
-      <div className="summary-cards-wrapper">
-        <div className="summary-cards">
-          <div className="summary-card full-unverified">
-            <div className="card-title">Full Days(Unverified)</div>
-            <div className="card-value">{fullDaysUnverified}</div>
-          </div>
+      {loading ? (
+        <div className="loading">Loading summary...</div>
+      ) : summaryData && (
+        <div className="summary-cards-wrapper">
+          <div className="summary-cards">
+            <div className="summary-card full-unverified">
+              <div className="card-title">Full Days(Unverified)</div>
+              <div className="card-value">{summaryData.full_days_unverified}</div>
+            </div>
 
-          <div className="summary-card verified-full">
-            <div className="card-title">Verified Full Days</div>
-            <div className="card-value">{verifiedFullDays}</div>
-          </div>
+            <div className="summary-card verified-full">
+              <div className="card-title">Verified Full Days</div>
+              <div className="card-value">{summaryData.verified_full_days}</div>
+            </div>
 
-          <div className="summary-card half-unverified">
-            <div className="card-title">Half Days(Unverified)</div>
-            <div className="card-value">{halfDaysUnverified}</div>
-          </div>
+            <div className="summary-card half-unverified">
+              <div className="card-title">Half Days(Unverified)</div>
+              <div className="card-value">{summaryData.half_days_unverified}</div>
+            </div>
 
-          <div className="summary-card verified-half">
-            <div className="card-title">Verified Half Days</div>
-            <div className="card-value">{verifiedHalfDays}</div>
-          </div>
+            <div className="summary-card verified-half">
+              <div className="card-title">Verified Half Days</div>
+              <div className="card-value">{summaryData.verified_half_days}</div>
+            </div>
 
-          <div className="summary-card leaves">
-            <div className="card-title">Leaves</div>
-            <div className="card-value">{leaves}</div>
-          </div>
+            <div className="summary-card leaves">
+              <div className="card-title">Leaves</div>
+              <div className="card-value">{summaryData.leaves}</div>
+            </div>
 
-          <div className="summary-card not-marked">
-            <div className="card-title">Not Marked</div>
-            <div className="card-value">{notMarked}</div>
+            <div className="summary-card not-marked">
+              <div className="card-title">Not Marked</div>
+              <div className="card-value">{summaryData.not_marked}</div>
+            </div>
+
+            <div className="summary-card working-hours">
+              <div className="card-title">Total Working Hours</div>
+              <div className="card-value">{summaryData.total_working_hours}h</div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Detailed Table */}
       <div className="content-area">
@@ -184,6 +241,7 @@ function AttendanceSummary() {
                 <th>Status</th>
                 <th>Punch In Time</th>
                 <th>Punch Out Time</th>
+                <th>Working Hours</th>
                 <th>Punch In Location</th>
                 <th>Punch Out Location</th>
                 <th>Note</th>
@@ -192,7 +250,7 @@ function AttendanceSummary() {
             <tbody>
               {attendanceDetails.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="no-data">
+                  <td colSpan="9" className="no-data">
                     No attendance data available for this month
                   </td>
                 </tr>
@@ -208,20 +266,21 @@ function AttendanceSummary() {
                     </td>
                     <td>{record.punchIn}</td>
                     <td>{record.punchOut}</td>
+                    <td>{record.workingHours}h</td>
                     <td>
                       <span 
-                        className="location-link"
+                        className={`location-link ${record.punchInLocation !== 'N/A' ? 'clickable' : ''}`}
                         onClick={() => handleLocationClick(record.punchInLocation)}
                       >
-                        {record.punchInLocation} 🔗
+                        {record.punchInLocation} {record.punchInLocation !== 'N/A' && '🔗'}
                       </span>
                     </td>
                     <td>
                       <span 
-                        className="location-link"
+                        className={`location-link ${record.punchOutLocation !== 'Not available' ? 'clickable' : ''}`}
                         onClick={() => handleLocationClick(record.punchOutLocation)}
                       >
-                        {record.punchOutLocation} 🔗
+                        {record.punchOutLocation} {record.punchOutLocation !== 'Not available' && record.punchOutLocation !== 'N/A' && '🔗'}
                       </span>
                     </td>
                     <td className="note-cell">{record.note}</td>
@@ -231,11 +290,11 @@ function AttendanceSummary() {
             </tbody>
           </table>
 
-          {/* Back Button inside table wrapper */}
+          {/* Back Button */}
           <div className="back-button-container">
             <button
               className="back-button"
-              onClick={() => window.history.back()}
+              onClick={() => navigate(-1)}
             >
               ← Back to Attendance
             </button>

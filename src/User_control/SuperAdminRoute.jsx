@@ -1,14 +1,23 @@
-// src/User_control/SuperAdminRoute.jsx
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 
-/** Only allow access if logged-in user is super admin. */
 export default function SuperAdminRoute() {
   const token = localStorage.getItem("access");
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-
   if (!token) return <Navigate to="/login" replace />;
-  if (!user?.is_superuser) return <Navigate to="/" replace />;
 
-  return <Outlet />;
+  const userLevel = localStorage.getItem("user_level") || "User";
+  const canAccessControl = JSON.parse(
+    localStorage.getItem("can_access_control_panel") || "false"
+  );
+
+  // Allow if Super Admin, Admin, or has user_control menu access
+  if (
+    userLevel === "Super Admin" || 
+    userLevel === "Admin" || 
+    canAccessControl
+  ) {
+    return <Outlet />;
+  }
+
+  return <Navigate to="/not-authorized" replace />;
 }

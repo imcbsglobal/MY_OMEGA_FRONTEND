@@ -1,73 +1,83 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "./Attendance.scss";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 function Attendance() {
   const navigate = useNavigate();
-  const [selectedMonth, setSelectedMonth] = useState("2025-10");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [searchName, setSearchName] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Helper function to check if a day is Sunday
-  const isSunday = (yearMonth, dayIndex) => {
-    const [year, month] = yearMonth.split("-").map(Number);
-    const date = new Date(year, month - 1, dayIndex + 1);
-    return date.getDay() === 0; // 0 = Sunday
-  };
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const token = localStorage.getItem('access_token');
+  const isAdmin = user.is_admin || user.is_staff || user.is_superuser;
 
-  // Generate initial attendance data
-  const generateInitialAttendance = (month) => {
-    return [
-      {
-        no: 1,
-        name: "ADILA NESIRIN",
-        userId: "adilanezrin27@gmail.com",
-        dutyStart: "09:30",
-        dutyEnd: "17:30",
-        attendance: Array(31).fill(null).map((_, i) => {
-          if (isSunday(month, i)) return "holiday";
-          if ((i + 1) % 8 === 0) return "half";
-          return "full";
-        })
-      },
-      {
-        no: 2,
-        name: "AJAY MATHEW",
-        userId: "ajay.02mathew@gmail.com",
-        dutyStart: "09:30",
-        dutyEnd: "17:30",
-        attendance: Array(31).fill(null).map((_, i) => {
-          if (isSunday(month, i)) return "holiday";
-          return "leave";
-        })
-      },
-      {
-        no: 3,
-        name: "AJIN K AGUSTIAN",
-        userId: "ajinajin063@gmail.com",
-        dutyStart: "09:00",
-        dutyEnd: "08:00",
-        attendance: Array(31).fill(null).map((_, i) => {
-          if (isSunday(month, i)) return "holiday";
-          if ((i + 1) % 8 === 0) return "half";
-          if (i < 3) return "leave";
-          return "full";
-        })
+  useEffect(() => {
+    fetchMonthlyAttendance();
+  }, [selectedMonth]);
+
+  const fetchMonthlyAttendance = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const [year, month] = selectedMonth.split("-");
+      const response = await axios.get(
+        `${API_BASE_URL}/attendance/monthly_grid/`,
+        {
+          params: { month, year },
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      let data = response.data;
+      
+      // Apply search filter if needed
+      if (searchName.trim()) {
+        data = data.filter(emp => 
+          emp.user_name.toLowerCase().includes(searchName.toLowerCase())
+        );
       }
-    ];
+      
+      // Add row numbers
+      data = data.map((emp, index) => ({
+        ...emp,
+        no: index + 1
+      }));
+      
+      setAttendanceData(data);
+    } catch (err) {
+      console.error("Error fetching attendance:", err);
+      setError("Failed to load attendance data");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Sample data - replace with actual data from your API
-  const [attendanceData, setAttendanceData] = useState(generateInitialAttendance(selectedMonth));
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (selectedMonth) {
+        fetchMonthlyAttendance();
+      }
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchName]);
 
-  // Get days in selected month
   const getDaysInMonth = (yearMonth) => {
     const [year, month] = yearMonth.split("-").map(Number);
     return new Date(year, month, 0).getDate();
   };
 
-  // Get day names for each date
   const getDayNames = (yearMonth, numDays) => {
     const [year, month] = yearMonth.split("-").map(Number);
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -94,9 +104,12 @@ function Attendance() {
     return icons[type] || "★";
   };
 
-  const handleStarClick = (employeeIndex, dayIndex, currentStatus) => {
-    console.log('Star clicked:', currentStatus); // Debug log
-    
+  const handleStarClick = async (employeeIndex, dayIndex, currentStatus) => {
+    // Only admins can edit attendance
+    if (!isAdmin) {
+      return;
+    }
+
     // Don't open modal for holiday or not-marked
     if (['holiday', 'not-marked'].includes(currentStatus)) {
       return;
@@ -106,71 +119,103 @@ function Attendance() {
     const [year, month] = selectedMonth.split("-").map(Number);
     const date = new Date(year, month - 1, dayIndex + 1);
     
-    setSelectedAttendance({
-      employeeIndex,
-      dayIndex,
-      currentStatus,
-      employeeName: employee.name,
-      date: date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
-      punchInTime: currentStatus === 'leave' ? "N/A" : "09:00 AM",
-      punchOutTime: currentStatus === 'full' || currentStatus === 'verified' ? "06:02 PM" : currentStatus === 'leave' ? "N/A" : "Not punched out",
-      punchInLocation: currentStatus === 'leave' ? "N/A" : "Vythiri",
-      punchOutLocation: currentStatus === 'full' || currentStatus === 'verified' ? "Vythiri" : currentStatus === 'leave' ? "N/A" : "Not available"
-    });
-    setShowModal(true);
-  };
-
-  const handleVerifyAttendance = () => {
-    const { employeeIndex, dayIndex, currentStatus } = selectedAttendance;
-    
-    setAttendanceData(prevData => {
-      const newData = [...prevData];
-      let newStatus;
+    // Fetch detailed attendance for this date
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+      const response = await axios.get(
+        `${API_BASE_URL}/attendance/attendance/`,
+        {
+          params: {
+            user_id: employee.user_id,
+            from_date: dateStr,
+            to_date: dateStr
+          },
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
       
-      // If currently full or half, verify it
-      if (currentStatus === 'full') {
-        newStatus = 'verified';
-      } else if (currentStatus === 'half') {
-        newStatus = 'half-verified';
-      } else if (currentStatus === 'leave') {
-        newStatus = 'verified-leave';
-      } else {
-        newStatus = currentStatus; // Keep verified status as is
-      }
+      const attendanceRecord = response.data.results?.[0] || response.data[0];
       
-      newData[employeeIndex].attendance[dayIndex] = newStatus;
-      return newData;
-    });
-    
-    setShowModal(false);
-    setSelectedAttendance(null);
+      setSelectedAttendance({
+        attendanceId: attendanceRecord?.id,
+        employeeIndex,
+        dayIndex,
+        currentStatus,
+        employeeName: employee.user_name,
+        userId: employee.user_id,
+        date: date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+        dateStr,
+        punchInTime: attendanceRecord?.punch_in_time ? new Date(attendanceRecord.punch_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "N/A",
+        punchOutTime: attendanceRecord?.punch_out_time ? new Date(attendanceRecord.punch_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "Not punched out",
+        punchInLocation: attendanceRecord?.punch_in_location || "N/A",
+        punchOutLocation: attendanceRecord?.punch_out_location || "Not available",
+        note: attendanceRecord?.note || "",
+        adminNote: attendanceRecord?.admin_note || "",
+        workingHours: attendanceRecord?.working_hours || 0
+      });
+      setShowModal(true);
+    } catch (err) {
+      console.error("Error fetching attendance details:", err);
+    }
   };
 
-  const handleReVerifyAttendance = () => {
-    // Re-verify logic - could reset to unverified or update verification timestamp
-    handleVerifyAttendance();
+  const handleVerifyAttendance = async () => {
+    if (!selectedAttendance.attendanceId) {
+      alert("No attendance record found to verify");
+      setShowModal(false);
+      return;
+    }
+
+    try {
+      const adminNote = document.getElementById('admin-note')?.value || '';
+      
+      await axios.post(
+        `${API_BASE_URL}/attendance/attendance/${selectedAttendance.attendanceId}/verify/`,
+        { admin_note: adminNote },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      alert("Attendance verified successfully");
+      setShowModal(false);
+      fetchMonthlyAttendance();
+    } catch (err) {
+      console.error("Error verifying attendance:", err);
+      alert("Failed to verify attendance");
+    }
   };
 
-  const handleUpdateAttendance = () => {
-    const { employeeIndex, dayIndex } = selectedAttendance;
-    const newStatus = document.getElementById('status-select').value;
-    
-    setAttendanceData(prevData => {
-      const newData = [...prevData];
-      newData[employeeIndex].attendance[dayIndex] = newStatus;
-      return newData;
-    });
-    
-    setShowModal(false);
-    setSelectedAttendance(null);
+  const handleUpdateAttendance = async () => {
+    if (!selectedAttendance.attendanceId) {
+      alert("No attendance record found to update");
+      setShowModal(false);
+      return;
+    }
+
+    try {
+      const newStatus = document.getElementById('status-select').value;
+      const adminNote = document.getElementById('admin-note')?.value || '';
+      
+      await axios.patch(
+        `${API_BASE_URL}/attendance/attendance/${selectedAttendance.attendanceId}/update_status/`,
+        {
+          status: newStatus,
+          admin_note: adminNote
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      alert("Attendance updated successfully");
+      setShowModal(false);
+      fetchMonthlyAttendance();
+    } catch (err) {
+      console.error("Error updating attendance:", err);
+      alert("Failed to update attendance");
+    }
   };
 
   const handleViewSummary = (employee) => {
-    console.log('View Summary clicked for:', employee.name);
     const [year, month] = selectedMonth.split("-").map(Number);
-    const summaryPath = `/hr/attendance/summary/${employee.no}?year=${year}&month=${month}`;
-    console.log('Navigating to:', summaryPath);
-    navigate(summaryPath);
+    navigate(`/hr/attendance/summary/${employee.user_id}?year=${year}&month=${month}`);
   };
 
   const isVerified = (status) => {
@@ -195,16 +240,18 @@ function Attendance() {
               />
             </div>
 
-            <div className="control-group">
-              <label>Search by Name</label>
-              <input
-                type="text"
-                placeholder="Enter name"
-                value={searchName}
-                onChange={(e) => setSearchName(e.target.value)}
-                className="search-input"
-              />
-            </div>
+            {isAdmin && (
+              <div className="control-group">
+                <label>Search by Name</label>
+                <input
+                  type="text"
+                  placeholder="Enter name"
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -241,6 +288,9 @@ function Attendance() {
 
       {/* Content Area with Table */}
       <div className="content-area">
+        {loading && <div className="loading">Loading attendance data...</div>}
+        {error && <div className="error">{error}</div>}
+        
         <div className="table-wrapper">
           <table className="attendance-table">
             <thead>
@@ -260,7 +310,7 @@ function Attendance() {
               </tr>
             </thead>
             <tbody>
-              {attendanceData.length === 0 ? (
+              {attendanceData.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={6 + daysInMonth} className="no-data">
                     No attendance data available
@@ -268,12 +318,12 @@ function Attendance() {
                 </tr>
               ) : (
                 attendanceData.map((employee, empIndex) => (
-                  <tr key={employee.no}>
+                  <tr key={employee.user_id}>
                     <td>{employee.no}</td>
-                    <td>{employee.name}</td>
-                    <td>{employee.userId}</td>
-                    <td>{employee.dutyStart}</td>
-                    <td>{employee.dutyEnd}</td>
+                    <td>{employee.user_name}</td>
+                    <td>{employee.user_email}</td>
+                    <td>{employee.duty_start}</td>
+                    <td>{employee.duty_end}</td>
                     <td>
                       <button 
                         className="view-summary-btn"
@@ -286,16 +336,11 @@ function Attendance() {
                     {employee.attendance.map((status, dayIndex) => (
                       <td key={dayIndex}>
                         <span 
-                          className={`star ${status}`}
+                          className={`star ${status} ${isAdmin ? 'clickable' : ''}`}
                           onClick={() => handleStarClick(empIndex, dayIndex, status)}
                         >
                           {getStarIcon(status)}
                         </span>
-                      </td>
-                    ))}
-                    {[...Array(Math.max(0, daysInMonth - employee.attendance.length))].map((_, i) => (
-                      <td key={`empty-${i}`}>
-                        <span className="star not-marked">★</span>
                       </td>
                     ))}
                   </tr>
@@ -307,7 +352,7 @@ function Attendance() {
       </div>
 
       {/* Attendance Details Modal */}
-      {showModal && selectedAttendance && (
+      {showModal && selectedAttendance && isAdmin && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -328,6 +373,11 @@ function Attendance() {
                 </div>
 
                 <div className="form-group">
+                  <label>Working Hours</label>
+                  <input type="text" value={`${selectedAttendance.workingHours} hours`} readOnly />
+                </div>
+
+                <div className="form-group">
                   <label>Status</label>
                   <select id="status-select" defaultValue={selectedAttendance.currentStatus}>
                     <option value="full">Full Day</option>
@@ -338,8 +388,13 @@ function Attendance() {
                 </div>
 
                 <div className="form-group">
-                  <label>Add Note (Optional)</label>
-                  <textarea placeholder="Enter note here" rows="3"></textarea>
+                  <label>Admin Note</label>
+                  <textarea 
+                    id="admin-note"
+                    placeholder="Enter admin note here" 
+                    rows="3"
+                    defaultValue={selectedAttendance.adminNote}
+                  ></textarea>
                 </div>
               </div>
 
@@ -353,7 +408,7 @@ function Attendance() {
                   </div>
                   <div className="punch-item">
                     <label>Punch In Location</label>
-                    <div className="punch-value link">{selectedAttendance.punchInLocation} 🔗</div>
+                    <div className="punch-value link">{selectedAttendance.punchInLocation}</div>
                   </div>
                 </div>
 
@@ -364,9 +419,18 @@ function Attendance() {
                   </div>
                   <div className="punch-item">
                     <label>Punch Out Location</label>
-                    <div className="punch-value link">{selectedAttendance.punchOutLocation} {selectedAttendance.punchOutLocation !== "Not available" && "🔗"}</div>
+                    <div className="punch-value link">{selectedAttendance.punchOutLocation}</div>
                   </div>
                 </div>
+
+                {selectedAttendance.note && (
+                  <div className="punch-row">
+                    <div className="punch-item full-width">
+                      <label>User Note</label>
+                      <div className="punch-value">{selectedAttendance.note}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -374,7 +438,7 @@ function Attendance() {
               <button className="btn-secondary" onClick={() => setShowModal(false)}>Close</button>
               <button className="btn-primary" onClick={handleUpdateAttendance}>Update Attendance</button>
               {isVerified(selectedAttendance.currentStatus) ? (
-                <button className="btn-verify" onClick={handleReVerifyAttendance}>Re-verify Attendance</button>
+                <button className="btn-verify" onClick={handleVerifyAttendance}>Re-verify Attendance</button>
               ) : (
                 <button className="btn-verify" onClick={handleVerifyAttendance}>Verify Attendance</button>
               )}

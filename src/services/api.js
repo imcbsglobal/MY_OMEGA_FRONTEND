@@ -1,203 +1,153 @@
 // src/services/api.js
+import axios from "axios";
 
-// ====== BASE CONFIG ======
-export const API_ORIGIN = "http://127.0.0.1:8000";
-export const API_BASE = `${API_ORIGIN}/api`;
+/**
+ * API configuration
+ */
+const HR_API_BASE = (import.meta.env?.VITE_API_URL || "http://localhost:8000/api/hr").replace(/\/$/, "");
+const ROOT_API_BASE = (import.meta.env?.VITE_ROOT_API || "http://localhost:8000").replace(/\/$/, "");
+const USERS_PREFIX = import.meta.env?.VITE_USERS_PREFIX || "/api/users/";
+const REFRESH_URL = import.meta.env?.VITE_REFRESH_URL || "http://localhost:8000/api/token/refresh/";
+const AUTH_SCHEME = import.meta.env?.VITE_AUTH_SCHEME || "Bearer";
 
-// Auth endpoints (adjust if yours differ)
-const AUTH_TOKEN_URL = `${API_BASE}/users/token/`;          // login
-const AUTH_REFRESH_URL = `${API_BASE}/users/token/refresh/`; // refresh
-const AUTH_ME_URL = `${API_BASE}/users/me/`;                 // current user
+const getAccessToken = () => localStorage.getItem("access_token") || localStorage.getItem("access") || "";
+const getRefreshToken = () => localStorage.getItem("refresh_token") || localStorage.getItem("refresh") || "";
 
-// ====== STORAGE KEYS ======
-const ACCESS_KEY = "access";
-const REFRESH_KEY = "refresh";
-const USER_KEY = "user";
-
-// ====== AUTH STATE HELPERS ======
-export const getAccessToken = () => localStorage.getItem(ACCESS_KEY) || null;
-export const getRefreshToken = () => localStorage.getItem(REFRESH_KEY) || null;
-export const getUser = () => {
-  try { return JSON.parse(localStorage.getItem(USER_KEY) || "null"); } catch { return null; }
+export const getCurrentUser = () => {
+  try {
+    const raw = localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 };
-export const setAuthData = ({ access, refresh, user }) => {
-  if (access) localStorage.setItem(ACCESS_KEY, access);
-  if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
-  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-};
-export const clearAuthData = () => {
-  localStorage.removeItem(ACCESS_KEY);
-  localStorage.removeItem(REFRESH_KEY);
-  localStorage.removeItem(USER_KEY);
-};
-export const isAuthenticated = () => Boolean(getAccessToken());
 
-// ====== CORE REQUEST WRAPPER (handles 401 -> refresh) ======
-export async function apiRequest(pathOrUrl, opts = {}) {
-  const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${API_ORIGIN}${pathOrUrl.startsWith("/api") ? "" : ""}${pathOrUrl}`;
-  const headers = new Headers(opts.headers || {});
-  if (!headers.has("Content-Type") && opts.body) headers.set("Content-Type", "application/json");
+export const setTokens = ({ access, refresh }) => {
+  if (access) localStorage.setItem("access_token", access);
+  if (refresh) localStorage.setItem("refresh_token", refresh);
+};
 
-  // Attach access token if available
+export const clearAuth = () => {
+  ["access_token", "refresh_token", "access", "refresh", "user"].forEach((k) => localStorage.removeItem(k));
+};
+export const clearAuthData = clearAuth;
+
+/**
+ * Attach Authorization header
+ */
+const attachAuth = (config) => {
   const access = getAccessToken();
-  if (access) headers.set("Authorization", `Bearer ${access}`);
+  if (access) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `${AUTH_SCHEME} ${access}`;
+  }
+  return config;
+};
 
-  const doFetch = () => fetch(url, { ...opts, headers });
+/**
+ * Refresh handling for 401
+ */
+let refreshingPromise = null;
+const handle401WithRefresh = async (error, client) => {
+  const { response, config } = error;
+  if (!response) throw error; // network error
+  if (response.status !== 401) throw error;
+  if (config.__isRetry) throw error;
 
-  let res = await doFetch();
-
-  // Try refresh on 401
-  if (res.status === 401) {
-    const refresh = getRefreshToken();
-    if (!refresh) return res;
-
-    // Attempt refresh
-    const r = await fetch(AUTH_REFRESH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
-    });
-
-    if (r.ok) {
-      const data = await r.json();
-      const newAccess = data.access;
-      if (newAccess) {
-        localStorage.setItem(ACCESS_KEY, newAccess);
-        // retry original request with new token
-        const retryHeaders = new Headers(headers);
-        retryHeaders.set("Authorization", `Bearer ${newAccess}`);
-        res = await fetch(url, { ...opts, headers: retryHeaders });
-      }
-    } else {
-      // refresh failed -> clear and bubble up 401
-      clearAuthData();
-    }
+  const refresh = getRefreshToken();
+  if (!refresh) {
+    clearAuth();
+    throw error;
   }
 
-  return res;
-}
-
-// ====== AUTH FLOWS ======
-export async function login(username, password) {
-  // 1) get tokens
-  const r = await fetch(AUTH_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err.detail || "Login failed");
+  if (!refreshingPromise) {
+    refreshingPromise = axios
+      .post(REFRESH_URL, { refresh })
+      .then((r) => {
+        const newAccess = r.data?.access;
+        if (!newAccess) throw new Error("No access token returned by refresh endpoint");
+        localStorage.setItem("access_token", newAccess);
+        return newAccess;
+      })
+      .catch((e) => {
+        clearAuth();
+        throw e;
+      })
+      .finally(() => {
+        refreshingPromise = null;
+      });
   }
-  const tokens = await r.json();
 
-  // 2) get profile (/me)
-  const m = await fetch(AUTH_ME_URL, {
-    headers: { Authorization: `Bearer ${tokens.access}` },
+  const newAccess = await refreshingPromise;
+  config.__isRetry = true;
+  config.headers = config.headers || {};
+  config.headers.Authorization = `${AUTH_SCHEME} ${newAccess}`;
+  return client(config);
+};
+
+/**
+ * Clients
+ */
+const hrApi = axios.create({ baseURL: HR_API_BASE });
+hrApi.interceptors.request.use(attachAuth);
+hrApi.interceptors.response.use((res) => res, (err) => handle401WithRefresh(err, hrApi));
+
+const rootApi = axios.create({ baseURL: ROOT_API_BASE });
+rootApi.interceptors.request.use(attachAuth);
+rootApi.interceptors.response.use((res) => res, (err) => handle401WithRefresh(err, rootApi));
+
+/**
+ * Helper to return res.data and surface errors consistently
+ */
+const unwrap = (promise) =>
+  promise.then((res) => res.data).catch((err) => {
+    // Attach a clearer message if possible
+    const msg = err?.response?.data?.detail || err?.message || "API request failed";
+    const e = new Error(msg);
+    e.original = err;
+    throw e;
   });
-  const me = m.ok ? await m.json() : null;
 
-  setAuthData({ access: tokens.access, refresh: tokens.refresh, user: me });
-  return { tokens, me };
-}
-
-// ====== GENERIC USER CRUD (adjust endpoints to your backend if needed) ======
-const USERS_BASE = `${API_BASE}/users/`; // Example collection URL
-
-export async function fetchUsers() {
-  const res = await apiRequest(`${USERS_BASE}`, { method: "GET" });
-  if (!res.ok) throw new Error("Failed to fetch users");
-  return res.json();
-}
-
-export async function getUserDetail(userId) {
-  const res = await apiRequest(`${USERS_BASE}${userId}/`, { method: "GET" });
-  if (!res.ok) throw new Error("Failed to fetch user detail");
-  return res.json();
-}
-
-export async function createUser(payload) {
-  const res = await apiRequest(`${USERS_BASE}`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to create user");
-  return res.json();
-}
-
-export async function updateUser(userId, payload, method = "PUT") {
-  const res = await apiRequest(`${USERS_BASE}${userId}/`, {
-    method,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to update user");
-  return res.json();
-}
-
-export async function deleteUser(userId) {
-  const res = await apiRequest(`${USERS_BASE}${userId}/`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed to delete user");
-  return true;
-}
-
-// ====== USER CONTROL (Super Admin only) ======
-const USER_CONTROL_BASE = `${API_BASE}/user-controll`;
-
-export const ucListUsers = async () => {
-  const res = await apiRequest(`${USER_CONTROL_BASE}/admin/users/`, { method: "GET" });
-  if (!res.ok) throw new Error("Failed to load users");
-  return res.json();
+/**
+ * Attendance (HR) API
+ */
+export const getTodayStatus = () => unwrap(hrApi.get("/attendance/today_status/"));
+export const punchIn = (payload) => {
+  if (!payload) return Promise.reject(new Error("punchIn: payload required"));
+  return unwrap(hrApi.post("/attendance/punch_in/", payload));
+};
+export const punchOut = (payload) => {
+  if (!payload) return Promise.reject(new Error("punchOut: payload required"));
+  return unwrap(hrApi.post("/attendance/punch_out/", payload));
 };
 
-export const ucMenuTree = async () => {
-  const res = await apiRequest(`${USER_CONTROL_BASE}/admin/menu-tree/`, { method: "GET" });
-  if (!res.ok) throw new Error("Failed to load menu tree");
-  return res.json();
+/**
+ * User (root) API
+ * - fetchUsers -> returns array (res.data)
+ * - getUserById -> returns single user object (res.data)
+ */
+export const fetchUsers = () => unwrap(rootApi.get(USERS_PREFIX));
+export const getUserById = (id) => {
+  if (id === null || id === undefined || id === "") {
+    return Promise.reject(new Error("getUserById: id is null/undefined/empty"));
+  }
+  // if the caller passed an object with an id-ish field
+  const safeId = typeof id === "object" ? id.id ?? id.pk ?? undefined : id;
+  if (safeId === undefined) {
+    return Promise.reject(new Error("getUserById: unable to derive id from object"));
+  }
+  return unwrap(rootApi.get(`${USERS_PREFIX}${safeId}/`));
 };
 
-export const ucGetUserMenus = async (userId) => {
-  const res = await apiRequest(`${USER_CONTROL_BASE}/admin/user/${userId}/menus/`, { method: "GET" });
-  if (!res.ok) throw new Error("Failed to load user menu access");
-  return res.json(); // { menu_ids: [...] }
-};
+// backward-compat aliases
+export const getUser = getUserById;
+export const getUserRaw = (id) => rootApi.get(`${USERS_PREFIX}${id}/`); // returns axios res if needed
 
-export const ucSetUserMenus = async (userId, menuIds) => {
-  const res = await apiRequest(`${USER_CONTROL_BASE}/admin/user/${userId}/menus/`, {
-    method: "POST",
-    body: JSON.stringify({ menu_ids: menuIds }),
-  });
-  if (!res.ok) throw new Error("Failed to save user menu access");
-  return res.json(); // { ok: true, menu_ids: [...] }
-};
+export const updateUser = (id, payload) =>
+  unwrap(rootApi.patch(`${USERS_PREFIX}${id}/`, payload, { headers: { "Content-Type": "application/json" } }));
 
-export const ucMyMenu = async () => {
-  const res = await apiRequest(`${USER_CONTROL_BASE}/my-menu/`, { method: "GET" });
-  if (!res.ok) throw new Error("Failed to load my menu");
-  return res.json(); // { menu: [...] }
-};
+export const updateUserFormData = (id, formData) => unwrap(rootApi.patch(`${USERS_PREFIX}${id}/`, formData));
+export const createUser = (formData) => unwrap(rootApi.post(`${USERS_PREFIX}`, formData));
+export const deleteUser = (id) => unwrap(rootApi.delete(`${USERS_PREFIX}${id}/`));
 
-// ====== DEFAULT EXPORT (handy bundle) ======
-export default {
-  API_BASE,
-  // auth & helpers
-  login,
-  getAccessToken,
-  getRefreshToken,
-  getUser,
-  setAuthData,
-  clearAuthData,
-  isAuthenticated,
-  apiRequest,
-  // users (example CRUD)
-  fetchUsers,
-  getUserDetail,
-  createUser,
-  updateUser,
-  deleteUser,
-  // user control
-  ucListUsers,
-  ucMenuTree,
-  ucGetUserMenus,
-  ucSetUserMenus,
-  ucMyMenu,
-};
+export default hrApi;
