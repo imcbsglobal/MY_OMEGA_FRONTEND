@@ -1,396 +1,519 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./CVManagement.scss";
 
-function CVManagement() {
+export default function CVManagement() {
   const navigate = useNavigate();
-  
-  // Debug logs
-  console.log("🔵 CVManagement component loaded");
-  console.log("🔵 Navigate function:", navigate);
-  
-  const [searchTerm, setSearchTerm] = useState("");
-  const [jobTitleFilter, setJobTitleFilter] = useState("");
-  const [interviewStatusFilter, setInterviewStatusFilter] = useState("");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [cvToDelete, setCVToDelete] = useState(null);
-  const [cvToEdit, setCVToEdit] = useState(null);
+  const [cvs, setCvs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showCVViewer, setShowCVViewer] = useState(false);
-  const [currentCVUrl, setCurrentCVUrl] = useState(null);
-  const itemsPerPage = 10;
-  const [cvList, setCVList] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const itemsPerPage = 25;
 
   useEffect(() => {
-    setCVList([
-      {
-        id: 1, no: 1, createdDate: "26-09-2025",
-        name: "KIRAN", jobTitle: "FIELD STAFF - WAYANAD", cvAttachment: true,
-        place: "WAYANAD LOCATION", createdUser: "info@imcbsglobal.com", gender: "MALE",
-        address: "N/A", district: "OTHER", phoneNumber: "9061797155",
-        education: "Plus Two", experience: "5 years", dob: "May 1, 1985",
-        remarks: "Strong field experience", cvSource: "DIRECT", interviewStatus: "No",
-        cvFileUrl: null
-      },
-      {
-        id: 2, no: 2, createdDate: "26-09-2025",
-        name: "ARUN M", jobTitle: "FIELD STAFF - WAYANAD", cvAttachment: false,
-        place: "MALAPPURAM - MUKKAM", createdUser: "info@imcbsglobal.com", gender: "MALE",
-        address: "AKKAPRAMBA (PO), MALAPPURAM", district: "MALAPPURAM", phoneNumber: "9961215256",
-        education: "Degree", experience: "3 years", dob: "None",
-        remarks: "Good communication", cvSource: "DIRECT", interviewStatus: "No",
-        cvFileUrl: null
-      },
-      {
-        id: 3, no: 3, createdDate: "25-09-2025",
-        name: "FATHIMA", jobTitle: "TECHNICAL SUPPORT", cvAttachment: false,
-        place: "MEPPADI", createdUser: "info@imcbsglobal.com", gender: "FEMALE",
-        address: "PALLIKKUNNU (HOUSE), MEPPADI", district: "WAYANAD", phoneNumber: "7034396998",
-        education: "B.Tech Computer Science", experience: "2 years", dob: "None",
-        remarks: "Technical expertise", cvSource: "DIRECT", interviewStatus: "Yes",
-        cvFileUrl: null
-      },
-      {
-        id: 4, no: 4, createdDate: "23-09-2025",
-        name: "VEENA", jobTitle: "TECHNICAL SUPPORT", cvAttachment: false,
-        place: "VENNIYODE", createdUser: "info@imcbsglobal.com", gender: "FEMALE",
-        address: "THURUTHIYIL (H), KOTTATHARA (P", district: "WAYANAD", phoneNumber: "8848806456",
-        education: "MCA", experience: "4 years", dob: "None",
-        remarks: "Excellent problem solving", cvSource: "DIRECT", interviewStatus: "No",
-        cvFileUrl: null
-      }
-    ]);
+    loadCVs();
   }, []);
 
-  const uniqueJobTitles = [...new Set(cvList.map(cv => cv.jobTitle))];
+  const loadCVs = () => {
+    try {
+      const storedData = localStorage.getItem('cv-management-data');
+      if (storedData) {
+        const data = JSON.parse(storedData);
+        setCvs(data);
+      } else {
+        const initialData = [
+          {
+            id: 1,
+            name: "John Doe",
+            jobTitle: "Software Engineer",
+            cvAttachmentUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+            cvFileName: "john_cv.pdf",
+            place: "Kochi",
+            district: "Ernakulam",
+            gender: "Male",
+            interviewStatus: "Pending",
+            phoneNumber: "9876543210",
+            remarks: "Strong candidate with 5 years experience",
+            address: "123 Main Street",
+            education: "B.Tech Computer Science",
+            experience: "5 years",
+            dob: "1995-06-15",
+            cvSource: "DIRECT",
+            createdUser: "myomega@gmail.com",
+            createdDate: "20/10/2025, 10:30 AM",
+          },
+          {
+            id: 2,
+            name: "Jane Smith",
+            jobTitle: "Product Manager",
+            cvAttachmentUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+            cvFileName: "jane_cv.pdf",
+            place: "Trivandrum",
+            district: "Thiruvananthapuram",
+            gender: "Female",
+            interviewStatus: "Completed",
+            phoneNumber: "9123456780",
+            remarks: "Excellent communication skills",
+            address: "456 Park Avenue",
+            education: "MBA",
+            experience: "7 years",
+            dob: "1992-03-22",
+            cvSource: "REFERRAL",
+            createdUser: "myomega@gmail.com",
+            createdDate: "22/10/2025, 02:15 PM",
+          },
+        ];
+        localStorage.setItem('cv-management-data', JSON.stringify(initialData));
+        setCvs(initialData);
+      }
+    } catch (error) {
+      console.error('Error loading CVs:', error);
+      setCvs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const filteredCVs = cvList.filter(cv => {
-    const matchesSearch =
-      cv.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cv.phoneNumber.includes(searchTerm);
-    const matchesJobTitle = !jobTitleFilter || cv.jobTitle === jobTitleFilter;
-    const matchesInterviewStatus = !interviewStatusFilter || cv.interviewStatus === interviewStatusFilter;
-    return matchesSearch && matchesJobTitle && matchesInterviewStatus;
+  const handleAddNewClick = () => {
+    navigate('/cv-management/add');
+  };
+
+  const handleEditClick = (cv) => {
+    navigate(`/cv-management/edit/${cv.id}`);
+  };
+
+  const handleViewClick = (cv) => {
+    navigate(`/cv-management/view/${cv.id}`);
+  };
+
+  const handleViewCVClick = (cvUrl, cvFileName) => {
+    if (cvUrl) {
+      window.open(cvUrl, "_blank");
+    } else {
+      alert("No CV attachment available");
+    }
+  };
+
+  const handleDeleteClick = (id) => {
+    if (window.confirm("Are you sure you want to delete this record?")) {
+      try {
+        const storedData = localStorage.getItem('cv-management-data');
+        if (storedData) {
+          const data = JSON.parse(storedData);
+          const updatedCvs = data.filter(cv => cv.id !== id);
+          localStorage.setItem('cv-management-data', JSON.stringify(updatedCvs));
+          setCvs(updatedCvs);
+        }
+      } catch (error) {
+        console.error('Error deleting CV:', error);
+        alert('Failed to delete. Please try again.');
+      }
+    }
+  };
+
+  const filteredCvs = cvs.filter(cv => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      cv.name?.toLowerCase().includes(query) ||
+      cv.jobTitle?.toLowerCase().includes(query) ||
+      cv.phoneNumber?.includes(query) ||
+      cv.place?.toLowerCase().includes(query) ||
+      cv.district?.toLowerCase().includes(query) ||
+      cv.remarks?.toLowerCase().includes(query) ||
+      cv.gender?.toLowerCase().includes(query) ||
+      cv.interviewStatus?.toLowerCase().includes(query)
+    );
   });
 
-  const totalPages = Math.ceil(filteredCVs.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredCvs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentCVs = filteredCVs.slice(startIndex, endIndex);
+  const currentCvs = filteredCvs.slice(startIndex, endIndex);
 
-  // Navigate to Add CV Page
-  const handleAddCV = () => {
-    console.log("🟢 Add CV button clicked!");
-    console.log("🟢 Attempting to navigate to: /hr/add-cv");
-    navigate("/hr/add-cv");
-    console.log("🟢 Navigate function called!");
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
   };
 
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setCVToEdit(prev => ({ ...prev, [name]: value }));
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
   };
 
-  const handleDeleteCV = (cv) => { 
-    setCVToDelete(cv); 
-    setShowDeleteConfirm(true); 
+  const handlePageClick = (pageNumber) => {
+    setCurrentPage(pageNumber);
   };
 
-  const confirmDeleteCV = () => {
-    if (cvToDelete) {
-      const updated = cvList.filter(cv => cv.id !== cvToDelete.id);
-      setCVList(updated.map((cv, idx) => ({ ...cv, no: idx + 1 })));
-    }
-    setShowDeleteConfirm(false); 
-    setCVToDelete(null);
+  const getStatusStyle = (status) => {
+    const statusStyles = {
+      Pending: { backgroundColor: "#fef3c7", color: "#92400e" },
+      Scheduled: { backgroundColor: "#dbeafe", color: "#1e40af" },
+      Completed: { backgroundColor: "#d1fae5", color: "#065f46" },
+      Rejected: { backgroundColor: "#fee2e2", color: "#991b1b" },
+    };
+    return statusStyles[status] || { backgroundColor: "#f3f4f6", color: "#374151" };
   };
 
-  const cancelDeleteCV = () => { 
-    setShowDeleteConfirm(false); 
-    setCVToDelete(null); 
-  };
-
-  const handleEditCV = (cv) => { 
-    setCVToEdit({ ...cv }); 
-    setShowEditForm(true); 
-  };
-
-  const handleCloseEditForm = () => { 
-    setShowEditForm(false); 
-    setCVToEdit(null); 
-  };
-
-  const handleSubmitEdit = () => {
-    if (!cvToEdit.name.trim() || !cvToEdit.jobTitle.trim()) {
-      alert("Please fill in at least name and job title"); 
-      return;
-    }
-    setCVList(prev => prev.map(cv => cv.id === cvToEdit.id ? cvToEdit : cv));
-    handleCloseEditForm();
-  };
-
-  const handleFirstPage = () => setCurrentPage(1);
-  const handlePreviousPage = () => setCurrentPage(p => Math.max(1, p - 1));
-  const handleNextPage = () => setCurrentPage(p => Math.min(totalPages, p + 1));
-  const handleLastPage = () => setCurrentPage(totalPages);
-
-  const handleViewCV = (cv) => {
-    if (cv.cvFileUrl) {
-      setCurrentCVUrl(cv.cvFileUrl);
-      setShowCVViewer(true);
-    }
-  };
-
-  const handleCloseCVViewer = () => {
-    setShowCVViewer(false);
-    setCurrentCVUrl(null);
-  };
+  if (loading) {
+    return (
+      <div style={{...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh'}}>
+        <div style={{fontSize: '18px', color: '#6b7280'}}>Loading CV data...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="cv-management">
-      <div className="page-header">
-        <div className="header-content">
-          <h1 className="page-title">CV Management</h1>
-          <div className="header-actions">
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h2 style={styles.title}>CV Management</h2>
+        <div style={styles.headerActions}>
+          <div style={styles.searchContainer}>
             <input
               type="text"
-              placeholder="Search by name, job title, email, or ID"
-              className="search-input-header"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, job, phone, location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={styles.searchInput}
             />
-            <button className="add-btn-header" onClick={handleAddCV}>
-              + Add New
-            </button>
+            <span style={styles.searchIcon}>🔍</span>
           </div>
+          <button onClick={handleAddNewClick} style={styles.addButton}>
+            + Add New
+          </button>
         </div>
       </div>
 
-      <div className="content-area">
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
+      <div style={styles.tableContainer}>
+        <table style={styles.table}>
+          <thead>
+            <tr style={styles.tableHeaderRow}>
+              <th style={styles.tableHeader}>Sl NO</th>
+              <th style={styles.tableHeader}>NAME</th>
+              <th style={styles.tableHeader}>JOB TITLE</th>
+              <th style={styles.tableHeader}>CV ATTACHMENT</th>
+              <th style={styles.tableHeader}>LOCATION</th>
+              <th style={styles.tableHeader}>GENDER</th>
+              <th style={styles.tableHeader}>INTERVIEW STATUS</th>
+              <th style={styles.tableHeader}>PHONE NUMBER</th>
+              <th style={styles.tableHeader}>REMARKS</th>
+              <th style={styles.tableHeader}>ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentCvs.length === 0 ? (
               <tr>
-                <th>NO</th>
-                <th>CREATED DATE</th>
-                <th>NAME</th>
-                <th>JOB TITLE</th>
-                <th>CV ATTACHMENT</th>
-                <th>PLACE</th>
-                <th>GENDER</th>
-                <th>ADDRESS</th>
-                <th>DISTRICT</th>
-                <th>INTERVIEW STATUS</th>
-                <th>PHONE NUMBER</th>
-                <th>EDUCATION</th>
-                <th>EXPERIENCE</th>
-                <th>DOB</th>
-                <th>REMARKS</th>
-                <th>CV SOURCE</th>
-                <th>EDIT</th>
-                <th>DELETE</th>
+                <td colSpan="10" style={styles.noResults}>
+                  {searchQuery ? `No results found for "${searchQuery}"` : "No CV records available"}
+                </td>
               </tr>
-            </thead>
-
-            <tbody>
-              {currentCVs.length > 0 ? (
-                currentCVs.map((cv) => (
-                  <tr key={cv.id}>
-                    <td>{cv.no}</td>
-                    <td>{cv.createdDate}</td>
-                    <td className="name-cell">{cv.name}</td>
-                    <td>{cv.jobTitle}</td>
-                    <td className="cv-cell">
-                      {cv.cvAttachment && cv.cvFileUrl ? (
-                        <button className="view-cv-btn" onClick={() => handleViewCV(cv)}>View CV</button>
-                      ) : cv.cvAttachment ? (
-                        <button className="view-cv-btn disabled" disabled>View CV</button>
-                      ) : (
-                        <span className="no-cv-text">No CV</span>
-                      )}
-                    </td>
-                    <td>{cv.place}</td>
-                    <td>{cv.gender}</td>
-                    <td className="address-cell">{cv.address}</td>
-                    <td>{cv.district}</td>
-                    <td className="status-cell">
-                      <span className={`status-pill ${cv.interviewStatus.toLowerCase()}`}>
-                        {cv.interviewStatus}
-                      </span>
-                    </td>
-                    <td className="phone-cell">{cv.phoneNumber}</td>
-                    <td>{cv.education}</td>
-                    <td>{cv.experience}</td>
-                    <td>{cv.dob}</td>
-                    <td className="remarks-cell">{cv.remarks}</td>
-                    <td>{cv.cvSource}</td>
-                    <td className="actions-cell">
-                      <button className="edit-btn" onClick={() => handleEditCV(cv)}>Edit</button>
-                    </td>
-                    <td className="actions-cell">
-                      <button className="delete-btn" onClick={() => handleDeleteCV(cv)}>Delete</button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="18" className="no-data">No CVs found</td>
+            ) : (
+              currentCvs.map((cv, index) => (
+                <tr key={cv.id} style={styles.tableRow}>
+                  <td style={styles.tableCell}>{startIndex + index + 1}</td>
+                  <td style={styles.tableCell}>{cv.name}</td>
+                  <td style={styles.tableCell}>{cv.jobTitle}</td>
+                  <td style={styles.tableCell}>
+                    <button 
+                      style={styles.viewCvBtn}
+                      onClick={() => handleViewCVClick(cv.cvAttachmentUrl, cv.cvFileName)}
+                    >
+                      📄 View CV
+                    </button>
+                  </td>
+                  <td style={styles.tableCell}>{cv.place || "N/A"}</td>
+                  <td style={styles.tableCell}>{cv.gender}</td>
+                  <td style={styles.tableCell}>
+                    <span style={{...styles.statusBadge, ...getStatusStyle(cv.interviewStatus)}}>
+                      {cv.interviewStatus || "N/A"}
+                    </span>
+                  </td>
+                  <td style={styles.tableCell}>{cv.phoneNumber}</td>
+                  <td style={styles.tableCell}>{cv.remarks}</td>
+                  <td style={styles.tableCell}>
+                    <div style={styles.actionButtons}>
+                      <button onClick={() => handleViewClick(cv)} style={styles.viewBtn}>View</button>
+                      <button onClick={() => handleEditClick(cv)} style={styles.editBtn}>Edit</button>
+                      <button onClick={() => handleDeleteClick(cv.id)} style={styles.deleteBtn}>Delete</button>
+                    </div>
+                  </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Edit Form Modal */}
-      {showEditForm && cvToEdit && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Edit CV — {cvToEdit.name}</h2>
-              <button className="close-btn" onClick={handleCloseEditForm}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-container">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label required">Name</label>
-                    <input type="text" name="name" value={cvToEdit.name} onChange={handleEditInputChange} className="form-input" placeholder="Enter name" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label required">Job Title</label>
-                    <input type="text" name="jobTitle" value={cvToEdit.jobTitle} onChange={handleEditInputChange} className="form-input" placeholder="Enter job title" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Place</label>
-                    <input type="text" name="place" value={cvToEdit.place} onChange={handleEditInputChange} className="form-input" placeholder="Enter place" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Created User</label>
-                    <input type="text" name="createdUser" value={cvToEdit.createdUser} onChange={handleEditInputChange} className="form-input" placeholder="Enter email" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Gender</label>
-                    <select name="gender" value={cvToEdit.gender} onChange={handleEditInputChange} className="form-input">
-                      <option value="MALE">MALE</option>
-                      <option value="FEMALE">FEMALE</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">District</label>
-                    <input type="text" name="district" value={cvToEdit.district} onChange={handleEditInputChange} className="form-input" placeholder="Enter district" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Address</label>
-                    <input type="text" name="address" value={cvToEdit.address} onChange={handleEditInputChange} className="form-input" placeholder="Enter address" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Phone Number</label>
-                    <input type="text" name="phoneNumber" value={cvToEdit.phoneNumber} onChange={handleEditInputChange} className="form-input" placeholder="Enter phone number" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Education</label>
-                    <input type="text" name="education" value={cvToEdit.education} onChange={handleEditInputChange} className="form-input" placeholder="Enter education" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Experience</label>
-                    <input type="text" name="experience" value={cvToEdit.experience} onChange={handleEditInputChange} className="form-input" placeholder="Enter experience" />
-                  </div> 
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Date of Birth</label>
-                    <input type="text" name="dob" value={cvToEdit.dob} onChange={handleEditInputChange} className="form-input" placeholder="DD/MM/YYYY" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">CV Source</label>
-                    <input type="text" name="cvSource" value={cvToEdit.cvSource} onChange={handleEditInputChange} className="form-input" placeholder="Enter CV source" />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Interview Status</label>
-                    <select name="interviewStatus" value={cvToEdit.interviewStatus} onChange={handleEditInputChange} className="form-input">
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Remarks</label>
-                    <input type="text" name="remarks" value={cvToEdit.remarks} onChange={handleEditInputChange} className="form-input" placeholder="Enter remarks" />
-                  </div> 
-                </div>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-cancel" onClick={handleCloseEditForm}>Cancel</button>
-              <button className="btn btn-success" onClick={handleSubmitEdit}>Update CV</button>
-            </div>
-          </div>
+      <div style={styles.paginationContainer}>
+        <div style={styles.paginationInfo}>
+          Showing {filteredCvs.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredCvs.length)} of {filteredCvs.length} entries
+          {searchQuery && <span style={styles.searchIndicator}> (filtered from {cvs.length} total)</span>}
         </div>
-      )}
+        <div style={styles.paginationButtons}>
+          <button 
+            onClick={handlePreviousPage} 
+            disabled={currentPage === 1}
+            style={{...styles.paginationBtn, ...(currentPage === 1 ? styles.paginationBtnDisabled : {})}}
+          >
+            Previous
+          </button>
+          
+          <div style={styles.pageNumbers}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
+              if (
+                pageNum === 1 || 
+                pageNum === totalPages || 
+                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+              ) {
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageClick(pageNum)}
+                    style={{
+                      ...styles.pageNumberBtn,
+                      ...(pageNum === currentPage ? styles.pageNumberBtnActive : {})
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                return <span key={pageNum} style={styles.pageEllipsis}>...</span>;
+              }
+              return null;
+            })}
+          </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && cvToDelete && (
-        <div className="modal-overlay">
-          <div className="modal confirm-modal">
-            <div className="modal-header">
-              <h2>Confirm Delete</h2>
-              <button className="close-btn" onClick={cancelDeleteCV}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="confirm-message">
-                <p>Are you sure you want to delete <strong>{cvToDelete.name}</strong> from the CV list?</p>
-                <p className="warning-text">This action cannot be undone.</p>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-cancel" onClick={cancelDeleteCV}>Cancel</button>
-              <button className="btn btn-danger" onClick={confirmDeleteCV}>Delete</button>
-            </div>
-          </div>
+          <button 
+            onClick={handleNextPage} 
+            disabled={currentPage === totalPages}
+            style={{...styles.paginationBtn, ...(currentPage === totalPages ? styles.paginationBtnDisabled : {})}}
+          >
+            Next
+          </button>
         </div>
-      )}
-
-      {/* CV Viewer Modal */}
-      {showCVViewer && currentCVUrl && (
-        <div className="modal-overlay" onClick={handleCloseCVViewer}>
-          <div className="modal cv-viewer-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>CV Document</h2>
-              <button className="close-btn" onClick={handleCloseCVViewer}>×</button>
-            </div>
-            <div className="modal-body cv-viewer-body">
-              <iframe
-                src={currentCVUrl}
-                className="cv-iframe"
-                title="CV Document"
-              />
-            </div>
-            <div className="modal-actions">
-              <a 
-                href={currentCVUrl} 
-                download="CV.pdf" 
-                className="btn btn-success"
-              >
-                Download CV
-              </a>
-              <button className="btn btn-cancel" onClick={handleCloseCVViewer}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
 
-export default CVManagement;
+const styles = {
+  container: {
+    padding: "24px",
+    backgroundColor: "#f9fafb",
+    minHeight: "100vh",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  searchContainer: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  searchInput: {
+    padding: "12px 40px 12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+    outline: "none",
+    width: "320px",
+    transition: "all 0.3s",
+    fontWeight: "500",
+    color: "#374151",
+  },
+  searchIcon: {
+    position: "absolute",
+    right: "14px",
+    fontSize: "18px",
+    pointerEvents: "none",
+    color: "#9ca3af",
+  },
+  searchIndicator: {
+    color: "#6b7280",
+    fontStyle: "italic",
+    fontSize: "13px",
+  },
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
+  },
+  addButton: {
+    padding: "12px 24px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  tableContainer: {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    overflow: "hidden",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  tableHeaderRow: {
+    backgroundColor: "#f3f4f6",
+  },
+  tableHeader: {
+    padding: "12px 16px",
+    textAlign: "left",
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    borderBottom: "2px solid #e5e7eb",
+  },
+  tableRow: {
+    borderBottom: "1px solid #e5e7eb",
+    transition: "background-color 0.2s",
+  },
+  tableCell: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    color: "#374151",
+  },
+  statusBadge: {
+    padding: "4px 12px",
+    borderRadius: "12px",
+    fontSize: "12px",
+    fontWeight: "600",
+    display: "inline-block",
+  },
+  viewCvBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: "6px",
+  },
+  viewBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#059669",
+    backgroundColor: "#d1fae5",
+    border: "1px solid #a7f3d0",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  editBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#dbeafe",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  deleteBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#dc2626",
+    backgroundColor: "#fee2e2",
+    border: "1px solid #fecaca",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "24px",
+    padding: "16px 24px",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  paginationInfo: {
+    fontSize: "14px",
+    color: "#6b7280",
+  },
+  paginationButtons: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  paginationBtn: {
+    padding: "8px 16px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationBtnDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  pageNumbers: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  pageNumberBtn: {
+    padding: "8px 12px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    minWidth: "40px",
+  },
+  pageNumberBtnActive: {
+    backgroundColor: "#3b82f6",
+    color: "white",
+    borderColor: "#3b82f6",
+  },
+  pageEllipsis: {
+    padding: "8px 4px",
+    color: "#9ca3af",
+  },
+  noResults: {
+    padding: "40px",
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: "16px",
+    fontWeight: "500",
+  },
+};

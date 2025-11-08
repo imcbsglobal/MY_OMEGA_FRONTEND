@@ -1,410 +1,506 @@
-import React, { useState } from "react";
-import "./SalaryCertificate.scss";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-function SalaryCertificate() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState(null);
-  const [newCertificate, setNewCertificate] = useState({
-    employeeName: "",
-    employeeAddress: "",
-    joiningDate: "",
-    jobTitle: "",
-    employeeSalary: ""
+export default function SalaryCertificateList() {
+  const navigate = useNavigate();
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const itemsPerPage = 25;
+
+  useEffect(() => {
+    loadCertificates();
+  }, []);
+
+  const loadCertificates = () => {
+    try {
+      const storedData = localStorage.getItem('salary-certificate-data');
+      if (storedData) {
+        const data = JSON.parse(storedData);
+        setCertificates(data);
+      } else {
+        const initialData = [
+          {
+            id: 1,
+            name: "Rajesh Kumar",
+            jobTitle: "Senior Developer",
+            joiningDate: "2023-01-15",
+            location: "Bangalore",
+            employeeSalary: "85000",
+            approvedBy: "HR Manager",
+            status: "Approved",
+            certificateUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+            certificateFileName: "salary_cert_rajesh.pdf",
+            createdUser: "myomega@gmail.com",
+            createdDate: "20/10/2025, 10:30 AM",
+          },
+          {
+            id: 2,
+            name: "Priya Sharma",
+            jobTitle: "Marketing Manager",
+            joiningDate: "2022-06-10",
+            location: "Mumbai",
+            employeeSalary: "95000",
+            approvedBy: "Finance Head",
+            status: "Pending",
+            certificateUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+            certificateFileName: "salary_cert_priya.pdf",
+            createdUser: "myomega@gmail.com",
+            createdDate: "22/10/2025, 02:15 PM",
+          },
+        ];
+        localStorage.setItem('salary-certificate-data', JSON.stringify(initialData));
+        setCertificates(initialData);
+      }
+    } catch (error) {
+      console.error('Error loading certificates:', error);
+      setCertificates([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddNewClick = () => {
+    navigate('/salary-certificate/add');
+  };
+
+  const handleEditClick = (certificate) => {
+    navigate(`/salary-certificate/edit/${certificate.id}`);
+  };
+
+  const handleViewClick = (certificate) => {
+    navigate(`/salary-certificate/view/${certificate.id}`);
+  };
+
+  const handleViewCertificateClick = (certUrl, certFileName) => {
+    if (certUrl) {
+      window.open(certUrl, "_blank");
+    } else {
+      alert("No certificate attachment available");
+    }
+  };
+
+  const handleDeleteClick = (id) => {
+    if (window.confirm("Are you sure you want to delete this record?")) {
+      try {
+        const storedData = localStorage.getItem('salary-certificate-data');
+        if (storedData) {
+          const data = JSON.parse(storedData);
+          const updatedCertificates = data.filter(cert => cert.id !== id);
+          localStorage.setItem('salary-certificate-data', JSON.stringify(updatedCertificates));
+          setCertificates(updatedCertificates);
+        }
+      } catch (error) {
+        console.error('Error deleting certificate:', error);
+        alert('Failed to delete. Please try again.');
+      }
+    }
+  };
+
+  const filteredCertificates = certificates.filter(cert => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      cert.name?.toLowerCase().includes(query) ||
+      cert.jobTitle?.toLowerCase().includes(query) ||
+      cert.location?.toLowerCase().includes(query) ||
+      cert.approvedBy?.toLowerCase().includes(query) ||
+      cert.status?.toLowerCase().includes(query) ||
+      cert.employeeSalary?.includes(query)
+    );
   });
-  
-  const [employees, setEmployees] = useState([
-    {
-      id: 1,
-      slNo: 1,
-      name: "AMAL",
-      address: "Rajayalan (N. Sultanu Bahray Ph.) 5744237873",
-      joiningDate: "May 7, 2025",
-      jobTitle: "GRAPHIC DESIGNER",
-      salary: "10000.00",
-      addedBy: "info@IMC.com",
-      addedOn: "22-Aug-2025",
-      approvedBy: "info@IMC.com",
-      status: "Approved"
-    },
-    {
-      id: 2,
-      slNo: 2,
-      name: "SOHA DENIA",
-      address: "Ovetirshaya(N)Mehrayal, Majesh Ph. 5450515553",
-      joiningDate: "Dec 3, 2024",
-      jobTitle: "FULL STACK DEVELOPER",
-      salary: "10000.00",
-      addedBy: "mehrayan@gmail.com",
-      addedOn: "14-Jun-2025",
-      approvedBy: "info@imc.com",
-      status: "Approved"
-    }
-  ]);
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
+  const totalPages = Math.ceil(filteredCertificates.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentCertificates = filteredCertificates.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
   };
 
-  const filteredEmployees = employees.filter(emp =>
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleView = (id) => {
-    console.log(`View certificate for employee ${id}`);
-    alert(`Viewing certificate for employee ID: ${id}`);
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
   };
 
-  const handleEdit = (id) => {
-    const employee = employees.find(emp => emp.id === id);
-    setEditingEmployee(employee);
-    setShowEditModal(true);
+  const handlePageClick = (pageNumber) => {
+    setCurrentPage(pageNumber);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this salary certificate?")) {
-      setEmployees(employees.filter(emp => emp.id !== id));
-    }
-  };
-
-  const handleApprove = (id) => {
-    if (window.confirm("Are you sure you want to approve this salary certificate?")) {
-      setEmployees(employees.map(emp => 
-        emp.id === id ? { ...emp, status: "Approved", approvedBy: "admin@company.com" } : emp
-      ));
-      alert(`Salary certificate approved for employee ID: ${id}`);
-    }
-  };
-
-  const handleAddNew = () => {
-    setShowAddModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowAddModal(false);
-    setShowEditModal(false);
-    setEditingEmployee(null);
-    setNewCertificate({
-      employeeName: "",
-      employeeAddress: "",
-      joiningDate: "",
-      jobTitle: "",
-      employeeSalary: ""
-    });
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewCertificate(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditingEmployee(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newEmployee = {
-      id: employees.length + 1,
-      slNo: employees.length + 1,
-      name: newCertificate.employeeName,
-      address: newCertificate.employeeAddress,
-      joiningDate: newCertificate.joiningDate,
-      jobTitle: newCertificate.jobTitle,
-      salary: newCertificate.employeeSalary,
-      addedBy: "admin@company.com",
-      addedOn: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      approvedBy: "",
-      status: "Pending"
+  const getStatusStyle = (status) => {
+    const statusStyles = {
+      Pending: { backgroundColor: "#fef3c7", color: "#92400e" },
+      Approved: { backgroundColor: "#d1fae5", color: "#065f46" },
+      Rejected: { backgroundColor: "#fee2e2", color: "#991b1b" },
     };
-    
-    setEmployees([...employees, newEmployee]);
-    console.log("New certificate data:", newCertificate);
-    alert("Salary Certificate added successfully!");
-    handleCloseModal();
+    return statusStyles[status] || { backgroundColor: "#f3f4f6", color: "#374151" };
   };
 
-  const handleUpdate = (e) => {
-    e.preventDefault();
-    if (editingEmployee) {
-      setEmployees(employees.map(emp => 
-        emp.id === editingEmployee.id ? editingEmployee : emp
-      ));
-      console.log("Updated employee:", editingEmployee);
-      alert("Salary Certificate updated successfully!");
-      handleCloseModal();
-    }
-  };
+  if (loading) {
+    return (
+      <div style={{...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh'}}>
+        <div style={{fontSize: '18px', color: '#6b7280'}}>Loading salary certificate data...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="salary-certificate-container">
-      <div className="header-section">
-        <h2 className="page-title">Salary Certificate</h2>
-        <div className="header-controls">
-          <input
-            type="text"
-            placeholder="Search by Employee Name..."
-            className="search-input"
-            value={searchTerm}
-            onChange={handleSearch}
-          />
-          <button className="add-new-btn" onClick={handleAddNew}>
-            Add New
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h2 style={styles.title}>Salary Certificate Management</h2>
+        <div style={styles.headerActions}>
+          <div style={styles.searchContainer}>
+            <input
+              type="text"
+              placeholder="Search by name, job, location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={styles.searchInput}
+            />
+            <span style={styles.searchIcon}>🔍</span>
+          </div>
+          <button onClick={handleAddNewClick} style={styles.addButton}>
+            + Add New
           </button>
         </div>
       </div>
 
-      <div className="table-wrapper">
-        <table className="salary-table">
+      <div style={styles.tableContainer}>
+        <table style={styles.table}>
           <thead>
-            <tr>
-              <th>SI NO</th>
-              <th>Employee Name</th>
-              <th>Employee Address</th>
-              <th>Joining Date</th>
-              <th>Job Title</th>
-              <th>Employee Salary</th>
-              <th>Added By</th>
-              <th>Added On</th>
-              <th>Approved By</th>
-              <th>Certificate</th>
-              <th>Edit</th>
-              <th>Delete</th>
-              <th>Approve</th>
+            <tr style={styles.tableHeaderRow}>
+              <th style={styles.tableHeader}>SL NO</th>
+              <th style={styles.tableHeader}>NAME</th>
+              <th style={styles.tableHeader}>JOB TITLE</th>
+              <th style={styles.tableHeader}>JOINING DATE</th>
+              <th style={styles.tableHeader}>LOCATION</th>
+              <th style={styles.tableHeader}>EMPLOYEE SALARY</th>
+              <th style={styles.tableHeader}>APPROVED BY</th>
+              <th style={styles.tableHeader}>STATUS</th>
+              <th style={styles.tableHeader}>CERTIFICATE</th>
+              <th style={styles.tableHeader}>ACTION</th>
             </tr>
           </thead>
           <tbody>
-            {filteredEmployees.map((employee) => (
-              <tr key={employee.id}>
-                <td>{employee.slNo}</td>
-                <td>{employee.name}</td>
-                <td>{employee.address}</td>
-                <td>{employee.joiningDate}</td>
-                <td>{employee.jobTitle}</td>
-                <td>{employee.salary}</td>
-                <td>{employee.addedBy}</td>
-                <td>{employee.addedOn}</td>
-                <td>{employee.approvedBy}</td>
-                <td>
-                  <button
-                    className="view-btn"
-                    onClick={() => handleView(employee.id)}
-                  >
-                    View
-                  </button>
-                </td>
-                <td>
-                  <button
-                    className="edit-btn"
-                    onClick={() => handleEdit(employee.id)}
-                  >
-                    ✎
-                  </button>
-                </td>
-                <td>
-                  <button
-                    className="delete-btn"
-                    onClick={() => handleDelete(employee.id)}
-                  >
-                    🗑
-                  </button>
-                </td>
-                <td>
-                  {employee.status === "Approved" ? (
-                    <div className="approve-info">
-                      <span className="approve-badge">Approved</span>
-                    </div>
-                  ) : (
-                    <button
-                      className="approve-btn"
-                      onClick={() => handleApprove(employee.id)}
-                    >
-                      Approve
-                    </button>
-                  )}
+            {currentCertificates.length === 0 ? (
+              <tr>
+                <td colSpan="10" style={styles.noResults}>
+                  {searchQuery ? `No results found for "${searchQuery}"` : "No certificate records available"}
                 </td>
               </tr>
-            ))}
+            ) : (
+              currentCertificates.map((cert, index) => (
+                <tr key={cert.id} style={styles.tableRow}>
+                  <td style={styles.tableCell}>{startIndex + index + 1}</td>
+                  <td style={styles.tableCell}>{cert.name}</td>
+                  <td style={styles.tableCell}>{cert.jobTitle}</td>
+                  <td style={styles.tableCell}>{cert.joiningDate || "N/A"}</td>
+                  <td style={styles.tableCell}>{cert.location || "N/A"}</td>
+                  <td style={styles.tableCell}>
+                    {cert.employeeSalary ? `₹${cert.employeeSalary}` : "N/A"}
+                  </td>
+                  <td style={styles.tableCell}>{cert.approvedBy || "N/A"}</td>
+                  <td style={styles.tableCell}>
+                    <span style={{...styles.statusBadge, ...getStatusStyle(cert.status)}}>
+                      {cert.status || "N/A"}
+                    </span>
+                  </td>
+                  <td style={styles.tableCell}>
+                    <button 
+                      style={styles.viewCertBtn}
+                      onClick={() => handleViewCertificateClick(cert.certificateUrl, cert.certificateFileName)}
+                    >
+                      📄 View Certificate
+                    </button>
+                  </td>
+                  <td style={styles.tableCell}>
+                    <div style={styles.actionButtons}>
+                      <button onClick={() => handleViewClick(cert)} style={styles.viewBtn}>View</button>
+                      <button onClick={() => handleEditClick(cert)} style={styles.editBtn}>Edit</button>
+                      <button onClick={() => handleDeleteClick(cert.id)} style={styles.deleteBtn}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Add Salary Certificate Modal */}
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="add-certificate-modal">
-            <div className="modal-header">
-              <h3>Add Salary Certificate</h3>
-              <button className="close-btn" onClick={handleCloseModal}>×</button>
-            </div>
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="form-group">
-                <label htmlFor="employeeName">Employee Name:</label>
-                <select
-                  id="employeeName"
-                  name="employeeName"
-                  value={newCertificate.employeeName}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="">Select Employee</option>
-                  <option value="SNAMAND X">SNAMAND X</option>
-                  <option value="SOHA DENIA">SOHA DENIA</option>
-                  <option value="LINAT KJ">LINAT KJ</option>
-                  <option value="SONA DSILVA">SONA DSILVA</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="employeeAddress">Employee Address:</label>
-                <input
-                  type="text"
-                  id="employeeAddress"
-                  name="employeeAddress"
-                  placeholder="Enter employee address"
-                  value={newCertificate.employeeAddress}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="joiningDate">Joining Date:</label>
-                <input
-                  type="text"
-                  id="joiningDate"
-                  name="joiningDate"
-                  placeholder="dd-mm-yyyy"
-                  value={newCertificate.joiningDate}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="jobTitle">Job Title:</label>
-                <input
-                  type="text"
-                  id="jobTitle"
-                  name="jobTitle"
-                  placeholder="Enter job title"
-                  value={newCertificate.jobTitle}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="employeeSalary">Employee Salary:</label>
-                <input
-                  type="text"
-                  id="employeeSalary"
-                  name="employeeSalary"
-                  placeholder="Enter salary"
-                  value={newCertificate.employeeSalary}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-actions">
-                <button type="submit" className="submit-btn">
-                  Add
-                </button>
-              </div>
-            </form>
-          </div>
+      <div style={styles.paginationContainer}>
+        <div style={styles.paginationInfo}>
+          Showing {filteredCertificates.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredCertificates.length)} of {filteredCertificates.length} entries
+          {searchQuery && <span style={styles.searchIndicator}> (filtered from {certificates.length} total)</span>}
         </div>
-      )}
-
-      {/* Edit Salary Certificate Modal */}
-      {showEditModal && editingEmployee && (
-        <div className="modal-overlay">
-          <div className="add-certificate-modal">
-            <div className="modal-header">
-              <h3>Edit Salary Certificate</h3>
-              <button className="close-btn" onClick={handleCloseModal}>×</button>
-            </div>
-            <form onSubmit={handleUpdate} className="modal-form">
-              <div className="form-group">
-                <label htmlFor="editEmployeeName">Employee Name:</label>
-                <input
-                  type="text"
-                  id="editEmployeeName"
-                  name="name"
-                  value={editingEmployee.name}
-                  onChange={handleEditInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="editEmployeeAddress">Employee Address:</label>
-                <input
-                  type="text"
-                  id="editEmployeeAddress"
-                  name="address"
-                  value={editingEmployee.address}
-                  onChange={handleEditInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="editJoiningDate">Joining Date:</label>
-                <input
-                  type="text"
-                  id="editJoiningDate"
-                  name="joiningDate"
-                  value={editingEmployee.joiningDate}
-                  onChange={handleEditInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="editJobTitle">Job Title:</label>
-                <input
-                  type="text"
-                  id="editJobTitle"
-                  name="jobTitle"
-                  value={editingEmployee.jobTitle}
-                  onChange={handleEditInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="editSalary">Employee Salary:</label>
-                <input
-                  type="text"
-                  id="editSalary"
-                  name="salary"
-                  value={editingEmployee.salary}
-                  onChange={handleEditInputChange}
-                  required
-                />
-              </div>
-
-              <div className="form-actions">
-                <button type="submit" className="submit-btn">
-                  Update
-                </button>
-              </div>
-            </form>
+        <div style={styles.paginationButtons}>
+          <button 
+            onClick={handlePreviousPage} 
+            disabled={currentPage === 1}
+            style={{...styles.paginationBtn, ...(currentPage === 1 ? styles.paginationBtnDisabled : {})}}
+          >
+            Previous
+          </button>
+          
+          <div style={styles.pageNumbers}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
+              if (
+                pageNum === 1 || 
+                pageNum === totalPages || 
+                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+              ) {
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageClick(pageNum)}
+                    style={{
+                      ...styles.pageNumberBtn,
+                      ...(pageNum === currentPage ? styles.pageNumberBtnActive : {})
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                return <span key={pageNum} style={styles.pageEllipsis}>...</span>;
+              }
+              return null;
+            })}
           </div>
+
+          <button 
+            onClick={handleNextPage} 
+            disabled={currentPage === totalPages}
+            style={{...styles.paginationBtn, ...(currentPage === totalPages ? styles.paginationBtnDisabled : {})}}
+          >
+            Next
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-export default SalaryCertificate;
+const styles = {
+  container: {
+    padding: "24px",
+    backgroundColor: "#f9fafb",
+    minHeight: "100vh",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  searchContainer: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  searchInput: {
+    padding: "12px 40px 12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+    outline: "none",
+    width: "320px",
+    transition: "all 0.3s",
+    fontWeight: "500",
+    color: "#374151",
+  },
+  searchIcon: {
+    position: "absolute",
+    right: "14px",
+    fontSize: "18px",
+    pointerEvents: "none",
+    color: "#9ca3af",
+  },
+  searchIndicator: {
+    color: "#6b7280",
+    fontStyle: "italic",
+    fontSize: "13px",
+  },
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
+  },
+  addButton: {
+    padding: "12px 24px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  tableContainer: {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    overflow: "hidden",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  tableHeaderRow: {
+    backgroundColor: "#f3f4f6",
+  },
+  tableHeader: {
+    padding: "12px 16px",
+    textAlign: "left",
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    borderBottom: "2px solid #e5e7eb",
+  },
+  tableRow: {
+    borderBottom: "1px solid #e5e7eb",
+    transition: "background-color 0.2s",
+  },
+  tableCell: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    color: "#374151",
+  },
+  statusBadge: {
+    padding: "4px 12px",
+    borderRadius: "12px",
+    fontSize: "12px",
+    fontWeight: "600",
+    display: "inline-block",
+  },
+  viewCertBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: "6px",
+  },
+  viewBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#059669",
+    backgroundColor: "#d1fae5",
+    border: "1px solid #a7f3d0",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  editBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#dbeafe",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  deleteBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#dc2626",
+    backgroundColor: "#fee2e2",
+    border: "1px solid #fecaca",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "24px",
+    padding: "16px 24px",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  paginationInfo: {
+    fontSize: "14px",
+    color: "#6b7280",
+  },
+  paginationButtons: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  paginationBtn: {
+    padding: "8px 16px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationBtnDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  pageNumbers: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  pageNumberBtn: {
+    padding: "8px 12px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    minWidth: "40px",
+  },
+  pageNumberBtnActive: {
+    backgroundColor: "#3b82f6",
+    color: "white",
+    borderColor: "#3b82f6",
+  },
+  pageEllipsis: {
+    padding: "8px 4px",
+    color: "#9ca3af",
+  },
+  noResults: {
+    padding: "40px",
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: "16px",
+    fontWeight: "500",
+  },
+};

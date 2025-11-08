@@ -1,324 +1,506 @@
 import React, { useState, useEffect } from "react";
-import "./InterviewManagement.scss";
+import { useNavigate } from "react-router-dom";
 
-function InterviewManagement() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingInterview, setEditingInterview] = useState(null);
+function getResultStyle(result) {
+  const resultStyles = {
+    Pending: { backgroundColor: "#fef3c7", color: "#92400e" },
+    Selected: { backgroundColor: "#d1fae5", color: "#065f46" },
+    Rejected: { backgroundColor: "#fee2e2", color: "#991b1b" },
+  };
+  return resultStyles[result] || { backgroundColor: "#f3f4f6", color: "#374151" };
+}
+
+export default function Interview_List() {
+  const navigate = useNavigate();
   const [interviews, setInterviews] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCandidate, setSelectedCandidate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const itemsPerPage = 25;
 
-  // Mock data
   useEffect(() => {
-    setInterviews([
-      {
-        id: "INT-001",
-        no: 1,
-        createdDate: "15 Sep 2025",
-        name: "AMAL",
-        gender: "MALE",
-        email: "amal@example.com",
-        dob: "1990-05-15",
-        address: "sulthan bathery",
-        positionApplied: "sales",
-        interviewDate: "2024-01-20",
-        interviewTime: "10:00",
-        interviewer: "naufal@imcbsglobal.com",
-        mode: "Online",
-        status: "Scheduled",
-        place: "kalpetta",
-        jobTitle: "sales",
-        interviewedBy: "naufal@imcbsglobal.com",
-        district: "Kalpetta",
-        phoneNumber: "+91 9876543210",
-        education: "B.Tech CSE",
-        experience: "2 Years",
-        remark: "Good technical skills",
-        result: "Selected"
-      },
-      {
-        id: "INT-002",
-        no: 2,
-        createdDate: "26 Aug 2025",
-        name: "shikha",
-        gender: "FEMALE",
-        email: "shikha@example.com",
-        dob: "1990-09-12",
-        address: "kalpetta, byepass(PO",
-        positionApplied: "marketing",
-        interviewDate: "2024-01-27",
-        interviewTime: "16:00",
-        interviewer: "info@imcbsglobal.com",
-        mode: "Offline",
-        status: "SELECTED",
-        place: "kalpetta",
-        jobTitle: "Marketing",
-        interviewedBy: "info@imcbsglobal.com",
-        district: "Wayanad",
-        phoneNumber: "+91 9876543216",
-        education: "BCA",
-        experience: "2 Years",
-        remark: "good skill",
-        result: "SELECTED"
-      },
-      {
-        id: "INT-003",
-        no: 3,
-        createdDate: "23 Aug 2025",
-        name: "Sreekutty",
-        gender: "Female",
-        email: "sree@example.com",
-        dob: "1989-11-30",
-        address: "meppadi WAYANA",
-        positionApplied: "Sales",
-        interviewDate: "2024-01-28",
-        interviewTime: "10:30",
-        interviewer: "merinaayalil@gmail.com",
-        mode: "Online",
-        status: "Completed",
-        place: "meppadi",
-        jobTitle: "Sales",
-        interviewedBy: "merinaayalil@gmail.com",
-        district: "Wayanad",
-        phoneNumber: "+91 7592983961",
-        education: "B.Tech IT",
-        experience: "1Years",
-        remark: "Excellent performance",
-        result: "Selected"
-      },
-    ]);
+    loadInterviews();
   }, []);
 
-  const handleOpenModal = (interview = null) => {
-    setIsModalOpen(true);
-    setSelectedCandidate("");
-    
-    if (interview) {
-      setEditingInterview(interview);
-      setSelectedCandidate(interview.name);
+  const loadInterviews = () => {
+    try {
+      const storedData = localStorage.getItem('interview-management-data');
+      if (storedData) {
+        const data = JSON.parse(storedData);
+        setInterviews(data);
+      } else {
+        const initialData = [
+          {
+            id: 1,
+            name: "John Doe",
+            jobTitle: "Software Engineer",
+            cvAttachmentUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+            cvFileName: "john_cv.pdf",
+            place: "Kochi",
+            gender: "Male",
+            interviewedBy: "Sarah Johnson",
+            phoneNumber: "9876543210",
+            remarks: "Strong technical skills, good communication",
+            result: "Selected",
+            createdUser: "myomega@gmail.com",
+            createdDate: "21/10/2025, 09:45 AM",
+          },
+          {
+            id: 2,
+            name: "Jane Smith",
+            jobTitle: "Product Manager",
+            cvAttachmentUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+            cvFileName: "jane_cv.pdf",
+            place: "Trivandrum",
+            gender: "Female",
+            interviewedBy: "Michael Brown",
+            phoneNumber: "9123456780",
+            remarks: "Excellent leadership qualities",
+            result: "Pending",
+            createdUser: "myomega@gmail.com",
+            createdDate: "23/10/2025, 03:20 PM",
+          },
+        ];
+        localStorage.setItem('interview-management-data', JSON.stringify(initialData));
+        setInterviews(initialData);
+      }
+    } catch (error) {
+      console.error('Error loading interviews:', error);
+      setInterviews([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddNewClick = () => {
+    navigate('/interview-management/add');
+  };
+
+  const handleEditClick = (id) => {
+    navigate(`/interview-management/edit/${id}`);
+  };
+
+  const handleViewClick = (id) => {
+    navigate(`/interview-management/view/${id}`);
+  };
+
+  const handleViewCVClick = (cvUrl, cvFileName) => {
+    if (cvUrl) {
+      window.open(cvUrl, "_blank");
     } else {
-      setEditingInterview(null);
+      alert("No CV attachment available");
     }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const handleSaveInterview = () => {
-    if (selectedCandidate) {
-      // Add your save logic here
-      console.log("Saving interview for:", selectedCandidate);
-      handleCloseModal();
-    }
-  };
-
-  const handleDeleteInterview = (id) => {
-    if (window.confirm("Are you sure you want to delete this interview record?")) {
+  const handleDeleteClick = (id) => {
+    if (window.confirm("Are you sure you want to delete this record?")) {
       const updatedInterviews = interviews.filter(interview => interview.id !== id);
-      const renumberedInterviews = updatedInterviews.map((interview, index) => ({
-        ...interview,
-        no: index + 1
-      }));
-      setInterviews(renumberedInterviews);
+      setInterviews(updatedInterviews);
+      try {
+        localStorage.setItem('interview-management-data', JSON.stringify(updatedInterviews));
+      } catch (error) {
+        console.error('Error saving interviews:', error);
+        alert('Failed to delete. Please try again.');
+      }
     }
   };
 
-  // New function to handle result change
-  const handleResultChange = (interviewId, newResult) => {
-    const updatedInterviews = interviews.map(interview => 
-      interview.id === interviewId 
-        ? { ...interview, result: newResult }
-        : interview
+  const filteredInterviews = interviews.filter(interview => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      interview.name?.toLowerCase().includes(query) ||
+      interview.jobTitle?.toLowerCase().includes(query) ||
+      interview.phoneNumber?.includes(query) ||
+      interview.place?.toLowerCase().includes(query) ||
+      interview.interviewedBy?.toLowerCase().includes(query) ||
+      interview.remarks?.toLowerCase().includes(query) ||
+      interview.gender?.toLowerCase().includes(query) ||
+      interview.result?.toLowerCase().includes(query)
     );
-    setInterviews(updatedInterviews);
+  });
+
+  const totalPages = Math.ceil(filteredInterviews.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentInterviews = filteredInterviews.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
   };
 
-  // Function to get the CSS class for the result dropdown
-  const getResultClass = (result) => {
-    if (!result) return 'no-status';
-    const resultLower = result.toLowerCase();
-    if (resultLower === 'selected') return 'selected';
-    if (resultLower === 'pending') return 'pending';
-    if (resultLower === 'rejected') return 'rejected';
-    return 'no-status';
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
   };
 
-  const filteredInterviews = interviews.filter(interview =>
-    interview.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    interview.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    interview.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    interview.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handlePageClick = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  if (loading) {
+    return (
+      <div style={{...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh'}}>
+        <div style={{fontSize: '18px', color: '#6b7280'}}>Loading interview data...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="interview-management">
-      {/* Page Header */}
-      <div className="page-header">
-        <div className="page-header__content">
-          <h1 className="page-title">Interview Management</h1>
-          <div className="page-actions">
-            <div className="search-box">
-              <input
-                type="text"
-                placeholder="Search by name, job title, email, or ID"
-                className="search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <button 
-              className="add-btn"
-              onClick={() => handleOpenModal()}
-            >
-              + Add New
-            </button>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h2 style={styles.title}>Interview Management</h2>
+        <div style={styles.headerActions}>
+          <div style={styles.searchContainer}>
+            <input
+              type="text"
+              placeholder="Search by name, job, phone, location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={styles.searchInput}
+            />
+            <span style={styles.searchIcon}>🔍</span>
           </div>
+          <button onClick={handleAddNewClick} style={styles.addButton}>
+            + Add New
+          </button>
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="content-area">
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
+      <div style={styles.tableContainer}>
+        <table style={styles.table}>
+          <thead>
+            <tr style={styles.tableHeaderRow}>
+              <th style={styles.tableHeader}>Sl NO</th>
+              <th style={styles.tableHeader}>NAME</th>
+              <th style={styles.tableHeader}>JOB TITLE</th>
+              <th style={styles.tableHeader}>CV ATTACHMENT</th>
+              <th style={styles.tableHeader}>LOCATION</th>
+              <th style={styles.tableHeader}>GENDER</th>
+              <th style={styles.tableHeader}>INTERVIEWED BY</th>
+              <th style={styles.tableHeader}>PHONE NUMBER</th>
+              <th style={styles.tableHeader}>REMARK</th>
+              <th style={styles.tableHeader}>RESULT</th>
+              <th style={styles.tableHeader}>ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentInterviews.length === 0 ? (
               <tr>
-                <th>NO</th>
-                <th>CREATED DATE</th>
-                <th>NAME</th>
-                <th>JOB TITLE</th>
-                <th>CV ATTACHMENT</th>
-                <th>PLACE</th>
-                <th>GENDER</th>
-                <th>ADDRESS</th>
-                <th>DISTRICT</th>
-                <th>INTERVIEWED BY</th>
-                <th>PHONE NUMBER</th>
-                <th>EDUCATION</th>
-                <th>EXPERIENCE</th>
-                <th>DOB</th>
-                <th>REMARK</th>
-                <th>RESULT</th>
-                <th>ACTIONS</th>
+                <td colSpan="11" style={styles.noResults}>
+                  {searchQuery ? `No results found for "${searchQuery}"` : "No interview records available"}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredInterviews.length > 0 ? (
-                filteredInterviews.map((interview, index) => (
-                  <tr key={interview.id} className={index % 2 === 0 ? 'even-row' : 'odd-row'}>
-                    <td>{interview.no}</td>
-                    <td>{interview.createdDate}</td>
-                    <td className="name-cell">{interview.name}</td>
-                    <td>{interview.jobTitle}</td>
-                    <td className="cv-cell">
-                      <button className="view-cv-btn">View CV</button>
-                    </td>
-                    <td>{interview.place}</td>
-                    <td className="gender-cell">{interview.gender}</td>
-                    <td className="address-cell" title={interview.address}>{interview.address}</td>
-                    <td>{interview.district}</td>
-                    <td className="interviewer-cell">{interview.interviewedBy}</td>
-                    <td className="phone-cell">{interview.phoneNumber}</td>
-                    <td>{interview.education}</td>
-                    <td>{interview.experience}</td>
-                    <td className="dob-cell">{interview.dob}</td>
-                    <td className="remark-cell" title={interview.remark}>{interview.remark}</td>
-                    <td className="result-cell">
-                      <div className="result-dropdown">
-                        <select
-                          value={interview.result || ''}
-                          onChange={(e) => handleResultChange(interview.id, e.target.value)}
-                          className={`result-select ${getResultClass(interview.result)}`}
-                        >
-                          <option value="" className="no-status-option">--Select--</option>
-                          <option value="Selected" className="selected-option">Selected</option>
-                          <option value="Rejected" className="rejected-option">Rejected</option>
-                        </select>
-                      </div>
-                    </td>
-                    <td className="actions-cell">
-                      <div className="action-buttons">
-                        <button 
-                          className="edit-btn"
-                          onClick={() => handleOpenModal(interview)}
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          className="delete-btn"
-                          onClick={() => handleDeleteInterview(interview.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="17" className="no-data">
-                    No interviews found
+            ) : (
+              currentInterviews.map((interview, index) => (
+                <tr key={interview.id} style={styles.tableRow}>
+                  <td style={styles.tableCell}>{startIndex + index + 1}</td>
+                  <td style={styles.tableCell}>{interview.name}</td>
+                  <td style={styles.tableCell}>{interview.jobTitle}</td>
+                  <td style={styles.tableCell}>
+                    <button 
+                      style={styles.viewCvBtn}
+                      onClick={() => handleViewCVClick(interview.cvAttachmentUrl, interview.cvFileName)}
+                    >
+                      📄 View CV
+                    </button>
+                  </td>
+                  <td style={styles.tableCell}>{interview.place || "N/A"}</td>
+                  <td style={styles.tableCell}>{interview.gender}</td>
+                  <td style={styles.tableCell}>{interview.interviewedBy || "N/A"}</td>
+                  <td style={styles.tableCell}>{interview.phoneNumber}</td>
+                  <td style={styles.tableCell}>{interview.remarks}</td>
+                  <td style={styles.tableCell}>
+                    <span style={{...styles.statusBadge, ...getResultStyle(interview.result)}}>
+                      {interview.result || "N/A"}
+                    </span>
+                  </td>
+                  <td style={styles.tableCell}>
+                    <div style={styles.actionButtons}>
+                      <button onClick={() => handleViewClick(interview.id)} style={styles.viewBtn}>View</button>
+                      <button onClick={() => handleEditClick(interview.id)} style={styles.editBtn}>Edit</button>
+                      <button onClick={() => handleDeleteClick(interview.id)} style={styles.deleteBtn}>Delete</button>
+                    </div>
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Simple Modal for Interview */}
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-content">
-              {/* Modal Header */}
-              <div className="modal-header">
-                <div className="modal-title-section">
-                  <h2>Add Interview Management</h2>
-                </div>
-                <button
-                  onClick={handleCloseModal}
-                  className="close-btn"
-                >
-                  ×
-                </button>
-              </div>
-
-              {/* Simple Form Content */}
-              <div className="simple-form-container">
-                <div className="form-group">
-                  <label className="form-label">Select Name:</label>
-                  <select
-                    value={selectedCandidate}
-                    onChange={(e) => setSelectedCandidate(e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="">-- Select Candidate --</option>
-                    <option value="John Doe">John Doe</option>
-                    <option value="Jane Smith">Jane Smith</option>
-                    <option value="Mike Johnson">Mike Johnson</option>
-                    <option value="Sarah Wilson">Sarah Wilson</option>
-                    <option value="David Brown">David Brown</option>
-                  </select>
-                </div>
-              </div>
-              
-              {/* Modal Actions */}
-              <div className="simple-modal-actions">
-                <button
-                  onClick={handleSaveInterview}
-                  className="update-btn"
-                  disabled={!selectedCandidate}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
+      <div style={styles.paginationContainer}>
+        <div style={styles.paginationInfo}>
+          Showing {filteredInterviews.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredInterviews.length)} of {filteredInterviews.length} entries
+          {searchQuery && <span style={styles.searchIndicator}> (filtered from {interviews.length} total)</span>}
         </div>
-      )}
+        <div style={styles.paginationButtons}>
+          <button 
+            onClick={handlePreviousPage} 
+            disabled={currentPage === 1}
+            style={{...styles.paginationBtn, ...(currentPage === 1 ? styles.paginationBtnDisabled : {})}}
+          >
+            Previous
+          </button>
+          
+          <div style={styles.pageNumbers}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
+              if (
+                pageNum === 1 || 
+                pageNum === totalPages || 
+                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+              ) {
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageClick(pageNum)}
+                    style={{
+                      ...styles.pageNumberBtn,
+                      ...(pageNum === currentPage ? styles.pageNumberBtnActive : {})
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                return <span key={pageNum} style={styles.pageEllipsis}>...</span>;
+              }
+              return null;
+            })}
+          </div>
+
+          <button 
+            onClick={handleNextPage} 
+            disabled={currentPage === totalPages}
+            style={{...styles.paginationBtn, ...(currentPage === totalPages ? styles.paginationBtnDisabled : {})}}
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-export default InterviewManagement;
+const styles = {
+  container: {
+    padding: "24px",
+    backgroundColor: "#f9fafb",
+    minHeight: "100vh",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  searchContainer: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  searchInput: {
+    padding: "12px 40px 12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+    outline: "none",
+    width: "320px",
+    transition: "all 0.3s",
+    fontWeight: "500",
+    color: "#374151",
+  },
+  searchIcon: {
+    position: "absolute",
+    right: "14px",
+    fontSize: "18px",
+    pointerEvents: "none",
+    color: "#9ca3af",
+  },
+  searchIndicator: {
+    color: "#6b7280",
+    fontStyle: "italic",
+    fontSize: "13px",
+  },
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
+  },
+  addButton: {
+    padding: "12px 24px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  tableContainer: {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    overflow: "hidden",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  tableHeaderRow: {
+    backgroundColor: "#f3f4f6",
+  },
+  tableHeader: {
+    padding: "12px 16px",
+    textAlign: "left",
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    borderBottom: "2px solid #e5e7eb",
+  },
+  tableRow: {
+    borderBottom: "1px solid #e5e7eb",
+    transition: "background-color 0.2s",
+  },
+  tableCell: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    color: "#374151",
+  },
+  statusBadge: {
+    padding: "4px 12px",
+    borderRadius: "12px",
+    fontSize: "12px",
+    fontWeight: "600",
+    display: "inline-block",
+  },
+  viewCvBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: "6px",
+  },
+  viewBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#059669",
+    backgroundColor: "#d1fae5",
+    border: "1px solid #a7f3d0",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  editBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#dbeafe",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  deleteBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#dc2626",
+    backgroundColor: "#fee2e2",
+    border: "1px solid #fecaca",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "24px",
+    padding: "16px 24px",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  paginationInfo: {
+    fontSize: "14px",
+    color: "#6b7280",
+  },
+  paginationButtons: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  paginationBtn: {
+    padding: "8px 16px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationBtnDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  pageNumbers: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  pageNumberBtn: {
+    padding: "8px 12px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    minWidth: "40px",
+  },
+  pageNumberBtnActive: {
+    backgroundColor: "#3b82f6",
+    color: "white",
+    borderColor: "#3b82f6",
+  },
+  pageEllipsis: {
+    padding: "8px 4px",
+    color: "#9ca3af",
+  },
+  noResults: {
+    padding: "40px",
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: "16px",
+    fontWeight: "500",
+  },
+};

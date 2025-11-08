@@ -1,144 +1,141 @@
-import { useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from "./Login/LoginPage";
-import CVManagement from "./components/HR/CVManagement";
-import AddCV from './components/HR/AddCV';
-import InterviewManagement from "./components/HR/InterviewManagement";
-import OfferLetter from "./components/HR/OfferLetter";
-import AddOfferLetter from "./components/HR/AddOfferLetter";
-import EmployeeManagement from './components/HR/EmployeeManagement';
-import AddEmployee from './components/HR/AddEmployee'; // ✅ New import
-import Attendance from './components/HR/Attendance';
-import ExperienceCertificate from './components/HR/ExperienceCertificate';
-import SalaryCertificate from './components/HR/SalaryCertificate';
-import SideBar from './components/BaseTemplate/SideBar';
+// src/App.jsx
 
-import './App.css';
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import Layout from "./components/Base_Template/Layout";
+import Dashboard from "./pages/Dashboard";
+
+import CVManagement from "./components/HR/CVManagement";
+import CVForm from "./components/HR/CVForm";
+import CVView from "./components/HR/CVView";
+import InterviewManagement from "./components/HR/InterviewManagement";
+import Interview_Form from "./components/HR/Interview_Form";
+import Interview_View from "./components/HR/Interview_View";
+import OfferLetter from "./components/HR/OfferLetter";
+import OfferLetter_Form from "./components/HR/OfferLetter_Form";
+import OfferLetter_View from "./components/HR/OfferLetter_View";
+import EmployeeManagement from "./components/HR/EmployeeManagement";
+import Employee_Form from "./components/HR/Employee_Form";
+import Employee_View from "./components/HR/Employee_View";
+import ExperienceCertificate from "./components/HR/ExperienceCertificate";
+import ExperienceCertificate_Form from "./components/HR/ExperienceCertificate_Form";
+import ExperienceCertificate_View from "./components/HR/ExperienceCertificate_View";
+import SalaryCertificate from "./components/HR/SalaryCertificate";
+import SalaryCertificate_Form from "./components/HR/SalaryCertificate_Form";
+import SalaryCertificate_View from "./components/HR/SalaryCertificate_View";
+import AttendanceManagement from "./components/HR/AttendanceManagement";
+import PunchInPunchOut from "./components/HR/PunchInPunchOut";
+import LeaveManagement from "./components/HR/LeaveManagement";
+import RequestLeave from "./components/HR/RequestLeave";
+import LeaveRequest from "./components/HR/requests/LeaveRequest";
+import LateRequest from "./components/HR/requests/LateRequest";
+import EarlyRequest from "./components/HR/requests/EarlyRequest";
+import UserControl from "./components/UserManagement/UserControl";
+import ConfigureAccess from "./components/UserManagement/ConfigureAccess";
+import AddUser from "./components/UserManagement/AddUser";
+import MyMenu from "./pages/MyMenu";
+import Login from "./pages/Login";
+
+/* ✅ Improved PrivateRoute
+   Checks both isAuthenticated flag and accessToken.
+   If either is missing → clears localStorage → redirects to /login.
+*/
+function PrivateRoute({ children }) {
+  const isAuthenticated =
+    localStorage.getItem("isAuthenticated") === "true" &&
+    !!localStorage.getItem("accessToken");
+
+  if (!isAuthenticated) {
+    // Clear all login info (prevents broken sessions)
+    localStorage.clear();
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Check authentication on app load
-  useState(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    setIsAuthenticated(false);
-  };
-
   return (
     <Router>
-      <div className="app">
-        {/* Show sidebar only when authenticated */}
-        {isAuthenticated && <SideBar onLogout={handleLogout} />}
-        
-        <div className={isAuthenticated ? "app-content-with-sidebar" : "app-content-full"}>
-          <Routes>
-            {/* Login Route */}
-            <Route 
-              path="/login" 
-              element={
-                !isAuthenticated ? (
-                  <LoginPage onLogin={handleLogin} />
-                ) : (
-                  <Navigate to="/hr/cv-management" replace />
-                )
-              } 
-            />
+      <Routes>
 
-            {/* Protected HR Routes */}
-            <Route 
-              path="/hr/cv-management" 
-              element={
-                isAuthenticated ? <CVManagement /> : <Navigate to="/login" replace />
-              } 
-            />
+        {/* ✅ Public Route - Login */}
+        <Route path="/login" element={<Login />} />
 
-            {/* Add CV Route */}
-            <Route 
-              path="/hr/add-cv" 
-              element={
-                isAuthenticated ? <AddCV /> : <Navigate to="/login" replace />
-              } 
-            />
+        {/* ✅ Protected Routes - only logged in users can access */}
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <Layout />
+            </PrivateRoute>
+          }
+        >
+          <Route index element={<Dashboard />} />
 
-            {/* Add Employee Route */}
-            <Route 
-              path="/hr/add-employee" 
-              element={
-                isAuthenticated ? <AddEmployee /> : <Navigate to="/login" replace />
-              } 
-            />
+          {/* CV Management Routes */}
+          <Route path="cv-management" element={<CVManagement />} />
+          <Route path="cv-management/add" element={<CVForm />} />
+          <Route path="cv-management/edit/:id" element={<CVForm />} />
+          <Route path="cv-management/view/:id" element={<CVView />} />
 
-            {/* Add Offer Letter Route */}
-            <Route 
-              path="/hr/add-offer-letter" 
-              element={
-                isAuthenticated ? <AddOfferLetter /> : <Navigate to="/login" replace />
-              } 
-            />
+          {/* Interview Management Routes */}
+          <Route path="interview-management" element={<InterviewManagement />} />
+          <Route path="interview-management/add" element={<Interview_Form />} />
+          <Route path="interview-management/edit/:id" element={<Interview_Form />} />
+          <Route path="interview-management/view/:id" element={<Interview_View />} />
 
-            <Route 
-              path="/hr/interview-management" 
-              element={
-                isAuthenticated ? <InterviewManagement /> : <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/hr/offer-letter" 
-              element={
-                isAuthenticated ? <OfferLetter /> : <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/hr/employee-management" 
-              element={
-                isAuthenticated ? <EmployeeManagement /> : <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/hr/attendance" 
-              element={
-                isAuthenticated ? <Attendance /> : <Navigate to="/login" replace />
-              } 
-            />
-             <Route 
-              path="/hr/ExperienceCertificate" 
-              element={
-                isAuthenticated ? <ExperienceCertificate /> : <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/hr/SalaryCertificate" 
-              element={
-                isAuthenticated ? <SalaryCertificate /> : <Navigate to="/login" replace />
-              } 
-            />
+          {/* Offer Letter Routes */}
+          <Route path="offer-letter" element={<OfferLetter />} />
+          <Route path="offer-letter/add" element={<OfferLetter_Form />} />
+          <Route path="offer-letter/edit/:id" element={<OfferLetter_Form />} />
+          <Route path="offer-letter/view/:id" element={<OfferLetter_View />} />
 
-            {/* Default Route */}
-            <Route 
-              path="/" 
-              element={
-                <Navigate to={isAuthenticated ? "/hr/cv-management" : "/login"} replace />
-              } 
-            />
+          {/* Employee Management Routes */}
+          <Route path="employee-management" element={<EmployeeManagement />} />
+          <Route path="employee-management/add" element={<Employee_Form />} />
+          <Route path="employee-management/edit/:id" element={<Employee_Form />} />
+          <Route path="employee-management/view/:id" element={<Employee_View />} />
 
-            {/* Catch all unknown routes */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </div>
+          {/* Experience Certificate Routes */}
+          <Route path="experience-certificate" element={<ExperienceCertificate />} />
+          <Route path="experience-certificate/add" element={<ExperienceCertificate_Form />} />
+          <Route path="experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
+          <Route path="experience-certificate/view/:id" element={<ExperienceCertificate_View />} />
+
+          {/* Salary Certificate Routes */}
+          <Route path="salary-certificate" element={<SalaryCertificate />} />
+          <Route path="salary-certificate/add" element={<SalaryCertificate_Form />} />
+          <Route path="salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
+          <Route path="salary-certificate/view/:id" element={<SalaryCertificate_View />} />
+
+          {/* Attendance Management Routes */}
+          <Route path="attendance-management" element={<AttendanceManagement />} />
+
+          {/* Punch In / Punch Out Routes */}
+          <Route path="punch-in-out" element={<PunchInPunchOut />} />
+
+          {/* Leave Management Routes */}
+          <Route path="leave-management" element={<LeaveManagement />} />
+          <Route path="leave-management/add" element={<RequestLeave />} />
+
+          {/*Request */}
+          <Route path="request/leave" element={<LeaveRequest />} />
+          <Route path="request/late" element={<LateRequest />} />
+          <Route path="request/early" element={<EarlyRequest />} />
+
+          {/* User Management Routes */}
+          <Route path="add-user" element={<AddUser />} />
+          <Route path="user-control" element={<UserControl />} />
+          {/* ✅ Fixed route — removed leading slash to keep it nested under Layout */}
+          <Route path="configure-access/:id" element={<ConfigureAccess />} />
+
+          {/* Redirect any unknown routes to dashboard */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
+          <Route path="/my-menu" element={<MyMenu />} />
+          
+        </Route>
+      </Routes>
     </Router>
   );
 }
