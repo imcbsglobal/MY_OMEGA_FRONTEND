@@ -29,6 +29,8 @@ import RequestLeave from "./components/HR/RequestLeave";
 import LeaveRequest from "./components/HR/requests/LeaveRequest";
 import LateRequest from "./components/HR/requests/LateRequest";
 import EarlyRequest from "./components/HR/requests/EarlyRequest";
+import JobTitles from "./components/master/JobTitles";
+import JobTitleForm from "./components/master/JobTitleForm";
 import UserControl from "./components/UserManagement/UserControl";
 import ConfigureAccess from "./components/UserManagement/ConfigureAccess";
 import AddUser from "./components/UserManagement/AddUser";
@@ -72,11 +74,11 @@ function App() {
         >
           <Route index element={<Dashboard />} />
 
-          {/* CV Management Routes */}
+          {/* ✅ CV Management Routes (updated to use :uuid) */}
           <Route path="cv-management" element={<CVManagement />} />
           <Route path="cv-management/add" element={<CVForm />} />
-          <Route path="cv-management/edit/:id" element={<CVForm />} />
-          <Route path="cv-management/view/:id" element={<CVView />} />
+          <Route path="cv-management/edit/:uuid" element={<CVForm />} />
+          <Route path="cv-management/view/:uuid" element={<CVView />} />
 
           {/* Interview Management Routes */}
           <Route path="interview-management" element={<InterviewManagement />} />
@@ -118,22 +120,24 @@ function App() {
           <Route path="leave-management" element={<LeaveManagement />} />
           <Route path="leave-management/add" element={<RequestLeave />} />
 
-          {/*Request */}
+          {/* Request Routes */}
           <Route path="request/leave" element={<LeaveRequest />} />
           <Route path="request/late" element={<LateRequest />} />
           <Route path="request/early" element={<EarlyRequest />} />
 
+          {/*master data routes*/}
+           <Route path="/master/job-titles" element={<JobTitles />} />
+          <Route path="/master/job-titles/new" element={<JobTitleForm />} />
+          <Route path="/master/job-titles/:id/edit" element={<JobTitleForm />} />
           {/* User Management Routes */}
           <Route path="add-user" element={<AddUser />} />
           <Route path="user-control" element={<UserControl />} />
-          {/* ✅ Fixed route — removed leading slash to keep it nested under Layout */}
           <Route path="configure-access/:id" element={<ConfigureAccess />} />
 
           {/* Redirect any unknown routes to dashboard */}
           <Route path="*" element={<Navigate to="/" replace />} />
 
           <Route path="/my-menu" element={<MyMenu />} />
-          
         </Route>
       </Routes>
     </Router>

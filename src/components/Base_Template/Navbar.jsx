@@ -16,6 +16,7 @@ export default function Navbar() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [requestDropdownOpen, setRequestDropdownOpen] = useState(false); // ✅ For click dropdown inside HR
+  const [masterDropdownOpen, setMasterDropdownOpen] = useState(false); // ✅ Added for Master dropdown
   const location = useLocation();
 
   // ✅ User info
@@ -75,7 +76,7 @@ export default function Navbar() {
     { name: "Warehouse Management" },
     { name: "Delivery Management" },
     { name: "User Management", hasDropdown: true },
-    { name: "Master" },
+    { name: "Master", hasDropdown: true }, // ✅ added here
   ];
 
   const userNavItems = buildNavFromTree(menuTree);
@@ -83,20 +84,23 @@ export default function Navbar() {
 
   // ✅ HR dropdown data
   const hrMenuItems = [
-    { name: "CV Management", path: "/cv-management" },
-    { name: "Interview Management", path: "/interview-management" },
-    { name: "Offer Letter", path: "/offer-letter" },
-    { name: "Employee Management", path: "/employee-management" },
-    { name: "Attendance Management", path: "/attendance-management" },
-    { name: "Punch In/Punch Out", path: "/punch-in-out" },
-    { name: "Leave Management", path: "/leave-management" },
+  { name: "CV Management", path: "/cv-management" },
+  { name: "Interview Management", path: "/interview-management" },
+  { name: "Offer Letter", path: "/offer-letter" },
+  { name: "Employee Management", path: "/employee-management" },
+  { name: "Attendance Management", path: "/attendance-management" },
+  { name: "Punch In/Punch Out", path: "/punch-in-out" },
+  { name: "Leave Management", path: "/leave-management" },
+   {
+    name: "Request",
+    children: [
+      { name: "Leave Request", path: "/hr/request/leave" },
+      { name: "Late Request", path: "/hr/request/late" },
+      { name: "Early Request", path: "/hr/request/early" },],},
+  { name: "Experience Certificate", path: "/experience-certificate" },
+  { name: "Salary Certificate", path: "/salary-certificate" },
+];
 
-    // ✅ Request click dropdown (no hover)
-    { name: "Request", path: "#" },
-
-    { name: "Experience Certificate", path: "/experience-certificate" },
-    { name: "Salary Certificate", path: "/salary-certificate" },
-  ];
 
   const vehicleMenuItems = [
     { name: "Company Vehicle", path: "/company-vehicle" },
@@ -107,6 +111,12 @@ export default function Navbar() {
     { name: "Add User", path: "/add-user" },
     { name: "User Control", path: "/user-control" },
   ];
+
+ const masterMenuItems = [
+  { name: "Job Titles", path: "/master/job-titles" },
+  { name: "List", path: "/master/job-titles/list" }, // ✅ Added List option
+];
+
 
   // ✅ Styles
   const styles = {
@@ -255,12 +265,13 @@ export default function Navbar() {
         {navItems.map((item) => {
           const isDropdown =
             item.hasDropdown &&
-            ["HR Management", "Vehicle Management", "User Management"].includes(item.name);
+            ["HR Management", "Vehicle Management", "User Management", "Master"].includes(item.name);
 
           const dropdownOpen =
             (item.name === "HR Management" && hrDropdownOpen) ||
             (item.name === "Vehicle Management" && vehicleDropdownOpen) ||
-            (item.name === "User Management" && userDropdownOpen);
+            (item.name === "User Management" && userDropdownOpen) ||
+            (item.name === "Master" && masterDropdownOpen); // ✅ Added Master check
 
           const menuItems = isAdmin
             ? item.name === "HR Management"
@@ -269,6 +280,8 @@ export default function Navbar() {
               ? vehicleMenuItems
               : item.name === "User Management"
               ? userMenuItems
+              : item.name === "Master"
+              ? masterMenuItems
               : []
             : item.children || [];
 
@@ -279,11 +292,13 @@ export default function Navbar() {
                 if (item.name === "HR Management") setHrDropdownOpen(true);
                 if (item.name === "Vehicle Management") setVehicleDropdownOpen(true);
                 if (item.name === "User Management") setUserDropdownOpen(true);
+                if (item.name === "Master") setMasterDropdownOpen(true); // ✅ Added
               }}
               onMouseLeave={() => {
                 if (item.name === "HR Management") setHrDropdownOpen(false);
                 if (item.name === "Vehicle Management") setVehicleDropdownOpen(false);
                 if (item.name === "User Management") setUserDropdownOpen(false);
+                if (item.name === "Master") setMasterDropdownOpen(false); // ✅ Added
                 setRequestDropdownOpen(false);
               }}
               style={{ position: "relative" }}
@@ -327,59 +342,27 @@ export default function Navbar() {
 
                   {dropdownOpen && (
                     <div style={styles.dropdownMenu}>
-                      {menuItems.map((mi) => {
-                        if (mi.name !== "Request") {
-                          // Normal HR items
-                          return (
-                            <NavLink
-                              key={mi.name}
-                              to={mi.path}
-                              style={({ isActive }) => ({
-                                ...styles.dropdownItem,
-                                backgroundColor: isActive ? "#fee2e2" : "transparent",
-                                color: isActive ? "#dc2626" : "#64748b",
-                              })}
-                            >
-                              {mi.name}
-                            </NavLink>
-                          );
-                        }
-
-                        // ✅ Request click-to-toggle dropdown
-                        return (
-                          <div key="request" style={{ position: "relative" }}>
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRequestDropdownOpen(!requestDropdownOpen);
-                              }}
-                              style={{
-                                ...styles.dropdownItem,
-                                fontWeight: "600",
-                                cursor: "pointer",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                              }}
-                            >
-                              Request <span style={{ fontSize: 12 }}>▼</span>
+                                          {menuItems.map((mi) =>
+                        mi.children ? (
+                          <div
+                            key={mi.name}
+                            style={{ position: "relative" }}
+                            onMouseEnter={() => setRequestDropdownOpen(true)}
+                            onMouseLeave={() => setRequestDropdownOpen(false)}
+                          >
+                            <div style={styles.dropdownItem}>
+                              {mi.name} <ChevronDown size={14} style={{ float: "right" }} />
                             </div>
 
                             {requestDropdownOpen && (
                               <div style={styles.requestSubMenu}>
-                                {[
-                                  { name: "Leave Request", path: "/request/leave" },
-                                  { name: "Late Request", path: "/request/late" },
-                                  { name: "Early Request", path: "/request/early" },
-                                ].map((sub) => (
+                                {mi.children.map((sub) => (
                                   <NavLink
                                     key={sub.name}
                                     to={sub.path}
                                     style={({ isActive }) => ({
                                       ...styles.dropdownItem,
-                                      backgroundColor: isActive
-                                        ? "#fee2e2"
-                                        : "transparent",
+                                      backgroundColor: isActive ? "#fee2e2" : "transparent",
                                       color: isActive ? "#dc2626" : "#64748b",
                                     })}
                                   >
@@ -389,8 +372,21 @@ export default function Navbar() {
                               </div>
                             )}
                           </div>
-                        );
-                      })}
+                        ) : (
+                          <NavLink
+                            key={mi.name}
+                            to={mi.path}
+                            style={({ isActive }) => ({
+                              ...styles.dropdownItem,
+                              backgroundColor: isActive ? "#fee2e2" : "transparent",
+                              color: isActive ? "#dc2626" : "#64748b",
+                            })}
+                          >
+                            {mi.name}
+                          </NavLink>
+                        )
+                      )}
+
                     </div>
                   )}
                 </>

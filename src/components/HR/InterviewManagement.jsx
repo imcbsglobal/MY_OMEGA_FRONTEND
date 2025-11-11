@@ -1,150 +1,81 @@
+// src/pages/InterviewManagement.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/client";
 
 function getResultStyle(result) {
   const resultStyles = {
-    Pending: { backgroundColor: "#fef3c7", color: "#92400e" },
-    Selected: { backgroundColor: "#d1fae5", color: "#065f46" },
-    Rejected: { backgroundColor: "#fee2e2", color: "#991b1b" },
+    pending: { backgroundColor: "#fef3c7", color: "#92400e" },
+    selected: { backgroundColor: "#d1fae5", color: "#065f46" },
+    rejected: { backgroundColor: "#fee2e2", color: "#991b1b" },
   };
-  return resultStyles[result] || { backgroundColor: "#f3f4f6", color: "#374151" };
+  return resultStyles[result?.toLowerCase()] || {
+    backgroundColor: "#f3f4f6",
+    color: "#374151",
+  };
 }
 
 export default function Interview_List() {
   const navigate = useNavigate();
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
 
+  // ✅ Fetch data from API
   useEffect(() => {
-    loadInterviews();
+    const fetchInterviews = async () => {
+      try {
+        const res = await api.get("/api/interview-management/");
+        setInterviews(res.data.data || []);
+      } catch (error) {
+        console.error("Error fetching interviews:", error);
+        alert("Failed to load interview data!");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInterviews();
   }, []);
 
-  const loadInterviews = () => {
-    try {
-      const storedData = localStorage.getItem('interview-management-data');
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        setInterviews(data);
-      } else {
-        const initialData = [
-          {
-            id: 1,
-            name: "John Doe",
-            jobTitle: "Software Engineer",
-            cvAttachmentUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-            cvFileName: "john_cv.pdf",
-            place: "Kochi",
-            gender: "Male",
-            interviewedBy: "Sarah Johnson",
-            phoneNumber: "9876543210",
-            remarks: "Strong technical skills, good communication",
-            result: "Selected",
-            createdUser: "myomega@gmail.com",
-            createdDate: "21/10/2025, 09:45 AM",
-          },
-          {
-            id: 2,
-            name: "Jane Smith",
-            jobTitle: "Product Manager",
-            cvAttachmentUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-            cvFileName: "jane_cv.pdf",
-            place: "Trivandrum",
-            gender: "Female",
-            interviewedBy: "Michael Brown",
-            phoneNumber: "9123456780",
-            remarks: "Excellent leadership qualities",
-            result: "Pending",
-            createdUser: "myomega@gmail.com",
-            createdDate: "23/10/2025, 03:20 PM",
-          },
-        ];
-        localStorage.setItem('interview-management-data', JSON.stringify(initialData));
-        setInterviews(initialData);
-      }
-    } catch (error) {
-      console.error('Error loading interviews:', error);
-      setInterviews([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddNewClick = () => {
-    navigate('/interview-management/add');
-  };
-
-  const handleEditClick = (id) => {
-    navigate(`/interview-management/edit/${id}`);
-  };
-
-  const handleViewClick = (id) => {
-    navigate(`/interview-management/view/${id}`);
-  };
-
-  const handleViewCVClick = (cvUrl, cvFileName) => {
-    if (cvUrl) {
-      window.open(cvUrl, "_blank");
-    } else {
-      alert("No CV attachment available");
-    }
-  };
-
-  const handleDeleteClick = (id) => {
+  const handleDeleteClick = async (id) => {
     if (window.confirm("Are you sure you want to delete this record?")) {
-      const updatedInterviews = interviews.filter(interview => interview.id !== id);
-      setInterviews(updatedInterviews);
       try {
-        localStorage.setItem('interview-management-data', JSON.stringify(updatedInterviews));
+        await api.delete(`/api/interview-management/${id}/`);
+        setInterviews((prev) => prev.filter((item) => item.id !== id));
+        alert("Interview deleted successfully!");
       } catch (error) {
-        console.error('Error saving interviews:', error);
-        alert('Failed to delete. Please try again.');
+        console.error("Error deleting interview:", error);
+        alert("Failed to delete interview!");
       }
     }
   };
 
-  const filteredInterviews = interviews.filter(interview => {
-    if (!searchQuery.trim()) return true;
+  const filteredInterviews = interviews.filter((i) => {
     const query = searchQuery.toLowerCase().trim();
     return (
-      interview.name?.toLowerCase().includes(query) ||
-      interview.jobTitle?.toLowerCase().includes(query) ||
-      interview.phoneNumber?.includes(query) ||
-      interview.place?.toLowerCase().includes(query) ||
-      interview.interviewedBy?.toLowerCase().includes(query) ||
-      interview.remarks?.toLowerCase().includes(query) ||
-      interview.gender?.toLowerCase().includes(query) ||
-      interview.result?.toLowerCase().includes(query)
+      i.candidate_name?.toLowerCase().includes(query) ||
+      i.job_title?.toLowerCase().includes(query) ||
+      i.interviewer_name?.toLowerCase().includes(query) ||
+      i.place?.toLowerCase().includes(query) ||
+      i.status?.toLowerCase().includes(query)
     );
   });
 
   const totalPages = Math.ceil(filteredInterviews.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentInterviews = filteredInterviews.slice(startIndex, endIndex);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(prev - 1, 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  };
-
-  const handlePageClick = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
+  const currentInterviews = filteredInterviews.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   if (loading) {
     return (
-      <div style={{...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh'}}>
-        <div style={{fontSize: '18px', color: '#6b7280'}}>Loading interview data...</div>
+      <div style={{ ...styles.container, textAlign: "center" }}>
+        <p style={{ fontSize: "18px", color: "#6b7280" }}>
+          Loading interview data...
+        </p>
       </div>
     );
   }
@@ -157,14 +88,17 @@ export default function Interview_List() {
           <div style={styles.searchContainer}>
             <input
               type="text"
-              placeholder="Search by name, job, phone, location..."
+              placeholder="Search by name, job, location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
             />
             <span style={styles.searchIcon}>🔍</span>
           </div>
-          <button onClick={handleAddNewClick} style={styles.addButton}>
+          <button
+            onClick={() => navigate("/interview-management/add")}
+            style={styles.addButton}
+          >
             + Add New
           </button>
         </div>
@@ -174,55 +108,58 @@ export default function Interview_List() {
         <table style={styles.table}>
           <thead>
             <tr style={styles.tableHeaderRow}>
-              <th style={styles.tableHeader}>Sl NO</th>
-              <th style={styles.tableHeader}>NAME</th>
+              <th style={styles.tableHeader}>SL NO</th>
+              <th style={styles.tableHeader}>CANDIDATE</th>
               <th style={styles.tableHeader}>JOB TITLE</th>
-              <th style={styles.tableHeader}>CV ATTACHMENT</th>
+              <th style={styles.tableHeader}>INTERVIEWER</th>
               <th style={styles.tableHeader}>LOCATION</th>
-              <th style={styles.tableHeader}>GENDER</th>
-              <th style={styles.tableHeader}>INTERVIEWED BY</th>
-              <th style={styles.tableHeader}>PHONE NUMBER</th>
-              <th style={styles.tableHeader}>REMARK</th>
-              <th style={styles.tableHeader}>RESULT</th>
+              <th style={styles.tableHeader}>STATUS</th>
               <th style={styles.tableHeader}>ACTION</th>
             </tr>
           </thead>
           <tbody>
             {currentInterviews.length === 0 ? (
               <tr>
-                <td colSpan="11" style={styles.noResults}>
-                  {searchQuery ? `No results found for "${searchQuery}"` : "No interview records available"}
+                <td colSpan="7" style={styles.noResults}>
+                  No interview records found
                 </td>
               </tr>
             ) : (
               currentInterviews.map((interview, index) => (
                 <tr key={interview.id} style={styles.tableRow}>
                   <td style={styles.tableCell}>{startIndex + index + 1}</td>
-                  <td style={styles.tableCell}>{interview.name}</td>
-                  <td style={styles.tableCell}>{interview.jobTitle}</td>
+                  <td style={styles.tableCell}>{interview.candidate_name}</td>
+                  <td style={styles.tableCell}>{interview.job_title}</td>
                   <td style={styles.tableCell}>
-                    <button 
-                      style={styles.viewCvBtn}
-                      onClick={() => handleViewCVClick(interview.cvAttachmentUrl, interview.cvFileName)}
-                    >
-                      📄 View CV
-                    </button>
+                    {interview.interviewer_name || "N/A"}
                   </td>
                   <td style={styles.tableCell}>{interview.place || "N/A"}</td>
-                  <td style={styles.tableCell}>{interview.gender}</td>
-                  <td style={styles.tableCell}>{interview.interviewedBy || "N/A"}</td>
-                  <td style={styles.tableCell}>{interview.phoneNumber}</td>
-                  <td style={styles.tableCell}>{interview.remarks}</td>
                   <td style={styles.tableCell}>
-                    <span style={{...styles.statusBadge, ...getResultStyle(interview.result)}}>
-                      {interview.result || "N/A"}
+                    <span
+                      style={{
+                        ...styles.statusBadge,
+                        ...getResultStyle(interview.status),
+                      }}
+                    >
+                      {interview.status}
                     </span>
                   </td>
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
-                      <button onClick={() => handleViewClick(interview.id)} style={styles.viewBtn}>View</button>
-                      <button onClick={() => handleEditClick(interview.id)} style={styles.editBtn}>Edit</button>
-                      <button onClick={() => handleDeleteClick(interview.id)} style={styles.deleteBtn}>Delete</button>
+                      <button
+                        onClick={() =>
+                          navigate(`/interview-management/view/${interview.id}`)
+                        }
+                        style={styles.viewBtn}
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(interview.id)}
+                        style={styles.deleteBtn}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -230,56 +167,6 @@ export default function Interview_List() {
             )}
           </tbody>
         </table>
-      </div>
-
-      <div style={styles.paginationContainer}>
-        <div style={styles.paginationInfo}>
-          Showing {filteredInterviews.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredInterviews.length)} of {filteredInterviews.length} entries
-          {searchQuery && <span style={styles.searchIndicator}> (filtered from {interviews.length} total)</span>}
-        </div>
-        <div style={styles.paginationButtons}>
-          <button 
-            onClick={handlePreviousPage} 
-            disabled={currentPage === 1}
-            style={{...styles.paginationBtn, ...(currentPage === 1 ? styles.paginationBtnDisabled : {})}}
-          >
-            Previous
-          </button>
-          
-          <div style={styles.pageNumbers}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
-              if (
-                pageNum === 1 || 
-                pageNum === totalPages || 
-                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-              ) {
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => handlePageClick(pageNum)}
-                    style={{
-                      ...styles.pageNumberBtn,
-                      ...(pageNum === currentPage ? styles.pageNumberBtnActive : {})
-                    }}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                return <span key={pageNum} style={styles.pageEllipsis}>...</span>;
-              }
-              return null;
-            })}
-          </div>
-
-          <button 
-            onClick={handleNextPage} 
-            disabled={currentPage === totalPages}
-            style={{...styles.paginationBtn, ...(currentPage === totalPages ? styles.paginationBtnDisabled : {})}}
-          >
-            Next
-          </button>
-        </div>
       </div>
     </div>
   );
