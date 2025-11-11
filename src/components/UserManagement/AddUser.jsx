@@ -15,7 +15,7 @@ export default function AddUser() {
 
   async function fetchUsers() {
     try {
-      const res = await api.get("users/"); // GET /api/users/
+      const res = await api.get("api/users/"); // GET /api/users/
       setUsers(res.data);
     } catch (e) {
       console.error("Error fetching users:", e.response?.data || e.message);

@@ -11,7 +11,6 @@ export default function CVManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const itemsPerPage = 25;
 
-  // ✅ Load CVs from backend
   useEffect(() => {
     (async () => {
       try {
@@ -27,14 +26,12 @@ export default function CVManagement() {
     })();
   }, []);
 
-  // Navigation handlers
   const handleAddNewClick = () => navigate("/cv-management/add");
   const handleEditClick = (cv) => navigate(`/cv-management/edit/${cv.uuid}`);
   const handleViewClick = (cv) => navigate(`/cv-management/view/${cv.uuid}`);
   const handleViewCVClick = (cvUrl) =>
     cvUrl ? window.open(cvUrl, "_blank") : alert("No CV attachment available");
 
-  // ✅ Delete CV
   const handleDeleteClick = async (uuid) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
@@ -46,7 +43,6 @@ export default function CVManagement() {
     }
   };
 
-  // Search filter
   const filtered = cvs.filter((cv) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
@@ -62,7 +58,6 @@ export default function CVManagement() {
     );
   });
 
-  // Pagination logic
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const pageItems = filtered.slice(startIndex, startIndex + itemsPerPage);
@@ -112,16 +107,16 @@ export default function CVManagement() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Job Title</th>
-              <th>CV</th>
-              <th>Place</th>
-              <th>Gender</th>
-              <th>Status</th>
-              <th>Phone</th>
-              <th>Remarks</th>
-              <th>Actions</th>
+              <th style={styles.thSmall}>#</th>
+              <th style={styles.thName}>Name</th>
+              <th style={styles.th}>Job Title</th>
+              <th style={styles.th}>CV</th>
+              <th style={styles.th}>Place</th>
+              <th style={styles.th}>Gender</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Phone</th>
+              <th style={styles.thRemarks}>Remarks</th>
+              <th style={styles.thLarge}>Actions</th>
             </tr>
           </thead>
 
@@ -137,10 +132,10 @@ export default function CVManagement() {
             ) : (
               pageItems.map((cv, idx) => (
                 <tr key={cv.uuid} style={styles.tableRow}>
-                  <td style={styles.tableCell}>{startIndex + idx + 1}</td>
-                  <td style={styles.tableCell}>{cv.name}</td>
-                  <td style={styles.tableCell}>{cv.jobTitle}</td>
-                  <td style={styles.tableCell}>
+                  <td style={styles.tdCenter}>{startIndex + idx + 1}</td>
+                  <td style={styles.tdName}>{cv.name}</td>
+                  <td style={styles.tdCenter}>{cv.jobTitle}</td>
+                  <td style={styles.tdCenter}>
                     <button
                       style={styles.viewCvBtn}
                       onClick={() => handleViewCVClick(cv.cvAttachmentUrl)}
@@ -148,25 +143,19 @@ export default function CVManagement() {
                       📄 View CV
                     </button>
                   </td>
-                  <td style={styles.tableCell}>{cv.place || "N/A"}</td>
-                  <td style={styles.tableCell}>{cv.gender}</td>
-                  <td style={styles.tableCell}>
+                  <td style={styles.tdCenter}>{cv.place || "N/A"}</td>
+                  <td style={styles.tdCenter}>{cv.gender}</td>
+                  <td style={styles.tdCenter}>
                     <span style={styles.statusBadge}>{cv.interviewStatus}</span>
                   </td>
-                  <td style={styles.tableCell}>{cv.phoneNumber}</td>
-                  <td style={styles.tableCell}>{cv.remarks}</td>
-                  <td style={styles.tableCell}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        onClick={() => handleViewClick(cv)}
-                        style={styles.viewBtn}
-                      >
+                  <td style={styles.tdCenter}>{cv.phoneNumber}</td>
+                  <td style={styles.tdRemarks}>{cv.remarks}</td>
+                  <td style={styles.tdCenter}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                      <button onClick={() => handleViewClick(cv)} style={styles.viewBtn}>
                         View
                       </button>
-                      <button
-                        onClick={() => handleEditClick(cv)}
-                        style={styles.editBtn}
-                      >
+                      <button onClick={() => handleEditClick(cv)} style={styles.editBtn}>
                         Edit
                       </button>
                       <button
@@ -192,9 +181,7 @@ export default function CVManagement() {
         </span>
         <div style={styles.paginationButtons}>
           <button
-            onClick={() =>
-              setCurrentPage((p) => Math.max(p - 1, 1))
-            }
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
             style={styles.paginationBtn}
           >
@@ -227,7 +214,6 @@ export default function CVManagement() {
   );
 }
 
-// ✅ Keep your styles unchanged
 const styles = {
   container: { padding: "24px", backgroundColor: "#f9fafb", minHeight: "100vh" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" },
@@ -237,14 +223,25 @@ const styles = {
   searchInput: { padding: "12px 40px 12px 16px", borderRadius: "8px", border: "2px solid #e5e7eb", width: "320px", fontSize: "14px" },
   searchIcon: { position: "absolute", right: "14px", color: "#9ca3af" },
   addButton: { padding: "12px 24px", backgroundColor: "#3b82f6", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" },
-  tableContainer: { backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" },
-  table: { width: "100%", borderCollapse: "collapse" },
-  tableRow: { borderBottom: "1px solid #e5e7eb" },
-  tableCell: { padding: "12px 16px", fontSize: "14px", color: "#374151" },
+
+  // Table and Alignment
+  tableContainer: { backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflowX: "auto" },
+  table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
+  th: { textAlign: "center", padding: "12px 8px", background: "#f3f4f6", fontWeight: "600", borderBottom: "2px solid #e5e7eb" },
+  thSmall: { width: "60px", textAlign: "center", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb" },
+  thName: { width: "180px", textAlign: "left", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb", paddingLeft: "16px" },
+  thRemarks: { width: "200px", textAlign: "left", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb", paddingLeft: "16px" },
+  thLarge: { width: "170px", textAlign: "center", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb" },
+
+  tdCenter: { textAlign: "center", verticalAlign: "middle", padding: "10px 8px", borderBottom: "1px solid #e5e7eb" },
+  tdName: { textAlign: "left", verticalAlign: "middle", padding: "10px 16px", borderBottom: "1px solid #e5e7eb", fontWeight: "500" },
+  tdRemarks: { textAlign: "left", verticalAlign: "middle", padding: "10px 16px", borderBottom: "1px solid #e5e7eb" },
+
   viewCvBtn: { padding: "6px 12px", backgroundColor: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px" },
   viewBtn: { padding: "6px 12px", backgroundColor: "#d1fae5", color: "#059669", border: "1px solid #a7f3d0", borderRadius: "6px" },
   editBtn: { padding: "6px 12px", backgroundColor: "#dbeafe", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px" },
   deleteBtn: { padding: "6px 12px", backgroundColor: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "6px" },
+
   noResults: { padding: "40px", textAlign: "center", color: "#6b7280", fontSize: "16px" },
   paginationContainer: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px", backgroundColor: "white", padding: "16px 24px", borderRadius: "12px" },
   paginationInfo: { fontSize: "14px", color: "#6b7280" },
