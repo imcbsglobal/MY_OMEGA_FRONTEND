@@ -27,7 +27,7 @@ export default function Interview_List() {
   useEffect(() => {
     const fetchInterviews = async () => {
       try {
-        const res = await api.get("/api/interview-management/");
+        const res = await api.get("/interview-management/");
         setInterviews(res.data.data || []);
       } catch (error) {
         console.error("Error fetching interviews:", error);
@@ -42,7 +42,7 @@ export default function Interview_List() {
   const handleDeleteClick = async (id) => {
     if (window.confirm("Are you sure you want to delete this record?")) {
       try {
-        await api.delete(`/api/interview-management/${id}/`);
+        await api.delete(`/interview-management/${id}/`);
         setInterviews((prev) => prev.filter((item) => item.id !== id));
         alert("Interview deleted successfully!");
       } catch (error) {

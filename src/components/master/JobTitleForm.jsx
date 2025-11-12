@@ -17,7 +17,7 @@ export default function JobTitleForm() {
   const fetchJobTitle = async () => {
     try {
      
-      const res = await api.get(`api/cv-management/job-titles/${id}/`);
+      const res = await api.get(`/cv-management/job-titles/${id}/`);
       const jobData = res.data;
   
       if (!jobData) throw new Error("No job data found");
@@ -44,9 +44,9 @@ export default function JobTitleForm() {
       const payload = { title };
 
       if (isEdit) {
-        await api.put(`api/cv-management/job-titles/${id}/`, payload);
+        await api.put(`/cv-management/job-titles/${id}/`, payload);
       } else {
-        await api.post("api/cv-management/job-titles/", payload);
+        await api.post("/cv-management/job-titles/", payload);
       }
 
       alert("Job Title saved successfully!");

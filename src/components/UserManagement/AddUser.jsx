@@ -15,7 +15,7 @@ export default function AddUser() {
 
   async function fetchUsers() {
     try {
-      const res = await api.get("/api/users/"); // ✅ fixed
+      const res = await api.get("/users/"); // ✅ fixed
       setUsers(res.data);
     } catch (e) {
       console.error("Error fetching users:", e.response?.data || e.message);
@@ -50,10 +50,10 @@ export default function AddUser() {
 
     try {
       if (isEditing) {
-        const res = await api.patch(`/api/users/${editingUser.id}/`, payload); // ✅ fixed
+        const res = await api.patch(`/users/${editingUser.id}/`, payload); // ✅ fixed
         alert("✅ User updated successfully!");
       } else {
-        const res = await api.post("/api/users/", payload); // ✅ fixed
+        const res = await api.post("/users/", payload); // ✅ fixed
         alert("✅ User added successfully!");
       }
 
@@ -69,7 +69,7 @@ export default function AddUser() {
   const deleteUser = async (id) => {
     if (!window.confirm("Delete this user?")) return;
     try {
-      await api.delete(`/api/users/${id}/`); // ✅ fixed
+      await api.delete(`/users/${id}/`); // ✅ fixed
       await fetchUsers();
       alert("✅ User deleted successfully!");
     } catch (e) {

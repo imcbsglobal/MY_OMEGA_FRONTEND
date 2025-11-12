@@ -13,7 +13,7 @@ export default function Interview_Form() {
   useEffect(() => {
     const fetchCvs = async () => {
       try {
-        const res = await api.get("/api/interview-management/cvs-for-interview/");
+        const res = await api.get("/interview-management/cvs-for-interview/");
         setCvCandidates(res.data.data || []);
       } catch (err) {
         console.error("Error fetching CV list:", err);
@@ -37,7 +37,7 @@ export default function Interview_Form() {
         candidate_id: selectedCandidate,
         scheduled_at: new Date().toISOString(),
       };
-      const res = await api.post("/api/interview-management/start-interview/", data);
+      const res = await api.post("/interview-management/start-interview/", data);
       alert(res.data.message || "Interview started successfully!");
       navigate("/interview-management");
     } catch (error) {

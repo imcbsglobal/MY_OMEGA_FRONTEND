@@ -58,8 +58,8 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
       };
 
       const url = editData
-        ? `/api/users/${editData.id}/`
-        : `/api/users/`;
+        ? `/users/${editData.id}/`
+        : `/users/`;
 
       const res = editData
         ? await api.patch(url, payload)

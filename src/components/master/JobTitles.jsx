@@ -14,7 +14,7 @@ export default function JobTitles() {
 
   const fetchJobTitles = async () => {
     try {
-      const { data } = await api.get("api/cv-management/job-titles/");
+      const { data } = await api.get("/cv-management/job-titles/");
       setTitles(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       console.error("Error fetching job titles:", error);
@@ -28,7 +28,7 @@ export default function JobTitles() {
   const handleDelete = async (uuid) => {
     if (!window.confirm("Are you sure you want to delete this job title?")) return;
     try {
-      await api.delete(`api/cv-management/job-titles/${uuid}/`);
+      await api.delete(`/cv-management/job-titles/${uuid}/`);
       alert("Job title deleted successfully!");
       fetchJobTitles();
     } catch (error) {
@@ -139,7 +139,7 @@ export default function JobTitles() {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(item.uuid)}
+                      onClick={() => handleDelete(item.id)}
                       style={{
                         background: "#ef4444",
                         color: "#fff",

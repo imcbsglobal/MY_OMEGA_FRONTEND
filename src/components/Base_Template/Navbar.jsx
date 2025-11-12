@@ -38,7 +38,7 @@ export default function Navbar() {
   useEffect(() => {
     if (!isAdmin) {
       api
-        .get("user-controll/my-menu/")
+        .get("/user-controll/my-menu/")
         .then((res) => {
           const menus = res.data?.menu || res.data?.menu_tree || [];
           setMenuTree(menus);

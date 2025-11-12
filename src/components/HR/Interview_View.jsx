@@ -39,7 +39,7 @@ export default function Interview_View() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await api.get(`/api/interview-management/${id}/`);
+        const res = await api.get(`/interview-management/${id}/`);
         const data = res.data.data;
         setInterview(data);
 
@@ -134,7 +134,7 @@ export default function Interview_View() {
 
     try {
       const res = await api.post(
-        `/api/interview-management/${id}/evaluation/`,
+        `/interview-management/${id}/evaluation/`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );

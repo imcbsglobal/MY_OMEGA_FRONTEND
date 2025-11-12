@@ -47,13 +47,13 @@ export function toApiPayload(ui, fileIfAny) {
   if (ui.education) form.append("education", ui.education);
   if (ui.experience) form.append("experience", ui.experience);
   if (ui.email) form.append("email", ui.email);
-  if (ui.phoneNumber) form.append("phone_number", ui.phone_number);
+  if (ui.phoneNumber) form.append("phone_number", ui.phoneNumber);
   if (ui.address) form.append("address", ui.address);
   form.append("cv_source", ui.cvSource || "Direct");
   form.append("interview_status", mapStatus(ui.interviewStatus));
   if (ui.remarks) form.append("remarks", ui.remarks);
   if (fileIfAny) form.append("cv_file", fileIfAny);
-
+console.log("toApiPayload form data:", [...form.entries()]);
   return form;
 }
 
@@ -71,7 +71,7 @@ export function toUi(cv) {
     education: cv.education || "",
     experience: cv.experience || "",
     email: cv.email || "",
-    phoneNumber: cv.phone_number || "",
+    phoneNumber : cv.phone_number || "",
     address: cv.address || "",
     cvAttachmentUrl: cv.cv_file || "",
     cvFileName: cv.cv_file ? cv.cv_file.split("/").pop() : "",
@@ -87,21 +87,21 @@ export function toUi(cv) {
 // ---- API Calls ----
 export const CV = {
   list: async () => {
-    const r = await api.get("api/cv-management/cvs/");
+    const r = await api.get("/cv-management/cvs/");
     return r.data.data;
   },
   get: async (uuid) => {
-    const r = await api.get(`api/cv-management/cvs/${uuid}/`);
+    const r = await api.get(`/cv-management/cvs/${uuid}/`);
     return r.data.data;
   },
   create: async (formData) => {
-    const r = await api.post("api/cv-management/cvs/", formData, {
+    const r = await api.post("/cv-management/cvs/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return r.data.data;
   },
   update: async (uuid, formDataOrJson, isMultipart = true) => {
-    const r = await api.put(`api/cv-management/cvs/${uuid}/`, formDataOrJson, {
+    const r = await api.put(`/cv-management/cvs/${uuid}/`, formDataOrJson, {
       headers: isMultipart
         ? { "Content-Type": "multipart/form-data" }
         : undefined,
@@ -109,11 +109,11 @@ export const CV = {
     return r.data.data;
   },
   remove: async (uuid) => {
-    const r = await api.delete(`api/cv-management/cvs/${uuid}/`);
+    const r = await api.delete(`/cv-management/cvs/${uuid}/`);
     return r.data;
   },
   jobTitles: async () => {
-    const r = await api.get("api/cv-management/job-titles/");
+    const r = await api.get("/cv-management/job-titles/");
     return r.data.data || r.data;
   },
 };

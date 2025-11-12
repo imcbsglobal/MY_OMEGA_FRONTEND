@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-
+import api from "@/api/client";
 export default function LeaveRequest() {
   const employeeData = [
     { name: "Admin User", id: "ADMIN001" },
@@ -21,6 +21,7 @@ export default function LeaveRequest() {
 
   const [filteredNames, setFilteredNames] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -46,13 +47,34 @@ export default function LeaveRequest() {
     setShowDropdown(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.empId) {
       alert("⚠️ Please select a valid employee.");
       return;
     }
-    alert(`✅ Leave Request submitted for ${form.name} (${form.empId}).`);
+
+    try {
+      setLoading(true);
+      const payload = {
+        employee_name: form.name,
+        employee_id: form.empId,
+        leave_type: form.leaveType,
+        start_date: form.startDate,
+        end_date: form.endDate,
+        reason: form.reason,
+        note: form.note,
+      };
+
+await api.post("/hr/leave-requests/", payload);
+      alert("✅ Leave request submitted successfully!");
+      window.history.back();
+    } catch (err) {
+      console.error("Leave request error:", err);
+      alert("❌ Failed to submit leave request. " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,8 +109,6 @@ export default function LeaveRequest() {
                   style={styles.input}
                   required
                 />
-
-                {/* Dropdown */}
                 {showDropdown && (
                   <div style={styles.dropdown}>
                     {filteredNames.map((emp) => (
@@ -134,9 +154,8 @@ export default function LeaveRequest() {
                 >
                   <option value="">Select Type</option>
                   <option value="Full Day">Full Day</option>
-                  <option value="Half Day">Half Day</option>
-                  <option value="Sick Leave">Sick Leave</option>
-                  <option value="Other">Other</option>
+                  <option value="half">Half Day</option>
+                  {/* <option value="wfh">Work From Home</option> */}
                 </select>
               </div>
 
@@ -166,7 +185,7 @@ export default function LeaveRequest() {
             </div>
           </section>
 
-          {/* Leave Information */}
+          {/* Leave Info */}
           <section style={styles.section}>
             <h5 style={styles.sectionTitle}>Leave Information</h5>
             <div style={styles.formRow}>
@@ -196,15 +215,11 @@ export default function LeaveRequest() {
 
           {/* Buttons */}
           <div style={styles.buttonRow}>
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              style={styles.btnLight}
-            >
-              Close
+            <button type="button" onClick={() => window.history.back()} style={styles.btnLight}>
+              Cancel
             </button>
-            <button type="submit" style={styles.btnPrimary}>
-              Submit Request
+            <button type="submit" style={styles.btnPrimary} disabled={loading}>
+              {loading ? "Submitting..." : "Submit Request"}
             </button>
           </div>
         </form>

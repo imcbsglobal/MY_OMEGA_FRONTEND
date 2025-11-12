@@ -1,25 +1,39 @@
 import React, { useState } from "react";
-
+import api from "@/api/client";
 export default function EarlyRequest() {
   const [form, setForm] = useState({
     date: "",
     minutesEarly: "",
     reason: "",
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert("✅ Early request submitted successfully!");
+    try {
+      setLoading(true);
+      await api.post("early-requests/", {
+        date: form.date,
+        minutes_early: parseInt(form.minutesEarly),
+        reason: form.reason,
+      });
+      alert("✅ Early request submitted successfully!");
+      window.history.back();
+    } catch (err) {
+      console.error("Early request failed:", err);
+      alert("❌ Failed to submit early request. " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Header */}
         <div style={styles.header}>
           <h4 style={styles.title}>Early Request</h4>
           <button style={styles.backButton} onClick={() => window.history.back()}>
@@ -27,67 +41,36 @@ export default function EarlyRequest() {
           </button>
         </div>
 
-        {/* Info Banner */}
         <div style={styles.infoBanner}>
           <strong>Requesting as Admin</strong> — Your early leave request will be reviewed by the system.
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit}>
           <section style={styles.section}>
             <h5 style={styles.sectionTitle}>Early Leave Information</h5>
-
             <div style={styles.formRow}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Date *</label>
-                <input
-                  type="date"
-                  name="date"
-                  value={form.date}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
+                <input type="date" name="date" value={form.date} onChange={handleChange} required style={styles.input} />
               </div>
-
               <div style={styles.formGroup}>
                 <label style={styles.label}>Minutes Early *</label>
-                <input
-                  type="number"
-                  name="minutesEarly"
-                  value={form.minutesEarly}
-                  onChange={handleChange}
-                  placeholder="Enter minutes early"
-                  required
-                  style={styles.input}
-                />
+                <input type="number" name="minutesEarly" value={form.minutesEarly} onChange={handleChange} required style={styles.input} />
               </div>
             </div>
 
             <div style={{ ...styles.formGroup, marginTop: "20px" }}>
               <label style={styles.label}>Reason *</label>
-              <textarea
-                name="reason"
-                value={form.reason}
-                onChange={handleChange}
-                rows="3"
-                style={styles.textarea}
-                required
-              />
+              <textarea name="reason" value={form.reason} onChange={handleChange} rows="3" style={styles.textarea} required />
             </div>
           </section>
 
-          {/* Buttons */}
           <div style={styles.buttonRow}>
-            <button
-              type="button"
-              style={styles.btnLight}
-              onClick={() => window.history.back()}
-            >
+            <button type="button" style={styles.btnLight} onClick={() => window.history.back()}>
               Cancel
             </button>
-            <button type="submit" style={styles.btnPrimary}>
-              Submit Request
+            <button type="submit" style={styles.btnPrimary} disabled={loading}>
+              {loading ? "Submitting..." : "Submit Request"}
             </button>
           </div>
         </form>

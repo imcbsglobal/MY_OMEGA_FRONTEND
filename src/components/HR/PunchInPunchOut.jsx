@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
+import api from "../../api/client";
 
 const PunchinPunchout = () => {
   const [todayStatus, setTodayStatus] = useState({
@@ -13,69 +14,173 @@ const PunchinPunchout = () => {
     isOnBreak: false,
   });
 
-  const [selectedMonth, setSelectedMonth] = useState('2025-10');
+  const [selectedMonth, setSelectedMonth] = useState("2025-11");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isPunching, setIsPunching] = useState(false); // prevent double punch
 
-  // Mock data for attendance records
+  // ✅ Load today's status
+  const loadTodayStatus = async () => {
+    try {
+      const { data } = await api.get("/hr/attendance/today_status/");
+      setTodayStatus({
+        punchIn: data?.punch_in_time || null,
+        punchInLocation: data?.punch_in_location || null,
+        punchOut: data?.punch_out_time || null,
+        punchOutLocation: data?.punch_out_location || null,
+      });
+    } catch (err) {
+      console.error("❌ Failed to load today's status:", err);
+    }
+  };
+
+  // ✅ Load monthly attendance summary
+  const loadMonthlySummary = async () => {
+    try {
+      setLoading(true);
+      const [year, month] = selectedMonth.split("-");
+      const { data } = await api.get(
+        `/hr/attendance/my_records/?month=${parseInt(month)}&year=${year}`
+      );
+      setAttendanceRecords(data.records || data || []);
+    } catch (err) {
+      console.error("❌ Failed to load attendance summary:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Reverse-geocode to get human-readable address
+  const getAddressFromLocation = async (lat, lon) => {
+    try {
+      const { data } = await api.post("/hr/reverse-geocode-bigdata/", {
+        latitude: lat,
+        longitude: lon,
+      });
+      return data?.address || `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+    } catch {
+      return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+    }
+  };
+
+  // ✅ Punch In
+  const handlePunchIn = async () => {
+    if (isPunching || todayStatus.punchIn) return;
+    setIsPunching(true);
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const locationName = await getAddressFromLocation(latitude, longitude);
+          console.log("📍 Punch-In location:", locationName);
+
+          const resp = await api.post("/hr/attendance/punch_in/", {
+            latitude,
+            longitude,
+            address: locationName,
+          });
+
+          console.log("✅ Punch In Response:", resp.data);
+
+          setTodayStatus((prev) => ({
+            ...prev,
+            punchIn:
+              resp.data.punch_in_time ||
+              new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            punchInLocation:
+              resp.data.punch_in_location || locationName || "Unknown",
+          }));
+
+          await loadMonthlySummary();
+        },
+        (err) => {
+          console.error("⚠️ Location error:", err);
+          alert("Enable location services for punch-in.");
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } catch (err) {
+      console.error("❌ Punch in failed:", err);
+      alert("Punch in failed: " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setIsPunching(false);
+    }
+  };
+
+  // ✅ Punch Out
+  const handlePunchOut = async () => {
+    if (isPunching || todayStatus.punchOut || !todayStatus.punchIn) return;
+    setIsPunching(true);
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const locationName = await getAddressFromLocation(latitude, longitude);
+          console.log("📍 Punch-Out location:", locationName);
+
+          const resp = await api.post("/hr/attendance/punch_out/", {
+            latitude,
+            longitude,
+            address: locationName,
+          });
+
+          console.log("✅ Punch Out Response:", resp.data);
+
+          setTodayStatus((prev) => ({
+            ...prev,
+            punchOut:
+              resp.data.punch_out_time ||
+              new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            punchOutLocation:
+              resp.data.punch_out_location || locationName || "Unknown",
+          }));
+
+          await loadMonthlySummary();
+        },
+        (err) => {
+          console.error("⚠️ Location error:", err);
+          alert("Enable location services for punch-out.");
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } catch (err) {
+      console.error("❌ Punch out failed:", err);
+      alert("Punch out failed: " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setIsPunching(false);
+    }
+  };
+
+  // ✅ Load data on mount/month change
   useEffect(() => {
-    const mockRecords = [
-      { date: 'Oct 1, 2025', day: 'Wed', status: 'Verified Full Day', punchIn: '09:31 AM', punchOut: '05:31 PM' },
-      { date: 'Oct 2, 2025', day: 'Thu', status: 'Leave', punchIn: '--:--', punchOut: '--:--' },
-      { date: 'Oct 3, 2025', day: 'Fri', status: 'Verified Full Day', punchIn: '09:39 AM', punchOut: '05:43 PM' },
-      { date: 'Oct 4, 2025', day: 'Sat', status: 'Verified Full Day', punchIn: '09:28 AM', punchOut: '05:36 PM' },
-      { date: 'Oct 5, 2025', day: 'Sun', status: 'Holiday', punchIn: '--:--', punchOut: '--:--' },
-      { date: 'Oct 6, 2025', day: 'Mon', status: 'Verified Full Day', punchIn: '09:28 AM', punchOut: '--:--' },
-      { date: 'Oct 7, 2025', day: 'Tue', status: 'Verified Full Day', punchIn: '09:23 AM', punchOut: '05:34 PM' },
-      { date: 'Oct 8, 2025', day: 'Wed', status: 'Verified Full Day', punchIn: '09:34 AM', punchOut: '05:32 PM' },
-      { date: 'Oct 9, 2025', day: 'Thu', status: 'Half Day', punchIn: '09:26 AM', punchOut: '--:--' },
-      { date: 'Oct 10, 2025', day: 'Fri', status: 'Not Marked', punchIn: '--:--', punchOut: '--:--' },
-    ];
-    setAttendanceRecords(mockRecords);
-
-    // Mock today's status
-    setTodayStatus({
-      punchIn: '09:26 AM',
-      punchInLocation: 'Vythiri',
-      punchOut: null,
-      punchOutLocation: null,
-    });
+    loadTodayStatus();
+    loadMonthlySummary();
   }, [selectedMonth]);
 
-  const handlePunchIn = () => {
-    const now = new Date();
-    const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    setTodayStatus(prev => ({
-      ...prev,
-      punchIn: time,
-      punchInLocation: 'Vythiri',
-    }));
-  };
-
-  const handlePunchOut = () => {
-    const now = new Date();
-    const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    setTodayStatus(prev => ({
-      ...prev,
-      punchOut: time,
-      punchOutLocation: 'Vythiri',
-    }));
-  };
-
+  // ✅ Handle Break Time
   const handleBreakPunchIn = () => {
     const now = new Date();
-    const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
+    const time = now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
     if (breakStatus.isOnBreak) {
       const updatedBreaks = [...breakStatus.breaks];
       const lastBreak = updatedBreaks[updatedBreaks.length - 1];
       lastBreak.end = time;
-      
-      setBreakStatus({
-        breaks: updatedBreaks,
-        isOnBreak: false,
-      });
+      setBreakStatus({ breaks: updatedBreaks, isOnBreak: false });
     } else {
-      setBreakStatus(prev => ({
+      setBreakStatus((prev) => ({
         breaks: [...prev.breaks, { start: time, end: null }],
         isOnBreak: true,
       }));
@@ -85,36 +190,40 @@ const PunchinPunchout = () => {
   const handleBreakPunchOut = () => {
     if (breakStatus.isOnBreak) {
       const now = new Date();
-      const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      
+      const time = now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
       const updatedBreaks = [...breakStatus.breaks];
       const lastBreak = updatedBreaks[updatedBreaks.length - 1];
       lastBreak.end = time;
-      
-      setBreakStatus({
-        breaks: updatedBreaks,
-        isOnBreak: false,
-      });
+      setBreakStatus({ breaks: updatedBreaks, isOnBreak: false });
     }
   };
 
   const getStatusStyle = (status) => {
     const statusStyles = {
-      'Verified Full Day': { backgroundColor: "#d1fae5", color: "#065f46" },
-      'Full Day': { backgroundColor: "#d1fae5", color: "#065f46" },
-      'Verified Half Day': { backgroundColor: "#fef3c7", color: "#92400e" },
-      'Half Day': { backgroundColor: "#fef3c7", color: "#92400e" },
-      'Leave': { backgroundColor: "#fee2e2", color: "#991b1b" },
-      'Holiday': { backgroundColor: "#dbeafe", color: "#1e40af" },
-      'Not Marked': { backgroundColor: "#f3f4f6", color: "#374151" },
+      "Verified Full Day": { backgroundColor: "#d1fae5", color: "#065f46" },
+      "Full Day": { backgroundColor: "#d1fae5", color: "#065f46" },
+      "Verified Half Day": { backgroundColor: "#fef3c7", color: "#92400e" },
+      "Half Day": { backgroundColor: "#fef3c7", color: "#92400e" },
+      Leave: { backgroundColor: "#fee2e2", color: "#991b1b" },
+      Holiday: { backgroundColor: "#dbeafe", color: "#1e40af" },
+      "Not Marked": { backgroundColor: "#f3f4f6", color: "#374151" },
     };
-    return statusStyles[status] || { backgroundColor: "#f3f4f6", color: "#374151" };
+    return statusStyles[status] || {
+      backgroundColor: "#f3f4f6",
+      color: "#374151",
+    };
   };
 
   const handleRefresh = () => {
-    window.location.reload();
+    loadTodayStatus();
+    loadMonthlySummary();
   };
 
+  // ✅ UI
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -142,34 +251,54 @@ const PunchinPunchout = () => {
           <div style={styles.statusDetails}>
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch In:</span>
-              <span style={styles.statusValue}>{todayStatus.punchIn || 'Not punched in yet'}</span>
+              <span style={styles.statusValue}>
+                {todayStatus.punchIn || "Not punched in yet"}
+              </span>
             </div>
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch In Location:</span>
-              <span style={styles.statusValue}>{todayStatus.punchInLocation || 'Not punched in yet'}</span>
+              <span style={styles.statusValue}>
+                {todayStatus.punchInLocation || "Not punched in yet"}
+              </span>
             </div>
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch Out:</span>
-              <span style={styles.statusValue}>{todayStatus.punchOut || 'Not punched out yet'}</span>
+              <span style={styles.statusValue}>
+                {todayStatus.punchOut || "Not punched out yet"}
+              </span>
             </div>
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch Out Location:</span>
-              <span style={styles.statusValue}>{todayStatus.punchOutLocation || 'Not punched out yet'}</span>
+              <span style={styles.statusValue}>
+                {todayStatus.punchOutLocation || "Not punched out yet"}
+              </span>
             </div>
           </div>
         </div>
         <div style={styles.actionButtons}>
-          <button 
-            style={{...styles.punchInBtn, ...(todayStatus.punchIn !== null ? styles.buttonDisabled : {})}}
+          <button
+            style={{
+              ...styles.punchInBtn,
+              ...(todayStatus.punchIn !== null ? styles.buttonDisabled : {}),
+            }}
             onClick={handlePunchIn}
-            disabled={todayStatus.punchIn !== null}
+            disabled={todayStatus.punchIn !== null || isPunching}
           >
             → Punch In
           </button>
-          <button 
-            style={{...styles.punchOutBtn, ...(todayStatus.punchIn === null || todayStatus.punchOut !== null ? styles.buttonDisabled : {})}}
+          <button
+            style={{
+              ...styles.punchOutBtn,
+              ...(todayStatus.punchIn === null || todayStatus.punchOut !== null
+                ? styles.buttonDisabled
+                : {}),
+            }}
             onClick={handlePunchOut}
-            disabled={todayStatus.punchIn === null || todayStatus.punchOut !== null}
+            disabled={
+              todayStatus.punchIn === null ||
+              todayStatus.punchOut !== null ||
+              isPunching
+            }
           >
             ← Punch Out
           </button>
@@ -187,11 +316,11 @@ const PunchinPunchout = () => {
             {breakStatus.breaks.length === 0 ? (
               <div style={styles.noBreaks}>No breaks taken today</div>
             ) : (
-              breakStatus.breaks.map((breakItem, index) => (
-                <div key={index} style={styles.breakItem}>
-                  <span style={styles.breakLabel}>Break {index + 1}:</span>
+              breakStatus.breaks.map((b, i) => (
+                <div key={i} style={styles.breakItem}>
+                  <span style={styles.breakLabel}>Break {i + 1}:</span>
                   <span style={styles.breakTime}>
-                    {breakItem.start} to {breakItem.end || 'In progress...'}
+                    {b.start} to {b.end || "In progress..."}
                   </span>
                 </div>
               ))
@@ -199,15 +328,26 @@ const PunchinPunchout = () => {
           </div>
         </div>
         <div style={styles.actionButtons}>
-          <button 
-            style={{...styles.breakInBtn, ...(todayStatus.punchIn === null || todayStatus.punchOut !== null ? styles.buttonDisabled : {})}}
+          <button
+            style={{
+              ...styles.breakInBtn,
+              ...(todayStatus.punchIn === null ||
+              todayStatus.punchOut !== null
+                ? styles.buttonDisabled
+                : {}),
+            }}
             onClick={handleBreakPunchIn}
-            disabled={todayStatus.punchIn === null || todayStatus.punchOut !== null}
+            disabled={
+              todayStatus.punchIn === null || todayStatus.punchOut !== null
+            }
           >
             ☕ Break Punch In
           </button>
-          <button 
-            style={{...styles.breakOutBtn, ...(!breakStatus.isOnBreak ? styles.buttonDisabled : {})}}
+          <button
+            style={{
+              ...styles.breakOutBtn,
+              ...(!breakStatus.isOnBreak ? styles.buttonDisabled : {}),
+            }}
             onClick={handleBreakPunchOut}
             disabled={!breakStatus.isOnBreak}
           >
@@ -220,46 +360,56 @@ const PunchinPunchout = () => {
       <div style={styles.card}>
         <h3 style={styles.cardTitle}>My Attendance Records</h3>
         <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeader}>Date</th>
-                <th style={styles.tableHeader}>Day</th>
-                <th style={styles.tableHeader}>Status</th>
-                <th style={styles.tableHeader}>Punch In</th>
-                <th style={styles.tableHeader}>Punch Out</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceRecords.length === 0 ? (
-                <tr>
-                  <td colSpan="5" style={styles.noResults}>
-                    No attendance records found
-                  </td>
+          {loading ? (
+            <div style={styles.noResults}>Loading...</div>
+          ) : (
+            <table style={styles.table}>
+              <thead>
+                <tr style={styles.tableHeaderRow}>
+                  <th style={styles.tableHeader}>Date</th>
+                  <th style={styles.tableHeader}>Day</th>
+                  <th style={styles.tableHeader}>Status</th>
+                  <th style={styles.tableHeader}>Punch In</th>
+                  <th style={styles.tableHeader}>Punch Out</th>
                 </tr>
-              ) : (
-                attendanceRecords.map((record, index) => (
-                  <tr key={index} style={styles.tableRow}>
-                    <td style={styles.tableCell}>{record.date}</td>
-                    <td style={styles.tableCell}>{record.day}</td>
-                    <td style={styles.tableCell}>
-                      <span style={{...styles.statusBadge, ...getStatusStyle(record.status)}}>
-                        {record.status}
-                      </span>
+              </thead>
+              <tbody>
+                {attendanceRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={styles.noResults}>
+                      No attendance records found
                     </td>
-                    <td style={styles.tableCell}>{record.punchIn}</td>
-                    <td style={styles.tableCell}>{record.punchOut}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  attendanceRecords.map((record, index) => (
+                    <tr key={index} style={styles.tableRow}>
+                      <td style={styles.tableCell}>{record.date}</td>
+                      <td style={styles.tableCell}>{record.day}</td>
+                      <td style={styles.tableCell}>
+                        <span
+                          style={{
+                            ...styles.statusBadge,
+                            ...getStatusStyle(record.status),
+                          }}
+                        >
+                          {record.status}
+                        </span>
+                      </td>
+                      <td style={styles.tableCell}>{record.punchIn}</td>
+                      <td style={styles.tableCell}>{record.punchOut}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
+// ✅ Styles (unchanged)
 const styles = {
   container: {
     padding: "20px",
@@ -331,19 +481,9 @@ const styles = {
     marginBottom: "20px",
     border: "1px solid #e5e7eb",
   },
-  statusHeader: {
-    marginBottom: "16px",
-  },
-  statusLabel: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#374151",
-  },
-  statusDetails: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
+  statusHeader: { marginBottom: "16px" },
+  statusLabel: { fontSize: "16px", fontWeight: "600", color: "#374151" },
+  statusDetails: { display: "flex", flexDirection: "column", gap: "12px" },
   statusRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -351,16 +491,8 @@ const styles = {
     paddingBottom: "8px",
     borderBottom: "1px solid #e5e7eb",
   },
-  statusValue: {
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#111827",
-  },
-  breakDetails: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
+  statusValue: { fontSize: "14px", fontWeight: "500", color: "#111827" },
+  breakDetails: { display: "flex", flexDirection: "column", gap: "8px" },
   breakItem: {
     display: "flex",
     justifyContent: "space-between",
@@ -370,11 +502,7 @@ const styles = {
     borderRadius: "6px",
     borderLeft: "4px solid #ffa726",
   },
-  breakLabel: {
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#6b7280",
-  },
+  breakLabel: { fontSize: "14px", fontWeight: "500", color: "#6b7280" },
   breakTime: {
     fontSize: "14px",
     fontWeight: "600",
@@ -432,22 +560,14 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
   },
-  buttonDisabled: {
-    opacity: 0.5,
-    cursor: "not-allowed",
-  },
+  buttonDisabled: { opacity: 0.5, cursor: "not-allowed" },
   tableContainer: {
     borderRadius: "8px",
     overflow: "hidden",
     border: "1px solid #e5e7eb",
   },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
-  tableHeaderRow: {
-    backgroundColor: "#f3f4f6",
-  },
+  table: { width: "100%", borderCollapse: "collapse" },
+  tableHeaderRow: { backgroundColor: "#f3f4f6" },
   tableHeader: {
     padding: "12px 16px",
     textAlign: "left",
@@ -457,14 +577,8 @@ const styles = {
     textTransform: "uppercase",
     borderBottom: "2px solid #e5e7eb",
   },
-  tableRow: {
-    borderBottom: "1px solid #e5e7eb",
-  },
-  tableCell: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    color: "#374151",
-  },
+  tableRow: { borderBottom: "1px solid #e5e7eb" },
+  tableCell: { padding: "12px 16px", fontSize: "14px", color: "#374151" },
   statusBadge: {
     padding: "4px 12px",
     borderRadius: "12px",

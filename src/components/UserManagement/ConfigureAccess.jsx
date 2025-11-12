@@ -30,7 +30,7 @@ export default function ConfigureAccess() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const treeRes = await api.get("/api/user-controll/admin/menu-tree/");
+        const treeRes = await api.get("/user-controll/admin/menu-tree/");
         const formatted = treeRes.data.map((menu) => ({
           id: menu.id,
           title: menu.name || menu.title || "Untitled Menu",
@@ -43,7 +43,7 @@ export default function ConfigureAccess() {
         setMenuStructure(formatted.length > 0 ? formatted : menuList);
 
         const userRes = await api.get(
-          `/api/user-controll/admin/user/${id}/menus/`
+          `/user-controll/admin/user/${id}/menus/`
         );
         const savedIds = userRes.data.menu_ids || [];
         const initialChecked = {};
@@ -98,7 +98,7 @@ export default function ConfigureAccess() {
 
     try {
       const res = await api.post(
-        `/api/user-controll/admin/user/${id}/menus/`,
+        `/user-controll/admin/user/${id}/menus/`,
         payload
       );
       console.log("✅ Response:", res.data);

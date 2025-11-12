@@ -142,7 +142,7 @@ function App() {
           <Route path="my-menu" element={<MyMenu />} />
 
           {/* ✅ Catch-all → redirect to Dashboard */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
         </Route>
       </Routes>
     </Router>

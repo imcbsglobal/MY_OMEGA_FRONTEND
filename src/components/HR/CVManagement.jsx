@@ -15,6 +15,7 @@ export default function CVManagement() {
     (async () => {
       try {
         const data = await CV.list();
+        console.log("Fetched CV data:", data);
         setCvs(data.map(toUi));
       } catch (e) {
         console.error("Error loading CVs", e);
