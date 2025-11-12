@@ -1,3 +1,4 @@
+// src/components/UserManagement/ConfigureAccess.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -12,7 +13,7 @@ import {
   FaTools,
   FaChartBar,
 } from "react-icons/fa";
-import api from "../../api/client"; // ✅ Axios client (already configured)
+import api from "../../api/client";
 import menuList from "../../constants/menuList";
 
 export default function ConfigureAccess() {
@@ -23,17 +24,13 @@ export default function ConfigureAccess() {
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState({});
   const [openMenu, setOpenMenu] = useState(null);
-  const [openSubMenu, setOpenSubMenu] = useState(null);
 
-  // ✅ Fetch both menu tree and user's saved menus
+  // ✅ Fetch menu tree and assigned menus
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1️⃣ Fetch menu tree
-        const treeRes = await api.get("user-controll/admin/menu-tree/");
-        console.log("Fetched menu tree:", treeRes.data);
-
+        const treeRes = await api.get("/api/user-controll/admin/menu-tree/");
         const formatted = treeRes.data.map((menu) => ({
           id: menu.id,
           title: menu.name || menu.title || "Untitled Menu",
@@ -45,15 +42,13 @@ export default function ConfigureAccess() {
         }));
         setMenuStructure(formatted.length > 0 ? formatted : menuList);
 
-        // 2️⃣ Fetch saved menu IDs for this user
-        const userRes = await api.get(`user-controll/admin/user/${id}/menus/`);
+        const userRes = await api.get(
+          `/api/user-controll/admin/user/${id}/menus/`
+        );
         const savedIds = userRes.data.menu_ids || [];
-        console.log("✅ Saved menu IDs:", savedIds);
-
-        // 3️⃣ Initialize check state
         const initialChecked = {};
         savedIds.forEach((mid) => {
-          initialChecked[mid] = { main: true };
+          initialChecked[mid] = { main: true, view: true, edit: true, delete: true };
         });
         setChecked(initialChecked);
       } catch (error) {
@@ -68,71 +63,65 @@ export default function ConfigureAccess() {
     fetchData();
   }, [id]);
 
-  // ✅ Toggle submenu checkbox
-  const toggleSubMenu = (id) => {
+  // ✅ Toggle menu (main checkbox)
+  const toggleSubMenu = (menuId) =>
     setChecked((prev) => ({
       ...prev,
-      [id]: {
-        ...prev[id],
-        main: !prev[id]?.main,
-      },
+      [menuId]: { ...prev[menuId], main: !prev[menuId]?.main },
     }));
-  };
 
-  // ✅ Toggle inner actions (View/Edit/Delete)
-  const toggleAction = (id, action) => {
+  // ✅ Toggle view/edit/delete options
+  const toggleAction = (menuId, action) =>
     setChecked((prev) => ({
       ...prev,
-      [id]: {
-        ...prev[id],
-        [action]: !prev[id]?.[action],
-      },
+      [menuId]: { ...prev[menuId], [action]: !prev[menuId]?.[action] },
     }));
-  };
 
-  // ✅ Save permissions (includes View/Edit/Delete)
+  // ✅ Save only menu_ids to backend
   const handleSave = async () => {
-    if (!id || id === "default" || isNaN(Number(id))) {
+    if (!id || isNaN(Number(id))) {
       alert("⚠️ Invalid user ID.");
       return;
     }
 
-    // Convert checked items to full permission objects
-    const formattedPermissions = Object.entries(checked).map(([menuId, perms]) => ({
-      menu_id: Number(menuId),
-      view: perms.view || false,
-      edit: perms.edit || false,
-      delete: perms.delete || false,
-      main: perms.main || false,
-    }));
+    // collect menu IDs that have main checked
+    const selectedMenuIds = Object.keys(checked)
+      .filter((mid) => checked[mid]?.main)
+      .map((mid) => Number(mid));
 
-    console.log("📤 Sending to backend:", { user_id: id, permissions: formattedPermissions });
+    if (selectedMenuIds.length === 0) {
+      alert("⚠️ Please select at least one menu.");
+      return;
+    }
+
+    const payload = { menu_ids: selectedMenuIds };
 
     try {
-      const res = await api.post(`user-controll/admin/user/${id}/menus/`, {
-        permissions: formattedPermissions,
-      });
+      const res = await api.post(
+        `/api/user-controll/admin/user/${id}/menus/`,
+        payload
+      );
       console.log("✅ Response:", res.data);
-      alert("✅ Permissions saved successfully!");
+      alert("✅ Menu access saved successfully!");
     } catch (error) {
-      console.error("❌ Error saving access:", error);
-      alert("❌ Failed to save permissions. Check backend logs.");
+      console.error("❌ Error saving access:", error.response?.data || error.message);
+      alert(
+        JSON.stringify(
+          error.response?.data || "❌ Failed to save permissions.",
+          null,
+          2
+        )
+      );
     }
   };
 
-  // ✅ Loading UI
   if (loading)
-    return <p style={{ textAlign: "center", padding: "20px" }}>Loading menu data...</p>;
-
-  // ✅ Fallback UI
-  if (!menuStructure || menuStructure.length === 0)
     return (
-      <p style={{ textAlign: "center", padding: "20px", color: "red" }}>
-        No menu data found.
+      <p style={{ textAlign: "center", padding: "20px" }}>
+        Loading menu data...
       </p>
     );
 
-  // ✅ Icons mapping
   const iconMap = {
     Dashboard: <FaHome />,
     Administration: <FaUserCog />,
@@ -146,47 +135,34 @@ export default function ConfigureAccess() {
     Master: <FaTools />,
   };
 
-  // ✅ UI Render
   return (
-    <div
-      style={{
-        padding: "25px",
-        background: "#f3f4f6",
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
+    <div style={{ padding: "25px", background: "#f3f4f6", minHeight: "100vh" }}>
       <div
         style={{
           width: "100%",
           maxWidth: "1100px",
-          background: "#ffffff",
+          background: "#fff",
           borderRadius: "12px",
           padding: "25px",
+          margin: "0 auto",
           boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
-          border: "1px solid #e5e7eb",
         }}
       >
-        {/* Back Button */}
         <button
           onClick={() => navigate("/user-control")}
           style={{
             padding: "8px 16px",
             background: "#1f2937",
             color: "#fff",
-            fontSize: "13px",
             borderRadius: "6px",
             border: "none",
             cursor: "pointer",
             marginBottom: "18px",
-            fontWeight: "600",
           }}
         >
           ← Back
         </button>
 
-        {/* Header */}
         <div
           style={{
             background: "#2563eb",
@@ -202,7 +178,6 @@ export default function ConfigureAccess() {
           Configure Menu Access for USER #{id}
         </div>
 
-        {/* Menu List */}
         {menuStructure.map((block, idx) => (
           <div
             key={block.id || idx}
@@ -214,7 +189,6 @@ export default function ConfigureAccess() {
               overflow: "hidden",
             }}
           >
-            {/* Section Header */}
             <div
               onClick={() => setOpenMenu(openMenu === idx ? null : idx)}
               style={{
@@ -236,10 +210,9 @@ export default function ConfigureAccess() {
               <span style={{ color: "#2563eb" }}>{openMenu === idx ? "▲" : "▼"}</span>
             </div>
 
-            {/* Submenus */}
             {openMenu === idx &&
               block.children?.map((child) => (
-                <div key={child.id} style={{ background: "#fff" }}>
+                <div key={child.id}>
                   <div
                     style={{
                       display: "flex",
@@ -252,7 +225,6 @@ export default function ConfigureAccess() {
                       borderBottom: "1px solid #f3f4f6",
                     }}
                   >
-                    {/* ✅ Main Submenu Checkbox */}
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <input
                         type="checkbox"
@@ -263,7 +235,6 @@ export default function ConfigureAccess() {
                       {child.title}
                     </div>
 
-                    {/* ✅ View/Edit/Delete Options */}
                     <div style={{ display: "flex", gap: "15px", color: "#374151" }}>
                       {["view", "edit", "delete"].map((action) => (
                         <label
@@ -291,7 +262,6 @@ export default function ConfigureAccess() {
           </div>
         ))}
 
-        {/* Save Button */}
         <div style={{ textAlign: "center", marginTop: "20px" }}>
           <button
             onClick={handleSave}

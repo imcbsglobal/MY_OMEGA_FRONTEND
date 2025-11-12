@@ -94,8 +94,8 @@ export default function UserControl() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await api.get("user-controll/admin/users/");
-        setUsers(res.data); // set backend data to dropdown
+        const res = await api.get("/api/user-controll/admin/users/"); // ✅ Fixed endpoint
+        setUsers(res.data);
       } catch (error) {
         console.error("Error fetching users:", error);
       } finally {

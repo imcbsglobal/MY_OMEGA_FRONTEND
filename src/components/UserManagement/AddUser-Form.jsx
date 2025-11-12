@@ -1,43 +1,79 @@
 import React, { useState, useEffect } from "react";
+import api from "../../api/client"; // ✅ axios instance
+import { toast } from "react-toastify";
 
 export default function AddUserForm({ onCancel, onSave, editData }) {
   const [formData, setFormData] = useState({
     fullName: "",
-    userId: "", // email field
+    userId: "",
     password: "",
     branch: "",
     userLevel: "User",
     phoneNumber: "",
     status: "Active",
-    photo: "https://i.pravatar.cc/40",
   });
 
-  // ✅ Prefill form when editing
+  // ✅ Prefill when editing
   useEffect(() => {
     if (editData) {
       setFormData({
         fullName: editData.name || "",
         userId: editData.email || "",
-        password: "", // do not prefill password for security
+        password: "",
         branch: editData.branch || "",
         userLevel: editData.user_level || "User",
         phoneNumber: editData.phone_number || "",
         status: editData.is_active ? "Active" : "Inactive",
-        photo: editData.photo || "https://i.pravatar.cc/40",
       });
     }
   }, [editData]);
 
-  // ✅ Handle input change
+  // ✅ Input handler
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Submit handler
-  const handleSubmit = (e) => {
+  // ✅ Submit handler (with confirm_password + no photo)
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(formData);
+
+    // 🔹 Password validation for new users
+    if (!editData && !formData.password?.trim()) {
+      alert("Please enter a password before creating a new user.");
+      return;
+    }
+
+    try {
+      const payload = {
+        name: formData.fullName,
+        username: formData.userId,
+        email: formData.userId,
+        password: formData.password,
+        confirm_password: formData.password,
+        branch: formData.branch,
+        user_level: formData.userLevel,
+        phone_number: formData.phoneNumber,
+        is_active: formData.status === "Active",
+      };
+
+      const url = editData
+        ? `/api/users/${editData.id}/`
+        : `/api/users/`;
+
+      const res = editData
+        ? await api.patch(url, payload)
+        : await api.post(url, payload);
+
+      // 🔹 Success message
+      alert(editData ? "✅ User updated successfully!" : "🎉 User added successfully!");
+      toast.success(editData ? "User updated successfully!" : "User added successfully!");
+
+      onSave && onSave(res.data);
+    } catch (error) {
+      console.error("User save failed:", error.response?.data || error.message);
+      alert(JSON.stringify(error.response?.data || error.message, null, 2));
+    }
   };
 
   return (
@@ -92,7 +128,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
                 onChange={handleChange}
                 style={styles.input}
                 autoComplete="new-password"
-                required={!editData} // ✅ only required when adding new user
+                required={!editData}
               />
             </div>
 
@@ -107,8 +143,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
                 required
               >
                 <option value="">Select Branch</option>
-                <option>IMC</option>
-                <option>SYSMAC</option>
+                <option>MAIN</option>
               </select>
             </div>
 
@@ -142,11 +177,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
 
           {/* Footer */}
           <div style={styles.footer}>
-            <button
-              type="button"
-              onClick={onCancel}
-              style={styles.cancelBtn}
-            >
+            <button type="button" onClick={onCancel} style={styles.cancelBtn}>
               Cancel
             </button>
             <button type="submit" style={styles.saveBtn}>
@@ -159,7 +190,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
   );
 }
 
-// ✅ Styles
+// ✅ Styles (unchanged)
 const styles = {
   container: {
     padding: "24px",

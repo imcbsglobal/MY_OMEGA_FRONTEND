@@ -15,14 +15,13 @@ export default function AddUser() {
 
   async function fetchUsers() {
     try {
-      const res = await api.get("api/users/"); // GET /api/users/
+      const res = await api.get("/api/users/"); // ✅ fixed
       setUsers(res.data);
     } catch (e) {
       console.error("Error fetching users:", e.response?.data || e.message);
     }
   }
 
-  // ✅ CREATE / UPDATE user
   const saveUser = async (form) => {
     const isEditing = !!editingUser;
 
@@ -35,7 +34,6 @@ export default function AddUser() {
       is_active: form.status === "Active",
     };
 
-    // ✅ Create → password required
     if (!isEditing) {
       if (!form.password?.trim()) {
         alert("⚠️ Password is required for new users.");
@@ -45,24 +43,17 @@ export default function AddUser() {
       payload.confirm_password = form.password;
     }
 
-    // ✅ Update → include password only if entered
     if (isEditing && form.password?.trim()) {
       payload.password = form.password;
       payload.confirm_password = form.password;
     }
 
-    // 🚫 Prevent sending empty password key
-    if (!payload.password) delete payload.password;
-    if (!payload.confirm_password) delete payload.confirm_password;
-
     try {
       if (isEditing) {
-        const res = await api.patch(`users/${editingUser.id}/`, payload);
-        console.log("✅ Updated user:", res.data);
+        const res = await api.patch(`/api/users/${editingUser.id}/`, payload); // ✅ fixed
         alert("✅ User updated successfully!");
       } else {
-        const res = await api.post("users/", payload);
-        console.log("✅ Created user:", res.data);
+        const res = await api.post("/api/users/", payload); // ✅ fixed
         alert("✅ User added successfully!");
       }
 
@@ -71,20 +62,14 @@ export default function AddUser() {
       setShowForm(false);
     } catch (e) {
       console.error("❌ Save failed:", e.response?.data || e.message);
-      const err = e.response?.data;
-
-      if (err?.email?.[0]?.includes("already exists"))
-        alert("❌ Email already exists. Try another one.");
-      else if (err?.password)
-        alert("❌ Invalid or missing password.");
-      else alert("❌ Save failed. Check console for details.");
+      alert("❌ Save failed. Check console for details.");
     }
   };
 
   const deleteUser = async (id) => {
     if (!window.confirm("Delete this user?")) return;
     try {
-      await api.delete(`users/${id}/`);
+      await api.delete(`/api/users/${id}/`); // ✅ fixed
       await fetchUsers();
       alert("✅ User deleted successfully!");
     } catch (e) {

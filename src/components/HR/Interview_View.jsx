@@ -1,109 +1,279 @@
-// src/pages/Interview_View.jsx
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { FaStar } from "react-icons/fa";
 import api from "../../api/client";
+import { toast } from "react-toastify";
 
 export default function Interview_View() {
-  const navigate = useNavigate();
   const { id } = useParams();
-  const [interviewData, setInterviewData] = useState(null);
+  const navigate = useNavigate();
+
+  const [interview, setInterview] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Ratings
+  const [ratings, setRatings] = useState({
+    appearance: 0,
+    knowledge: 0,
+    confidence: 0,
+    attitude: 0,
+    communication: 0,
+  });
+
+  // Form fields
+  const [languages, setLanguages] = useState([]);
+  const [expectedSalary, setExpectedSalary] = useState("");
+  const [experience, setExperience] = useState("");
   const [remark, setRemark] = useState("");
 
+  // Voice Note Recording
+  const [recording, setRecording] = useState(false);
+  const [audioURL, setAudioURL] = useState(null);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const mediaRecorderRef = useRef(null);
+
+  const languageList = ["English", "Malayalam", "Tamil", "Hindi"];
+
+  // Fetch Interview and Evaluation Data
   useEffect(() => {
-    const fetchInterview = async () => {
+    const fetchData = async () => {
       try {
         const res = await api.get(`/api/interview-management/${id}/`);
-        setInterviewData(res.data.data);
-        setStatus(res.data.data.status);
-      } catch (err) {
-        console.error("Error loading interview:", err);
-        alert("Failed to load interview data!");
-        navigate("/interview-management");
+        const data = res.data.data;
+        setInterview(data);
+
+        if (data.evaluation) {
+          setRatings({
+            appearance: data.evaluation.appearance || 0,
+            knowledge: data.evaluation.knowledge || 0,
+            confidence: data.evaluation.confidence || 0,
+            attitude: data.evaluation.attitude || 0,
+            communication: data.evaluation.communication || 0,
+          });
+          setLanguages(
+            data.evaluation.languages
+              ? data.evaluation.languages.split(",").map((l) => l.trim())
+              : []
+          );
+          setExpectedSalary(data.evaluation.expected_salary || "");
+          setExperience(data.evaluation.experience || "");
+          setRemark(data.evaluation.remark || "");
+          if (data.evaluation.voice_note) {
+            setAudioURL(data.evaluation.voice_note);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching interview:", error);
+        toast.error("Failed to load interview data!");
       } finally {
         setLoading(false);
       }
     };
-    fetchInterview();
-  }, [id, navigate]);
+    fetchData();
+  }, [id]);
 
-  const handleStatusUpdate = async () => {
+  // Handle star click
+  const handleStarClick = (field, value) =>
+    setRatings((prev) => ({ ...prev, [field]: value }));
+
+  const handleLanguageToggle = (lang) => {
+    setLanguages((prev) =>
+      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
+    );
+  };
+
+  // 🎤 Start Recording
+  const startRecording = async () => {
     try {
-      const res = await api.patch(
-        `/api/interview-management/${id}/update-status/`,
-        { status, remark }
-      );
-      alert(res.data.message || "Status updated successfully!");
-      setInterviewData(res.data.data);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks = [];
+
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "audio/mp3" });
+        const audioUrl = URL.createObjectURL(blob);
+        setAudioURL(audioUrl);
+        setAudioBlob(blob);
+      };
+
+      mediaRecorder.start();
+      setRecording(true);
+      mediaRecorderRef.current = mediaRecorder;
     } catch (error) {
-      console.error("Error updating status:", error);
-      alert("Failed to update interview status!");
+      console.error("Microphone access denied:", error);
+      toast.error("Please allow microphone access to record voice note.");
     }
   };
 
-  if (loading) {
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+    }
+  };
+
+  // 💾 Submit Evaluation
+  const handleSubmit = async () => {
+    if (!interview) return;
+    setIsSubmitting(true);
+
+    const formData = new FormData();
+    formData.append("appearance", ratings.appearance);
+    formData.append("knowledge", ratings.knowledge);
+    formData.append("confidence", ratings.confidence);
+    formData.append("attitude", ratings.attitude);
+    formData.append("communication", ratings.communication);
+    formData.append("languages", languages.join(", "));
+    formData.append("expected_salary", expectedSalary);
+    formData.append("experience", experience);
+    formData.append("remark", remark);
+
+    if (audioBlob) formData.append("voice_note", audioBlob, "voice_note.mp3");
+
+    try {
+      const res = await api.post(
+        `/api/interview-management/${id}/evaluation/`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      toast.success(res.data.message || "Evaluation saved successfully!");
+      navigate("/interview-management");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save evaluation. Please try again!");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (loading)
     return (
-      <div style={{ ...styles.container, textAlign: "center" }}>
-        <p style={{ fontSize: "18px", color: "#6b7280" }}>
-          Loading interview details...
-        </p>
+      <div style={{ textAlign: "center", padding: "40px" }}>
+        <p>Loading Candidate Rating...</p>
       </div>
     );
-  }
 
-  if (!interviewData) return null;
+  const candidate = interview?.candidate || {};
 
   return (
     <div style={styles.container}>
-      <div style={styles.viewCard}>
-        <div style={styles.header}>
-          <h2 style={styles.title}>Interview Details</h2>
-          <button onClick={() => navigate("/interview-management")} style={styles.backButton}>
-            ← Back to List
-          </button>
+      <h2 style={styles.heading}>CANDIDATE RATING</h2>
+
+      <div style={styles.card}>
+        {/* Candidate Info */}
+        <div style={{ marginBottom: "15px" }}>
+          <p>
+            <strong>Name:</strong> {candidate.name} <br />
+            <strong>Job Title:</strong> {candidate.job_title_name} <br />
+            <strong>Email:</strong> {candidate.email}
+          </p>
         </div>
 
-        <div style={styles.viewGrid}>
-          <div style={styles.viewField}>
-            <span style={styles.viewLabel}>Name</span>
-            <span style={styles.viewValue}>{interviewData.candidate?.name}</span>
-          </div>
-          <div style={styles.viewField}>
-            <span style={styles.viewLabel}>Email</span>
-            <span style={styles.viewValue}>{interviewData.candidate?.email}</span>
-          </div>
-          <div style={styles.viewField}>
-            <span style={styles.viewLabel}>Job Title</span>
-            <span style={styles.viewValue}>
-              {interviewData.candidate?.job_title_name}
-            </span>
-          </div>
-          <div style={styles.viewField}>
-            <span style={styles.viewLabel}>Status</span>
-            <span style={styles.viewValue}>{interviewData.status}</span>
+        {/* Ratings */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>⭐ RATE THE CANDIDATE</h3>
+          <div style={styles.ratingGrid}>
+            {Object.entries(ratings).map(([key, value]) => (
+              <div key={key} style={styles.ratingItem}>
+                <span style={styles.label}>
+                  {key.charAt(0).toUpperCase() + key.slice(1)}:
+                </span>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <FaStar
+                    key={star}
+                    size={18}
+                    color={star <= value ? "#facc15" : "#d1d5db"}
+                    style={{ marginRight: 3, cursor: "pointer" }}
+                    onClick={() => handleStarClick(key, star)}
+                  />
+                ))}
+              </div>
+            ))}
           </div>
         </div>
 
-        <div style={styles.viewFooter}>
-          <h3>Update Status</h3>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            style={styles.select}
-          >
-            <option value="pending">Pending</option>
-            <option value="selected">Selected</option>
-            <option value="rejected">Rejected</option>
-          </select>
+        {/* Languages */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>🗣️ LANGUAGES KNOWN</h3>
+          <div style={styles.languageGrid}>
+            {["English", "Malayalam", "Tamil", "Hindi"].map((lang) => (
+              <div key={lang} style={styles.languageItem}>
+                <input
+                  type="checkbox"
+                  checked={languages.includes(lang)}
+                  onChange={() => handleLanguageToggle(lang)}
+                />
+                <input type="text" value={lang} readOnly style={styles.languageInput} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Other Details */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>📋 OTHER DETAILS</h3>
+          <label style={styles.label}>Expected Salary:</label>
+          <input
+            style={styles.input}
+            value={expectedSalary}
+            onChange={(e) => setExpectedSalary(e.target.value)}
+          />
+          <label style={styles.label}>Experience:</label>
+          <input
+            style={styles.input}
+            value={experience}
+            onChange={(e) => setExperience(e.target.value)}
+          />
+          <label style={styles.label}>Remarks:</label>
           <textarea
+            style={styles.textarea}
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
-            placeholder="Add remark..."
-            style={styles.textarea}
           />
-          <button onClick={handleStatusUpdate} style={styles.updateBtn}>
-            Update
+        </div>
+
+        {/* 🎤 Voice Note Section */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>🎤 VOICE NOTE</h3>
+          <div style={styles.voiceRow}>
+            {!recording ? (
+              <button
+                onClick={startRecording}
+                style={{ ...styles.btn, backgroundColor: "#16a34a" }}
+              >
+                🎙️ Start Recording
+              </button>
+            ) : (
+              <button
+                onClick={stopRecording}
+                style={{ ...styles.btn, backgroundColor: "#dc2626" }}
+              >
+                ⏹️ Stop Recording
+              </button>
+            )}
+          </div>
+
+          {audioURL && (
+            <div style={{ marginTop: "12px" }}>
+              <audio controls src={audioURL} style={{ width: "100%" }} />
+            </div>
+          )}
+        </div>
+
+        {/* Submit */}
+        <div style={{ textAlign: "right", marginTop: "20px" }}>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            style={{
+              ...styles.btn,
+              backgroundColor: isSubmitting ? "#9ca3af" : "#15803d",
+              padding: "8px 24px",
+            }}
+          >
+            {isSubmitting ? "Saving..." : "Submit"}
           </button>
         </div>
       </div>
@@ -111,124 +281,84 @@ export default function Interview_View() {
   );
 }
 
+// ===== Styles =====
 const styles = {
   container: {
-    padding: "24px",
     backgroundColor: "#f9fafb",
     minHeight: "100vh",
+    padding: "30px",
   },
-  viewCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "32px",
-    maxWidth: "1000px",
-    margin: "0 auto",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "32px",
-    paddingBottom: "20px",
-    borderBottom: "2px solid #e5e7eb",
-  },
-  title: {
-    fontSize: "28px",
+  heading: {
+    textAlign: "center",
+    fontSize: "22px",
     fontWeight: "700",
     color: "#111827",
-    margin: 0,
+    marginBottom: "20px",
   },
-  headerActions: {
-    display: "flex",
-    gap: "12px",
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: "12px",
+    padding: "30px",
+    maxWidth: "900px",
+    margin: "0 auto",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
-  backButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
+  section: { marginBottom: "25px" },
+  sectionTitle: {
+    fontSize: "16px",
+    fontWeight: "700",
+    color: "#1e3a8a",
+    marginBottom: "15px",
   },
-  editButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  viewGrid: {
+  ratingGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "24px",
-    marginBottom: "24px",
+    rowGap: "12px",
   },
-  viewField: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    padding: "16px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "8px",
-    border: "1px solid #e5e7eb",
-  },
-  viewLabel: {
-    fontSize: "12px",
+  ratingItem: { display: "flex", alignItems: "center" },
+  label: {
     fontWeight: "600",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  viewValue: {
-    fontSize: "15px",
     color: "#111827",
-    fontWeight: "500",
-  },
-  statusBadge: {
-    padding: "6px 14px",
-    borderRadius: "12px",
-    fontSize: "13px",
-    fontWeight: "600",
-    display: "inline-block",
-    width: "fit-content",
-  },
-  viewCvBtn: {
-    padding: "8px 14px",
+    width: "120px",
     fontSize: "14px",
-    fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "#eff6ff",
-    border: "1px solid #bfdbfe",
+  },
+  languageGrid: { display: "flex", flexWrap: "wrap", gap: "12px" },
+  languageItem: { display: "flex", alignItems: "center", gap: "6px" },
+  languageInput: {
+    padding: "6px 10px",
+    border: "1px solid #e5e7eb",
     borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    width: "fit-content",
-    textAlign: "left",
+    width: "130px",
+    backgroundColor: "#fff",
   },
-  viewFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginTop: "32px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e5e7eb",
-  },
-  closeBtn: {
-    padding: "12px 24px",
+  input: {
+    width: "100%",
+    padding: "10px",
+    borderRadius: "6px",
+    border: "1px solid #e5e7eb",
     fontSize: "14px",
+    marginBottom: "10px",
+  },
+  textarea: {
+    width: "100%",
+    padding: "10px",
+    borderRadius: "6px",
+    border: "1px solid #e5e7eb",
+    fontSize: "14px",
+    minHeight: "80px",
+  },
+  btn: {
+    border: "none",
+    borderRadius: "6px",
+    color: "#fff",
     fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
+    padding: "8px 18px",
     cursor: "pointer",
-    transition: "all 0.2s",
+    transition: "0.2s",
+  },
+  voiceRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
   },
 };
