@@ -109,12 +109,12 @@ export default function UserControl() {
 
   return (
     <div style={styles.page}>
-      <button
+      {/* <button
         style={styles.topButton}
         onClick={() => navigate("/configure-access/default")}
       >
         Set Default Menus
-      </button>
+      </button> */}
 
       <div style={styles.card}>
         <div style={styles.header}>Select User for Menu Control</div>

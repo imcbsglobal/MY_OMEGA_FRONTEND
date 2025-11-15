@@ -2,6 +2,24 @@ import React, { useState, useEffect } from "react";
 import api from "../../api/client";
 
 const PunchinPunchout = () => {
+
+ const toIST12 = (utc) => {
+  if (!utc) return null;
+
+  const d = new Date(utc);
+  if (isNaN(d.getTime())) return null;
+
+  return d.toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+};
+
+
+
   const [todayStatus, setTodayStatus] = useState({
     punchIn: null,
     punchInLocation: null,
@@ -13,6 +31,18 @@ const PunchinPunchout = () => {
     breaks: [],
     isOnBreak: false,
   });
+  const formatToIST12 = (utcString) => {
+  if (!utcString) return null;
+  const date = new Date(utcString);
+  return date.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+};
+
 
   const [selectedMonth, setSelectedMonth] = useState("2025-11");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -23,12 +53,13 @@ const PunchinPunchout = () => {
   const loadTodayStatus = async () => {
     try {
       const { data } = await api.get("/hr/attendance/today_status/");
-      setTodayStatus({
-        punchIn: data?.punch_in_time || null,
-        punchInLocation: data?.punch_in_location || null,
-        punchOut: data?.punch_out_time || null,
-        punchOutLocation: data?.punch_out_location || null,
-      });
+     setTodayStatus({
+      punchIn: formatToIST12(data?.punch_in_time),
+      punchInLocation: data?.punch_in_location || null,
+      punchOut: formatToIST12(data?.punch_out_time),
+      punchOutLocation: data?.punch_out_location || null,
+    });
+
     } catch (err) {
       console.error("❌ Failed to load today's status:", err);
     }
@@ -78,7 +109,7 @@ const PunchinPunchout = () => {
           const resp = await api.post("/hr/attendance/punch_in/", {
             latitude,
             longitude,
-            address: locationName,
+            location: locationName,
           });
 
           console.log("✅ Punch In Response:", resp.data);
@@ -87,10 +118,15 @@ const PunchinPunchout = () => {
             ...prev,
             punchIn:
               resp.data.punch_in_time ||
-              new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
+            new Date().toLocaleTimeString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+          }),
+
+
             punchInLocation:
               resp.data.punch_in_location || locationName || "Unknown",
           }));
@@ -122,12 +158,13 @@ const PunchinPunchout = () => {
           const { latitude, longitude } = pos.coords;
           const locationName = await getAddressFromLocation(latitude, longitude);
           console.log("📍 Punch-Out location:", locationName);
-
-          const resp = await api.post("/hr/attendance/punch_out/", {
+        const resp = await api.post("/hr/attendance/punch_out/", {
             latitude,
             longitude,
-            address: locationName,
-          });
+            location: locationName,   // ✔ correct key
+        });
+
+
 
           console.log("✅ Punch Out Response:", resp.data);
 
@@ -135,10 +172,12 @@ const PunchinPunchout = () => {
             ...prev,
             punchOut:
               resp.data.punch_out_time ||
-              new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
+             new Date().toLocaleTimeString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+
             punchOutLocation:
               resp.data.punch_out_location || locationName || "Unknown",
           }));
@@ -168,11 +207,13 @@ const PunchinPunchout = () => {
   // ✅ Handle Break Time
   const handleBreakPunchIn = () => {
     const now = new Date();
-    const time = now.toLocaleTimeString("en-US", {
+   const time = now.toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
     });
+
 
     if (breakStatus.isOnBreak) {
       const updatedBreaks = [...breakStatus.breaks];
@@ -261,12 +302,13 @@ const PunchinPunchout = () => {
                 {todayStatus.punchInLocation || "Not punched in yet"}
               </span>
             </div>
-            <div style={styles.statusRow}>
-              <span style={styles.statusLabel}>Punch Out:</span>
-              <span style={styles.statusValue}>
-                {todayStatus.punchOut || "Not punched out yet"}
-              </span>
-            </div>
+                    <div style={styles.statusRow}>
+          <span style={styles.statusLabel}>Punch Out:</span>
+          <span style={styles.statusValue}>
+            {todayStatus.punchOut || "Not punched out yet"}
+          </span>
+        </div>
+
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch Out Location:</span>
               <span style={styles.statusValue}>
@@ -395,8 +437,15 @@ const PunchinPunchout = () => {
                           {record.status}
                         </span>
                       </td>
-                      <td style={styles.tableCell}>{record.punchIn}</td>
-                      <td style={styles.tableCell}>{record.punchOut}</td>
+                          <td style={styles.tableCell}>
+                      {formatToIST12(record.punch_in || record.punch_in_time)}
+                    </td>
+
+                    <td style={styles.tableCell}>
+                      {formatToIST12(record.punch_out || record.punch_out_time)}
+                    </td>
+
+
                     </tr>
                   ))
                 )}

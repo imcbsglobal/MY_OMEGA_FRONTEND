@@ -1,11 +1,16 @@
 import React, { useState } from "react";
-import api from "@/api/client";
+import { useNavigate } from "react-router-dom";
+import api from "../../../api/client";
+
 export default function LateRequest() {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     date: "",
     minutesLate: "",
     reason: "",
   });
+
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -14,18 +19,28 @@ export default function LateRequest() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       setLoading(true);
-      await api.post("late-requests/", {
+
+      const payload = {
         date: form.date,
-        minutes_late: parseInt(form.minutesLate),
+        late_by_minutes: parseInt(form.minutesLate),
         reason: form.reason,
-      });
+      };
+
+      console.log("Payload:", payload);
+
+      await api.post("/hr/late-requests/", payload);
+
       alert("✅ Late request submitted successfully!");
-      window.history.back();
+      navigate(-1);
     } catch (err) {
       console.error("Late request failed:", err);
-      alert("❌ Failed to submit late request. " + (err?.response?.data?.detail || err.message));
+      alert(
+        "❌ Failed to submit late request. " +
+          (err?.response?.data?.detail || err?.message)
+      );
     } finally {
       setLoading(false);
     }
@@ -36,39 +51,72 @@ export default function LateRequest() {
       <div style={styles.card}>
         <div style={styles.header}>
           <h4 style={styles.title}>Late Request</h4>
-          <button style={styles.backButton} onClick={() => window.history.back()}>
+          <button style={styles.backButton} onClick={() => navigate(-1)}>
             ← Back to List
           </button>
         </div>
 
         <div style={styles.infoBanner}>
-          <strong>Requesting as Admin</strong> — Your request will be reviewed by the system.
+          <strong>Requesting as Admin</strong> — Your request will be reviewed
+          by the system.
         </div>
 
         <form onSubmit={handleSubmit}>
           <section style={styles.section}>
             <h5 style={styles.sectionTitle}>Late Information</h5>
+
             <div style={styles.formRow}>
+              {/* DATE */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>Date *</label>
-                <input type="date" name="date" value={form.date} onChange={handleChange} required style={styles.input} />
+                <input
+                  type="date"
+                  name="date"
+                  value={form.date}
+                  onChange={handleChange}
+                  required
+                  style={styles.input}
+                />
               </div>
+
+              {/* MINUTES LATE */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>Minutes Late *</label>
-                <input type="number" name="minutesLate" value={form.minutesLate} onChange={handleChange} required style={styles.input} />
+                <input
+                  type="number"
+                  name="minutesLate"
+                  value={form.minutesLate}
+                  onChange={handleChange}
+                  min="1"
+                  required
+                  style={styles.input}
+                />
               </div>
             </div>
 
+            {/* REASON */}
             <div style={{ ...styles.formGroup, marginTop: "20px" }}>
               <label style={styles.label}>Reason *</label>
-              <textarea name="reason" value={form.reason} onChange={handleChange} rows="3" style={styles.textarea} required />
+              <textarea
+                name="reason"
+                value={form.reason}
+                onChange={handleChange}
+                rows="3"
+                style={styles.textarea}
+                required
+              />
             </div>
           </section>
 
           <div style={styles.buttonRow}>
-            <button type="button" style={styles.btnLight} onClick={() => window.history.back()}>
+            <button
+              type="button"
+              style={styles.btnLight}
+              onClick={() => navigate(-1)}
+            >
               Cancel
             </button>
+
             <button type="submit" style={styles.btnPrimary} disabled={loading}>
               {loading ? "Submitting..." : "Submit Request"}
             </button>
@@ -79,7 +127,7 @@ export default function LateRequest() {
   );
 }
 
-/* ✅ Inline Styles (same style system as LeaveRequest.jsx) */
+/* SAME STYLES YOU HAD — NO CHANGES */
 const styles = {
   container: {
     padding: "40px",

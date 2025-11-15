@@ -25,31 +25,87 @@ export default function ConfigureAccess() {
   const [checked, setChecked] = useState({});
   const [openMenu, setOpenMenu] = useState(null);
 
-  // ✅ Fetch menu tree and assigned menus
+  // ---------- RENDER NESTED CHILDREN RECURSIVELY ----------
+const renderChildren = (children, level = 1) =>
+  children.map((child) => (
+    <React.Fragment key={child.id}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 16px",
+          borderBottom: "1px solid #f3f4f6",
+          marginLeft: `${level * 20}px`,
+          fontSize: "13px",
+        }}
+      >
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={checked[child.id]?.main || false}
+            onChange={() => toggleSubMenu(child.id)}
+          />
+          {child.title}
+        </div>
+
+        <div style={{ display: "flex", gap: "15px", color: "#374151" }}>
+          {["view", "edit", "delete"].map((action) => (
+            <label
+              key={action}
+              style={{ display: "flex", gap: "5px", fontSize: "12px" }}
+            >
+              <input
+                type="checkbox"
+                checked={checked[child.id]?.[action] || false}
+                onChange={() => toggleAction(child.id, action)}
+              />
+              {action}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* If child has its own children → render them recursively */}
+      {child.children && child.children.length > 0 && (
+        <div>{renderChildren(child.children, level + 1)}</div>
+      )}
+    </React.Fragment>
+  ));
+
+  // ---------------- FETCH MENU TREE + USER ASSIGNED MENUS ----------------
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const treeRes = await api.get("/user-controll/admin/menu-tree/");
-        const formatted = treeRes.data.map((menu) => ({
-          id: menu.id,
-          title: menu.name || menu.title || "Untitled Menu",
-          children:
-            menu.children?.map((child) => ({
-              id: child.id,
-              title: child.name || child.title || "Untitled Submenu",
-            })) || [],
-        }));
+
+        // recursive menu formatter
+        const formatMenu = (item) => ({
+          id: item.id,
+          title: item.name || item.title,
+          children: item.children ? item.children.map(formatMenu) : [],
+        });
+
+        const formatted = treeRes.data.map(formatMenu);
         setMenuStructure(formatted.length > 0 ? formatted : menuList);
 
         const userRes = await api.get(
           `/user-controll/admin/user/${id}/menus/`
         );
+
         const savedIds = userRes.data.menu_ids || [];
+
         const initialChecked = {};
         savedIds.forEach((mid) => {
-          initialChecked[mid] = { main: true, view: true, edit: true, delete: true };
+          initialChecked[mid] = {
+            main: true,
+            view: true,
+            edit: true,
+            delete: true,
+          };
         });
+
         setChecked(initialChecked);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -63,28 +119,22 @@ export default function ConfigureAccess() {
     fetchData();
   }, [id]);
 
-  // ✅ Toggle menu (main checkbox)
+  // ---------------- TOGGLE MAIN CHECKBOX ----------------
   const toggleSubMenu = (menuId) =>
     setChecked((prev) => ({
       ...prev,
       [menuId]: { ...prev[menuId], main: !prev[menuId]?.main },
     }));
 
-  // ✅ Toggle view/edit/delete options
+  // ---------------- TOGGLE VIEW / EDIT / DELETE ----------------
   const toggleAction = (menuId, action) =>
     setChecked((prev) => ({
       ...prev,
       [menuId]: { ...prev[menuId], [action]: !prev[menuId]?.[action] },
     }));
 
-  // ✅ Save only menu_ids to backend
+  // ---------------- SAVE MENU PERMISSIONS ----------------
   const handleSave = async () => {
-    if (!id || isNaN(Number(id))) {
-      alert("⚠️ Invalid user ID.");
-      return;
-    }
-
-    // collect menu IDs that have main checked
     const selectedMenuIds = Object.keys(checked)
       .filter((mid) => checked[mid]?.main)
       .map((mid) => Number(mid));
@@ -94,27 +144,22 @@ export default function ConfigureAccess() {
       return;
     }
 
-    const payload = { menu_ids: selectedMenuIds };
-
     try {
-      const res = await api.post(
+      const payload = { menu_ids: selectedMenuIds };
+
+      await api.post(
         `/user-controll/admin/user/${id}/menus/`,
         payload
       );
-      console.log("✅ Response:", res.data);
+
       alert("✅ Menu access saved successfully!");
     } catch (error) {
-      console.error("❌ Error saving access:", error.response?.data || error.message);
-      alert(
-        JSON.stringify(
-          error.response?.data || "❌ Failed to save permissions.",
-          null,
-          2
-        )
-      );
+      console.error("❌ Error saving access:", error.response?.data);
+      alert("❌ Failed to save permissions.");
     }
   };
 
+  // ---------------- LOADING STATE ----------------
   if (loading)
     return (
       <p style={{ textAlign: "center", padding: "20px" }}>
@@ -122,6 +167,7 @@ export default function ConfigureAccess() {
       </p>
     );
 
+  // ---------------- ICONS ----------------
   const iconMap = {
     Dashboard: <FaHome />,
     Administration: <FaUserCog />,
@@ -135,6 +181,7 @@ export default function ConfigureAccess() {
     Master: <FaTools />,
   };
 
+  // ---------------- RENDER PAGE ----------------
   return (
     <div style={{ padding: "25px", background: "#f3f4f6", minHeight: "100vh" }}>
       <div
@@ -178,9 +225,10 @@ export default function ConfigureAccess() {
           Configure Menu Access for USER #{id}
         </div>
 
+        {/* ---------- MAIN MENU BLOCK ---------- */}
         {menuStructure.map((block, idx) => (
           <div
-            key={block.id || idx}
+            key={block.id}
             style={{
               background: "#fff",
               border: "1px solid #e5e7eb",
@@ -204,61 +252,17 @@ export default function ConfigureAccess() {
                 color: "#1e3a8a",
               }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
                 {iconMap[block.title] || <FaTools />} {block.title}
               </span>
-              <span style={{ color: "#2563eb" }}>{openMenu === idx ? "▲" : "▼"}</span>
+              <span style={{ color: "#2563eb" }}>
+                {openMenu === idx ? "▲" : "▼"}
+              </span>
             </div>
 
-            {openMenu === idx &&
-              block.children?.map((child) => (
-                <div key={child.id}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "8px 16px",
-                      fontSize: "13px",
-                      fontWeight: "500",
-                      color: "#1d4ed8",
-                      borderBottom: "1px solid #f3f4f6",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <input
-                        type="checkbox"
-                        checked={checked[child.id]?.main || false}
-                        onChange={() => toggleSubMenu(child.id)}
-                        style={{ transform: "scale(1.1)", cursor: "pointer" }}
-                      />
-                      {child.title}
-                    </div>
-
-                    <div style={{ display: "flex", gap: "15px", color: "#374151" }}>
-                      {["view", "edit", "delete"].map((action) => (
-                        <label
-                          key={action}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "5px",
-                            fontSize: "12.5px",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked[child.id]?.[action] || false}
-                            onChange={() => toggleAction(child.id, action)}
-                            style={{ transform: "scale(1)", cursor: "pointer" }}
-                          />
-                          {action.charAt(0).toUpperCase() + action.slice(1)}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {openMenu === idx && renderChildren(block.children)}
           </div>
         ))}
 

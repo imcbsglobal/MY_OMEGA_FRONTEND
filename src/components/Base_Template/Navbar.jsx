@@ -1,9 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import api from "../../api/client";
 
+// IMPORTANT: Import your master menuList
+import menuList from "../../constants/menuList";
+
 export default function Navbar() {
+  const user = JSON.parse(localStorage.getItem("user"));
+  const username = user?.name || user?.email || "User";
+  const userLevel = user?.user_level || "User";
+  const isAdmin = userLevel === "Admin" || userLevel === "Super Admin";
+
   const [menuTree, setMenuTree] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("menuTree") || "[]");
@@ -17,57 +25,108 @@ export default function Navbar() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [masterDropdownOpen, setMasterDropdownOpen] = useState(false);
   const [requestDropdownOpen, setRequestDropdownOpen] = useState(false);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
   const location = useLocation();
+  const navRef = useRef(null);
+  const profileRef = useRef(null);
 
-  const user = JSON.parse(localStorage.getItem("user"));
-  const username = user?.name || user?.email || "User";
-  const userLevel = user?.user_level || "User";
-  const isAdmin = userLevel === "Admin" || userLevel === "Super Admin";
-
-  // ✅ Handle screen resize
+  // ---------------- HANDLE RESIZE ----------------
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // ✅ Fetch user-specific menu if not admin
+  // close dropdowns on outside click
   useEffect(() => {
-    if (!isAdmin) {
-      api
-        .get("/user-controll/my-menu/")
-        .then((res) => {
-          const menus = res.data?.menu || res.data?.menu_tree || [];
-          setMenuTree(menus);
-          localStorage.setItem("menuTree", JSON.stringify(menus));
-        })
-        .catch((err) => console.error("❌ Failed to fetch user menu:", err));
-    }
-  }, [isAdmin]);
+    const onDocumentClick = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        // clicked outside nav: close mobile menu and dropdowns
+        setMobileMenuOpen(false);
+        setHrDropdownOpen(false);
+        setVehicleDropdownOpen(false);
+        setUserDropdownOpen(false);
+        setMasterDropdownOpen(false);
+        setRequestDropdownOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
 
-  // ✅ Build dynamic menu
+    document.addEventListener("mousedown", onDocumentClick);
+    return () => document.removeEventListener("mousedown", onDocumentClick);
+  }, []);
+
+  // ---------------- FILTER MENU BASED ON menu_ids ----------------
+  function buildUserMenu(menuIds) {
+    const filterRecursively = (menu) => {
+      if (!menuIds.includes(menu.id)) return null;
+
+      const children =
+        menu.children
+          ?.map(filterRecursively)
+          .filter((c) => c !== null) || [];
+
+      return { ...menu, children };
+    };
+
+    return menuList
+      .map(filterRecursively)
+      .filter((m) => m !== null);
+  }
+
+  // ---------------- FETCH USER MENU PERMISSIONS ----------------
+  useEffect(() => {
+    if (!isAdmin && user?.id) {
+      api
+        .get(`/user-controll/admin/user/${user.id}/menus/`)
+        .then((res) => {
+          const menuIds = res.data.menu_ids || [];
+          const filteredTree = buildUserMenu(menuIds);
+
+          setMenuTree(filteredTree);
+          localStorage.setItem("menuTree", JSON.stringify(filteredTree));
+        })
+        .catch((err) => {
+          console.error("❌ Failed to fetch user menu:", err);
+        });
+    }
+  }, [isAdmin, user?.id]);
+
+  // ---------------- BUILD NAV FROM TREE ----------------
   function buildNavFromTree(tree = []) {
-    if (!Array.isArray(tree)) return [];
     return tree.map((root) => {
       const rootPath =
         root.path && root.path.startsWith("/")
           ? root.path
-          : `/${(root.key || root.name).toLowerCase().replace(/\s+/g, "-")}`;
+          : `/${(root.key || root.title || root.name)
+              .toLowerCase()
+              .replace(/\s+/g, "-")}`;
+
       const children = (root.children || []).map((c) => ({
-        name: c.name,
+        name: c.title || c.name,
         path:
           c.path && c.path.startsWith("/")
             ? c.path
-            : `/${(c.key || c.name).toLowerCase().replace(/\s+/g, "-")}`,
+            : `/${(c.key || c.title || c.name)
+                .toLowerCase()
+                .replace(/\s+/g, "-")}`,
       }));
-      return { name: root.name, path: rootPath, hasDropdown: children.length > 0, children };
+
+      return {
+        name: root.title || root.name,
+        path: rootPath,
+        hasDropdown: children.length > 0,
+        children,
+      };
     });
   }
 
-  // ✅ Admin menus
+  // ---------------- ADMIN MENU (unchanged) ----------------
   const adminNavItems = [
     { name: "Dashboard" },
     { name: "HR Management", hasDropdown: true },
@@ -83,7 +142,7 @@ export default function Navbar() {
   const userNavItems = buildNavFromTree(menuTree);
   const navItems = isAdmin ? adminNavItems : userNavItems;
 
-  // ✅ Dropdown menus
+  // ---------------- HR MENUS (ADMIN) ----------------
   const hrMenuItems = [
     { name: "CV Management", path: "/cv-management" },
     { name: "Interview Management", path: "/interview-management" },
@@ -104,21 +163,25 @@ export default function Navbar() {
     { name: "Salary Certificate", path: "/salary-certificate" },
   ];
 
+  // ---------------- VEHICLE MENUS (ADMIN) ----------------
   const vehicleMenuItems = [
     { name: "Company Vehicle", path: "/company-vehicle" },
     { name: "Non Company Vehicle", path: "/non-company-vehicle" },
   ];
 
+  // ---------------- USER MENUS (ADMIN) ----------------
   const userMenuItems = [
     { name: "Add User", path: "/add-user" },
     { name: "User Control", path: "/user-control" },
   ];
 
+  // ---------------- MASTER MENUS ----------------
   const masterMenuItems = [
     { name: "Job Titles", path: "/master/job-titles" },
     { name: "List", path: "/master/job-titles/list" },
   ];
 
+  // ---------------- STYLES ----------------
   const styles = {
     navbarContainer: {
       backgroundColor: "#fff",
@@ -193,8 +256,8 @@ export default function Navbar() {
   };
 
   return (
-    <header style={styles.navbarContainer}>
-      {/* --- Top Navbar --- */}
+    <header style={styles.navbarContainer} ref={navRef}>
+      {/* ---------------- TOP NAVBAR ---------------- */}
       <div style={styles.topNavbar}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <img
@@ -214,7 +277,7 @@ export default function Navbar() {
           </h1>
         </div>
 
-        {/* --- Mobile Hamburger Icon --- */}
+        {/* ---------------- MOBILE ICON ---------------- */}
         <div style={{ display: isMobile ? "block" : "none", cursor: "pointer" }}>
           {mobileMenuOpen ? (
             <X size={30} onClick={() => setMobileMenuOpen(false)} />
@@ -223,9 +286,9 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* --- Profile Icon (desktop) --- */}
+        {/* ---------------- PROFILE DROPDOWN ---------------- */}
         {!isMobile && (
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative" }} ref={profileRef}>
             <img
               src={
                 user?.photo ||
@@ -233,24 +296,27 @@ export default function Navbar() {
               }
               alt="User"
               style={{ width: 42, height: 42, borderRadius: "50%", cursor: "pointer" }}
-              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              onClick={() => setProfileDropdownOpen((s) => !s)}
             />
+
             {profileDropdownOpen && (
               <div
                 style={{
                   position: "absolute",
                   right: 0,
-                  top: "60px",
+                  top: "70px",
                   backgroundColor: "#fff",
                   border: "1px solid #e5e7eb",
                   borderRadius: "10px",
                   boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
                   padding: "12px",
                   width: "220px",
+                  zIndex: 3000,
                 }}
               >
                 <p style={{ fontWeight: "600" }}>Hello, {username}</p>
                 <p style={{ fontSize: "13px", color: "#6b7280" }}>{userLevel}</p>
+
                 <button
                   onClick={() => {
                     localStorage.clear();
@@ -275,14 +341,12 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* --- Bottom Navbar --- */}
+      {/* ---------------- BOTTOM NAVBAR ---------------- */}
       <nav style={styles.bottomNavbar}>
         {navItems.map((item) => {
           const isDropdown =
             item.hasDropdown &&
-            ["HR Management", "Vehicle Management", "User Management", "Master"].includes(
-              item.name
-            );
+            ["HR Management", "Vehicle Management", "User Management", "Master"].includes(item.name);
 
           const dropdownOpen =
             (item.name === "HR Management" && hrDropdownOpen) ||
@@ -324,7 +388,7 @@ export default function Navbar() {
               }}
               style={{ position: "relative" }}
             >
-              {/* --- Clickable Nav Item (fixed HR Management) --- */}
+              {/* ---- MAIN NAV ITEM ---- */}
               {isDropdown ? (
                 <>
                   <NavLink
@@ -333,22 +397,25 @@ export default function Navbar() {
                       ...styles.navLink,
                       color: isActive ? "#dc2626" : styles.navLink.color,
                       borderBottomColor: isActive ? "#dc2626" : "transparent",
-                      cursor: "pointer",
                     })}
                     onClick={(e) => {
-                      // On desktop, clicking toggles dropdown instead of navigating
-                      if (!isMobile) {
+                      // MOBILE: toggle dropdown instead of navigating
+                      if (isMobile) {
                         e.preventDefault();
-                        if (item.name === "HR Management")
-                          setHrDropdownOpen(!hrDropdownOpen);
-                        if (item.name === "Vehicle Management")
-                          setVehicleDropdownOpen(!vehicleDropdownOpen);
-                        if (item.name === "User Management")
-                          setUserDropdownOpen(!userDropdownOpen);
-                        if (item.name === "Master")
-                          setMasterDropdownOpen(!masterDropdownOpen);
+                        // toggle only the clicked dropdown, close others
+                        setHrDropdownOpen((s) => (item.name === "HR Management" ? !s : false));
+                        setVehicleDropdownOpen((s) => (item.name === "Vehicle Management" ? !s : false));
+                        setUserDropdownOpen((s) => (item.name === "User Management" ? !s : false));
+                        setMasterDropdownOpen((s) => (item.name === "Master" ? !s : false));
+                        // make sure mobile menu stays open
+                        setMobileMenuOpen(true);
                       } else {
-                        setMobileMenuOpen(false);
+                        // desktop: prevent navigation and rely on hover/toggle
+                        e.preventDefault();
+                        if (item.name === "HR Management") setHrDropdownOpen((s) => !s);
+                        if (item.name === "Vehicle Management") setVehicleDropdownOpen((s) => !s);
+                        if (item.name === "User Management") setUserDropdownOpen((s) => !s);
+                        if (item.name === "Master") setMasterDropdownOpen((s) => !s);
                       }
                     }}
                   >
@@ -362,6 +429,7 @@ export default function Navbar() {
                     />
                   </NavLink>
 
+                  {/* ---- DROPDOWN ---- */}
                   {dropdownOpen && (
                     <div style={styles.dropdownMenu}>
                       {menuItems.map((mi) =>
@@ -375,12 +443,22 @@ export default function Navbar() {
                             <div style={styles.dropdownItem}>
                               {mi.name} <ChevronDown size={14} style={{ float: "right" }} />
                             </div>
+
                             {requestDropdownOpen && (
                               <div style={styles.requestSubMenu}>
                                 {mi.children.map((sub) => (
                                   <NavLink
                                     key={sub.name}
                                     to={sub.path}
+                                    onClick={() => {
+                                      // close mobile menu after navigation
+                                      setMobileMenuOpen(false);
+                                      setHrDropdownOpen(false);
+                                      setVehicleDropdownOpen(false);
+                                      setUserDropdownOpen(false);
+                                      setMasterDropdownOpen(false);
+                                      setRequestDropdownOpen(false);
+                                    }}
                                     style={({ isActive }) => ({
                                       ...styles.dropdownItem,
                                       backgroundColor: isActive ? "#fee2e2" : "transparent",
@@ -397,6 +475,13 @@ export default function Navbar() {
                           <NavLink
                             key={mi.name}
                             to={mi.path}
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              setHrDropdownOpen(false);
+                              setVehicleDropdownOpen(false);
+                              setUserDropdownOpen(false);
+                              setMasterDropdownOpen(false);
+                            }}
                             style={({ isActive }) => ({
                               ...styles.dropdownItem,
                               backgroundColor: isActive ? "#fee2e2" : "transparent",

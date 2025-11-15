@@ -67,18 +67,10 @@ export default function CVManagement() {
 
   if (loading) {
     return (
-      <div
-        style={{
-          ...styles.container,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "100vh",
-        }}
-      >
-        <div style={{ fontSize: "18px", color: "#6b7280" }}>
+      <div style={{ ...styles.container, textAlign: "center" }}>
+        <p style={{ fontSize: "18px", color: "#6b7280" }}>
           Loading CV data...
-        </div>
+        </p>
       </div>
     );
   }
@@ -107,17 +99,17 @@ export default function CVManagement() {
       <div style={styles.tableContainer}>
         <table style={styles.table}>
           <thead>
-            <tr>
-              <th style={styles.thSmall}>#</th>
-              <th style={styles.thName}>Name</th>
-              <th style={styles.th}>Job Title</th>
-              <th style={styles.th}>CV</th>
-              <th style={styles.th}>Place</th>
-              <th style={styles.th}>Gender</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Phone</th>
-              <th style={styles.thRemarks}>Remarks</th>
-              <th style={styles.thLarge}>Actions</th>
+            <tr style={styles.tableHeaderRow}>
+              <th style={styles.tableHeader}>SL NO</th>
+              <th style={styles.tableHeader}>NAME</th>
+              <th style={styles.tableHeader}>JOB TITLE</th>
+              <th style={styles.tableHeader}>CV</th>
+              <th style={styles.tableHeader}>PLACE</th>
+              <th style={styles.tableHeader}>GENDER</th>
+              <th style={styles.tableHeader}>STATUS</th>
+              <th style={styles.tableHeader}>PHONE</th>
+              <th style={styles.tableHeader}>REMARKS</th>
+              <th style={styles.tableHeader}>ACTION</th>
             </tr>
           </thead>
 
@@ -133,26 +125,26 @@ export default function CVManagement() {
             ) : (
               pageItems.map((cv, idx) => (
                 <tr key={cv.uuid} style={styles.tableRow}>
-                  <td style={styles.tdCenter}>{startIndex + idx + 1}</td>
-                  <td style={styles.tdName}>{cv.name}</td>
-                  <td style={styles.tdCenter}>{cv.jobTitle}</td>
-                  <td style={styles.tdCenter}>
+                  <td style={styles.tableCell}>{startIndex + idx + 1}</td>
+                  <td style={styles.tableCell}>{cv.name}</td>
+                  <td style={styles.tableCell}>{cv.jobTitle}</td>
+                  <td style={styles.tableCell}>
                     <button
                       style={styles.viewCvBtn}
                       onClick={() => handleViewCVClick(cv.cvAttachmentUrl)}
                     >
-                      📄 View CV
+                      View CV
                     </button>
                   </td>
-                  <td style={styles.tdCenter}>{cv.place || "N/A"}</td>
-                  <td style={styles.tdCenter}>{cv.gender}</td>
-                  <td style={styles.tdCenter}>
+                  <td style={styles.tableCell}>{cv.place || "N/A"}</td>
+                  <td style={styles.tableCell}>{cv.gender}</td>
+                  <td style={styles.tableCell}>
                     <span style={styles.statusBadge}>{cv.interviewStatus}</span>
                   </td>
-                  <td style={styles.tdCenter}>{cv.phoneNumber}</td>
-                  <td style={styles.tdRemarks}>{cv.remarks}</td>
-                  <td style={styles.tdCenter}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                  <td style={styles.tableCell}>{cv.phoneNumber}</td>
+                  <td style={styles.tableCell}>{cv.remarks}</td>
+                  <td style={styles.tableCell}>
+                    <div style={styles.actionButtons}>
                       <button onClick={() => handleViewClick(cv)} style={styles.viewBtn}>
                         View
                       </button>
@@ -184,28 +176,34 @@ export default function CVManagement() {
           <button
             onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
-            style={styles.paginationBtn}
+            style={{
+              ...styles.paginationBtn,
+              ...(currentPage === 1 ? styles.paginationBtnDisabled : {}),
+            }}
           >
             Prev
           </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-            <button
-              key={pageNum}
-              onClick={() => setCurrentPage(pageNum)}
-              style={{
-                ...styles.pageNumberBtn,
-                ...(pageNum === currentPage ? styles.pageNumberBtnActive : {}),
-              }}
-            >
-              {pageNum}
-            </button>
-          ))}
+          <div style={styles.pageNumbers}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                style={{
+                  ...styles.pageNumberBtn,
+                  ...(pageNum === currentPage ? styles.pageNumberBtnActive : {}),
+                }}
+              >
+                {pageNum}
+              </button>
+            ))}
+          </div>
           <button
-            onClick={() =>
-              setCurrentPage((p) => Math.min(p + 1, totalPages))
-            }
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
-            style={styles.paginationBtn}
+            style={{
+              ...styles.paginationBtn,
+              ...(currentPage === totalPages ? styles.paginationBtnDisabled : {}),
+            }}
           >
             Next
           </button>
@@ -216,38 +214,214 @@ export default function CVManagement() {
 }
 
 const styles = {
-  container: { padding: "24px", backgroundColor: "#f9fafb", minHeight: "100vh" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" },
-  title: { fontSize: "28px", fontWeight: "700", color: "#111827" },
-  headerActions: { display: "flex", alignItems: "center", gap: "12px" },
-  searchContainer: { position: "relative", display: "flex", alignItems: "center" },
-  searchInput: { padding: "12px 40px 12px 16px", borderRadius: "8px", border: "2px solid #e5e7eb", width: "320px", fontSize: "14px" },
-  searchIcon: { position: "absolute", right: "14px", color: "#9ca3af" },
-  addButton: { padding: "12px 24px", backgroundColor: "#3b82f6", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" },
-
-  // Table and Alignment
-  tableContainer: { backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflowX: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
-  th: { textAlign: "center", padding: "12px 8px", background: "#f3f4f6", fontWeight: "600", borderBottom: "2px solid #e5e7eb" },
-  thSmall: { width: "60px", textAlign: "center", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb" },
-  thName: { width: "180px", textAlign: "left", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb", paddingLeft: "16px" },
-  thRemarks: { width: "200px", textAlign: "left", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb", paddingLeft: "16px" },
-  thLarge: { width: "170px", textAlign: "center", background: "#f3f4f6", borderBottom: "2px solid #e5e7eb" },
-
-  tdCenter: { textAlign: "center", verticalAlign: "middle", padding: "10px 8px", borderBottom: "1px solid #e5e7eb" },
-  tdName: { textAlign: "left", verticalAlign: "middle", padding: "10px 16px", borderBottom: "1px solid #e5e7eb", fontWeight: "500" },
-  tdRemarks: { textAlign: "left", verticalAlign: "middle", padding: "10px 16px", borderBottom: "1px solid #e5e7eb" },
-
-  viewCvBtn: { padding: "6px 12px", backgroundColor: "#eff6ff", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px" },
-  viewBtn: { padding: "6px 12px", backgroundColor: "#d1fae5", color: "#059669", border: "1px solid #a7f3d0", borderRadius: "6px" },
-  editBtn: { padding: "6px 12px", backgroundColor: "#dbeafe", color: "#3b82f6", border: "1px solid #bfdbfe", borderRadius: "6px" },
-  deleteBtn: { padding: "6px 12px", backgroundColor: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "6px" },
-
-  noResults: { padding: "40px", textAlign: "center", color: "#6b7280", fontSize: "16px" },
-  paginationContainer: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px", backgroundColor: "white", padding: "16px 24px", borderRadius: "12px" },
-  paginationInfo: { fontSize: "14px", color: "#6b7280" },
-  paginationButtons: { display: "flex", gap: "8px" },
-  paginationBtn: { padding: "8px 16px", borderRadius: "8px", border: "1px solid #d1d5db", backgroundColor: "white" },
-  pageNumberBtn: { padding: "8px 12px", borderRadius: "6px", border: "1px solid #d1d5db", backgroundColor: "white" },
-  pageNumberBtnActive: { backgroundColor: "#3b82f6", color: "white", borderColor: "#3b82f6" },
+  container: {
+    padding: "24px",
+    backgroundColor: "#f9fafb",
+    minHeight: "100vh",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  searchContainer: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  searchInput: {
+    padding: "12px 40px 12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+    outline: "none",
+    width: "320px",
+    transition: "all 0.3s",
+    fontWeight: "500",
+    color: "#374151",
+  },
+  searchIcon: {
+    position: "absolute",
+    right: "14px",
+    fontSize: "18px",
+    pointerEvents: "none",
+    color: "#9ca3af",
+  },
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
+  },
+  addButton: {
+    padding: "12px 24px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  tableContainer: {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    overflow: "hidden",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  tableHeaderRow: {
+    backgroundColor: "#f3f4f6",
+  },
+  tableHeader: {
+    padding: "12px 16px",
+    textAlign: "left",
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    borderBottom: "2px solid #e5e7eb",
+  },
+  tableRow: {
+    borderBottom: "1px solid #e5e7eb",
+    transition: "background-color 0.2s",
+  },
+  tableCell: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    color: "#374151",
+  },
+  statusBadge: {
+    padding: "4px 12px",
+    borderRadius: "12px",
+    fontSize: "12px",
+    fontWeight: "600",
+    display: "inline-block",
+    backgroundColor: "#fef3c7",
+    color: "#92400e",
+  },
+  viewCvBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: "6px",
+  },
+  viewBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#059669",
+    backgroundColor: "#d1fae5",
+    border: "1px solid #a7f3d0",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  editBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#dbeafe",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  deleteBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#dc2626",
+    backgroundColor: "#fee2e2",
+    border: "1px solid #fecaca",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "24px",
+    padding: "16px 24px",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  paginationInfo: {
+    fontSize: "14px",
+    color: "#6b7280",
+  },
+  paginationButtons: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  paginationBtn: {
+    padding: "8px 16px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationBtnDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  pageNumbers: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  pageNumberBtn: {
+    padding: "8px 12px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    minWidth: "40px",
+  },
+  pageNumberBtnActive: {
+    backgroundColor: "#3b82f6",
+    color: "white",
+    borderColor: "#3b82f6",
+  },
+  noResults: {
+    padding: "40px",
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: "16px",
+    fontWeight: "500",
+  },
 };

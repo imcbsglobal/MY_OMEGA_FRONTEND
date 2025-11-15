@@ -15,7 +15,7 @@ export default function AddUser() {
 
   async function fetchUsers() {
     try {
-      const res = await api.get("/users/"); // ✅ fixed
+      const res = await api.get("/users/"); // backend call
       setUsers(res.data);
     } catch (e) {
       console.error("Error fetching users:", e.response?.data || e.message);
@@ -50,16 +50,17 @@ export default function AddUser() {
 
     try {
       if (isEditing) {
-        const res = await api.patch(`/users/${editingUser.id}/`, payload); // ✅ fixed
+        await api.patch(`/users/${editingUser.id}/`, payload);
         alert("✅ User updated successfully!");
       } else {
-        const res = await api.post("/users/", payload); // ✅ fixed
+        await api.post("/users/", payload);
         alert("✅ User added successfully!");
       }
 
       await fetchUsers();
       setEditingUser(null);
       setShowForm(false);
+
     } catch (e) {
       console.error("❌ Save failed:", e.response?.data || e.message);
       alert("❌ Save failed. Check console for details.");
@@ -69,7 +70,7 @@ export default function AddUser() {
   const deleteUser = async (id) => {
     if (!window.confirm("Delete this user?")) return;
     try {
-      await api.delete(`/users/${id}/`); // ✅ fixed
+      await api.delete(`/users/${id}/`);
       await fetchUsers();
       alert("✅ User deleted successfully!");
     } catch (e) {
@@ -88,12 +89,13 @@ export default function AddUser() {
     );
   });
 
+  // 🔥 FIXED BACK BUTTON HERE
   if (showForm) {
     return (
       <AddUserForm
         onCancel={() => {
-          setShowForm(false);
           setEditingUser(null);
+          setShowForm(false);  // this properly closes the form
         }}
         onSave={saveUser}
         editData={editingUser}
@@ -204,19 +206,86 @@ const styles = {
   title: { fontSize: "28px", fontWeight: "700" },
   headerActions: { display: "flex", alignItems: "center", gap: "12px" },
   searchContainer: { position: "relative" },
-  searchInput: { padding: "12px 40px 12px 16px", fontSize: "14px", border: "2px solid #e5e7eb", borderRadius: "8px" },
-  searchIcon: { position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", color: "#9ca3af" },
-  addButton: { padding: "12px 20px", fontSize: "14px", fontWeight: "600", background: "#3b82f6", color: "#fff", borderRadius: "8px", border: "none", cursor: "pointer" },
-  tableContainer: { background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" },
+  searchInput: {
+    padding: "12px 40px 12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+  },
+  searchIcon: {
+    position: "absolute",
+    right: "14px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "#9ca3af",
+  },
+  addButton: {
+    padding: "12px 20px",
+    fontSize: "14px",
+    fontWeight: "600",
+    background: "#3b82f6",
+    color: "#fff",
+    borderRadius: "8px",
+    border: "none",
+    cursor: "pointer",
+  },
+  tableContainer: {
+    background: "#fff",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    overflow: "hidden",
+  },
   table: { width: "100%", borderCollapse: "collapse" },
   tableHeaderRow: { backgroundColor: "#f3f4f6" },
-  tableHeader: { padding: "12px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase" },
+  tableHeader: {
+    padding: "12px",
+    textAlign: "left",
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#6b7280",
+    textTransform: "uppercase",
+  },
   tableRow: { borderBottom: "1px solid #e5e7eb" },
   tableCell: { padding: "12px", fontSize: "14px" },
-  statusActive: { padding: "4px 12px", background: "#16a34a", color: "#fff", borderRadius: "8px", fontSize: "12px", fontWeight: "600" },
-  statusInactive: { padding: "4px 12px", background: "#9ca3af", color: "#fff", borderRadius: "8px", fontSize: "12px", fontWeight: "600" },
-  noResults: { padding: "32px", textAlign: "center", fontWeight: "500", color: "#6b7280" },
+  statusActive: {
+    padding: "4px 12px",
+    background: "#16a34a",
+    color: "#fff",
+    borderRadius: "8px",
+    fontSize: "12px",
+    fontWeight: "600",
+  },
+  statusInactive: {
+    padding: "4px 12px",
+    background: "#9ca3af",
+    color: "#fff",
+    borderRadius: "8px",
+    fontSize: "12px",
+    fontWeight: "600",
+  },
+  noResults: {
+    padding: "32px",
+    textAlign: "center",
+    fontWeight: "500",
+    color: "#6b7280",
+  },
   actionButtons: { display: "flex", gap: "6px" },
-  editBtn: { padding: "6px 12px", fontSize: "13px", background: "#dbeafe", color: "#1d4ed8", borderRadius: "6px", border: "1px solid #bfdbfe", cursor: "pointer" },
-  deleteBtn: { padding: "6px 12px", fontSize: "13px", background: "#fee2e2", color: "#b91c1c", borderRadius: "6px", border: "1px solid #fecaca", cursor: "pointer" },
+  editBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    borderRadius: "6px",
+    border: "1px solid #bfdbfe",
+    cursor: "pointer",
+  },
+  deleteBtn: {
+    padding: "6px 12px",
+    fontSize: "13px",
+    background: "#fee2e2",
+    color: "#b91c1c",
+    borderRadius: "6px",
+    border: "1px solid #fecaca",
+    cursor: "pointer",
+  },
 };
