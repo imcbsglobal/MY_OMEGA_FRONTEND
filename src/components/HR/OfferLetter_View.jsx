@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import api from "../../api/client";
 
 export default function OfferLetterView() {
   const { id } = useParams();
@@ -7,10 +8,17 @@ export default function OfferLetterView() {
   const [record, setRecord] = useState(null);
 
   useEffect(() => {
-    const storedData = JSON.parse(localStorage.getItem("offer-letter-management-data")) || [];
-    const found = storedData.find((r) => r.id === parseInt(id));
-    if (found) setRecord(found);
+    loadRecord();
   }, [id]);
+
+  const loadRecord = async () => {
+    try {
+      const res = await api.get(`/offer-letter/${id}/`);
+      setRecord(res.data.data);
+    } catch (err) {
+      console.error("Error loading record", err);
+    }
+  };
 
   if (!record)
     return (
@@ -35,7 +43,8 @@ export default function OfferLetterView() {
           {Object.entries(record).map(([key, value]) => (
             <div key={key} style={styles.fieldGroup}>
               <label style={styles.label}>{formatLabel(key)}</label>
-              {key.toLowerCase().includes("url") ? (
+
+              {String(value).includes("http") ? (
                 <a href={value} target="_blank" rel="noreferrer" style={styles.link}>
                   View File
                 </a>
@@ -53,6 +62,7 @@ export default function OfferLetterView() {
           >
             Edit
           </button>
+
           <button style={styles.secondaryBtn} onClick={() => navigate("/offer-letter")}>
             Back
           </button>
@@ -68,7 +78,6 @@ function formatLabel(text) {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-// -------------------- STYLES --------------------
 const styles = {
   page: {
     backgroundColor: "#f9fafb",

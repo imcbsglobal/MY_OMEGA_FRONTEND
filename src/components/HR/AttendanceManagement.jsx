@@ -350,6 +350,8 @@ export default function AttendanceManagement() {
             // try to normalize common punch fields
             punch_in: pick(r, ["punch_in", "punch_in_time", "in_time", "time_in"]),
             punch_out: pick(r, ["punch_out", "punch_out_time", "out_time", "time_out"]),
+            status: pick(r, ["status", "attendance_status"]),
+            verification_status: pick(r, ["verification_status", "is_verified", "verification"]),
             date,
           };
         }
@@ -420,24 +422,44 @@ export default function AttendanceManagement() {
 
   // status determination according to rules:
   // - Sunday => HOLIDAY
-  // - No punch in & no punch out => LEAVE
+  // - No record => NOT_MARKED
   // - both exist => hours >=8 => FULL_DAY, hours>=4 => HALF_DAY, else NOT_MARKED
   // - missing one => NOT_MARKED
   const determineStatus = (date, emp, overrideKey) => {
     const isSunday = getDayOfWeek(selectedMonth, Number(date.split("-").pop())) === 0;
     const override = overrideKey ? overrides[overrideKey] : undefined;
     if (override) return override;
-
     const rec = emp.records && emp.records[date];
     const punchIn = rec?.punch_in;
     const punchOut = rec?.punch_out;
 
     if (isSunday) return "HOLIDAY";
-    if (!punchIn && !punchOut) return "LEAVE";
+    if (!rec) return "NOT_MARKED";
+
+    // Prefer backend status when provided
+    const backendStatus = (rec.status || "").toString().toLowerCase();
+    const verified = (rec.verification_status || "").toString().toLowerCase() === "verified";
+    const mapBackend = (bs) => {
+      if (!bs) return null;
+      if (bs === "full") return verified ? "VERIFIED" : "FULL_DAY";
+      if (bs === "half") return verified ? "VERIFIED_HALF" : "HALF_DAY";
+      if (bs === "leave") return "LEAVE";
+      if (bs === "wfh") return verified ? "VERIFIED" : "FULL_DAY";
+      if (bs === "not_marked" || bs === "not-marked" || bs === "notmarked" || bs === "notmarked") return "NOT_MARKED";
+      if (bs === "holiday" || bs === "holidays" || bs === "sunday") return "HOLIDAY";
+      // fallback: use hours if available
+      return null;
+    };
+
+    const mapped = mapBackend(backendStatus);
+    if (mapped) return mapped;
+
+    // fallback to compute from punch times
+    if (!punchIn && !punchOut) return "NOT_MARKED";
     if (punchIn && punchOut) {
       const hours = computeHoursBetween(punchIn, punchOut);
-      if (hours >= 8) return "FULL_DAY";
-      if (hours >= 4) return "HALF_DAY";
+      if (hours >= 8) return verified ? "VERIFIED" : "FULL_DAY";
+      if (hours >= 4) return verified ? "VERIFIED_HALF" : "HALF_DAY";
       return "NOT_MARKED";
     }
     return "NOT_MARKED";
@@ -459,7 +481,7 @@ export default function AttendanceManagement() {
     const key = `${emp.id}-${date}`;
     const override = overrides[key];
     // if override present, treat as status from override
-    const status = override || (emp.records[date] ? determineStatus(date, emp, key) : (getDayOfWeek(selectedMonth, Number(date.split("-").pop())) === 0 ? "HOLIDAY" : "LEAVE"));
+    const status = override || (emp.records[date] ? determineStatus(date, emp, key) : (getDayOfWeek(selectedMonth, Number(date.split("-").pop())) === 0 ? "HOLIDAY" : "NOT_MARKED"));
     const rec = emp.records[date] || {};
     const punchIn = rec.punch_in;
     const punchOut = rec.punch_out;

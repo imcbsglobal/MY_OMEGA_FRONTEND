@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import api from "../../api/client";
 
 export default function OfferLetterForm() {
   const navigate = useNavigate();
@@ -7,312 +8,251 @@ export default function OfferLetterForm() {
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState({
-    name: "",
-    jobTitle: "",
-    phoneNumber: "",
-    place: "",
-    generatedBy: "",
-    status: "Willing",
-    generateDetails: "",
-    cvAttachmentUrl: "",
-    cvFileName: "",
-    offerLetterUrl: "",
-    offerLetterFileName: "",
+    candidate: "",
+    position: "",
+    department: "",
+    joining_data: "",
+    salary: "",
+    work_start_time: "09:30",
+    work_end_time: "17:30",
+    notice_period: "",
+    body: "Dear Candidate,",
+    terms_condition: "",
+    subject: "Job Offer Letter",
   });
 
-  useEffect(() => {
-    if (isEdit) {
-      const storedData = JSON.parse(localStorage.getItem("offer-letter-management-data")) || [];
-      const record = storedData.find((r) => r.id === parseInt(id));
-      if (record) setFormData(record);
+  const [candidateList, setCandidateList] = useState([]);
+
+  // Fetch selected candidates
+  const fetchCandidates = async () => {
+    try {
+      const res = await api.get("/offer-letter/selected-candidates/");
+      setCandidateList(res.data.data);
+    } catch (err) {
+      console.error("Error fetching selected candidates", err);
     }
-  }, [id, isEdit]);
+  };
+
+  // Fetch candidate CV details
+  const fetchCandidateDetails = async (candidateId) => {
+    try {
+      const res = await api.get(`/cv-management/${candidateId}/`);
+
+      setFormData((prev) => ({
+        ...prev,
+        candidate: candidateId,
+        position: res.data.job_title || "",
+        department: res.data.department || "",
+        salary: res.data.expected_salary || "",
+      }));
+    } catch (err) {
+      console.error("Error fetching candidate details", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCandidates();
+  }, []);
 
   const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const storedData = JSON.parse(localStorage.getItem("offer-letter-management-data")) || [];
 
-    if (isEdit) {
-      const updated = storedData.map((item) =>
-        item.id === parseInt(id) ? { ...item, ...formData } : item
-      );
-      localStorage.setItem("offer-letter-management-data", JSON.stringify(updated));
-      alert("Offer letter updated successfully!");
-    } else {
-      const newRecord = {
-        ...formData,
-        id: Date.now(),
-        createdUser: "myomega@gmail.com",
-        createdDate: new Date().toLocaleString(),
-      };
-      localStorage.setItem(
-        "offer-letter-management-data",
-        JSON.stringify([...storedData, newRecord])
-      );
-      alert("Offer letter added successfully!");
+    if (!formData.candidate) {
+      alert("Please select a candidate");
+      return;
     }
 
-    navigate("/offer-letter");
+    // Auto-fix time format (backend needs HH:MM:SS)
+    const dataToSend = {
+      ...formData,
+      work_start_time: formData.work_start_time + ":00",
+      work_end_time: formData.work_end_time + ":00",
+    };
+
+    try {
+      if (isEdit) {
+        await api.put(`/offer-letter/${id}/`, dataToSend);
+        alert("Offer letter updated successfully");
+      } else {
+        await api.post("/offer-letter/", dataToSend);
+        alert("Offer letter created successfully");
+      }
+
+      navigate("/offer-letter");
+    } catch (error) {
+      console.error("Submit error:", error?.response?.data);
+      alert("Something went wrong");
+    }
   };
 
-  const handleCancel = () => navigate("/offer-letter");
-
   return (
-    <div style={styles.container}>
-      <div style={styles.formCard}>
-        <div style={styles.header}>
-          <h2 style={styles.title}>{isEdit ? "Edit Offer Letter" : "Add New Offer Letter"}</h2>
-          <button onClick={handleCancel} style={styles.backButton}>← Back to List</button>
-        </div>
+    <div style={styles.pageContainer}>
+      <div style={styles.card}>
+        <h2 style={styles.title}>{isEdit ? "Edit Offer Letter" : "Add Offer Letter"}</h2>
 
-        <form onSubmit={handleSubmit}>
-          <div style={styles.formGrid}>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          
+          {/* Candidate */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Select Candidate:</label>
+            <select
+              style={styles.input}
+              name="candidate"
+              value={formData.candidate}
+              onChange={(e) => {
+                handleChange(e);
+                fetchCandidateDetails(e.target.value);
+              }}
+              required
+            >
+              <option value="">-- Select Candidate --</option>
+
+              {candidateList.map((item) => (
+                <option key={item.candidate_id} value={item.candidate_id}>
+                  {item.name} — {item.job_title_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Position */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Position:</label>
+            <input
+              style={styles.input}
+              name="position"
+              value={formData.position}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Department */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Department:</label>
+            <input
+              style={styles.input}
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Joining Date */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Joining Date:</label>
+            <input
+              type="date"
+              style={styles.input}
+              name="joining_data"
+              value={formData.joining_data}
+              onChange={handleChange}
+              required
+              pattern="\d{4}-\d{2}-\d{2}"
+            />
+          </div>
+
+          {/* Salary */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Salary:</label>
+            <input
+              style={styles.input}
+              name="salary"
+              value={formData.salary}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Work Start / End */}
+          <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Name *</label>
+              <label style={styles.label}>Work Start Time:</label>
               <input
+                type="time"
                 style={styles.input}
-                name="name"
-                value={formData.name}
+                name="work_start_time"
+                value={formData.work_start_time}
                 onChange={handleChange}
-                placeholder="Enter full name"
-                required
               />
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Job Title *</label>
+              <label style={styles.label}>End Time:</label>
               <input
+                type="time"
                 style={styles.input}
-                name="jobTitle"
-                value={formData.jobTitle}
+                name="work_end_time"
+                value={formData.work_end_time}
                 onChange={handleChange}
-                placeholder="Enter job title"
-                required
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Phone Number</label>
-              <input
-                style={styles.input}
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                placeholder="Enter phone number"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Location</label>
-              <input
-                style={styles.input}
-                name="place"
-                value={formData.place}
-                onChange={handleChange}
-                placeholder="Enter location"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Generated By</label>
-              <input
-                style={styles.input}
-                name="generatedBy"
-                value={formData.generatedBy}
-                onChange={handleChange}
-                placeholder="Enter generated by"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Status</label>
-              <select
-                style={styles.input}
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-              >
-                <option value="Willing">Willing</option>
-                <option value="Not Willing">Not Willing</option>
-              </select>
-            </div>
-
-            <div style={{ ...styles.formGroup, gridColumn: "1 / -1" }}>
-              <label style={styles.label}>Generate Details</label>
-              <textarea
-                style={styles.textarea}
-                name="generateDetails"
-                value={formData.generateDetails}
-                onChange={handleChange}
-                rows="4"
-                placeholder="Enter generation details"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>CV URL</label>
-              <input
-                style={styles.input}
-                name="cvAttachmentUrl"
-                value={formData.cvAttachmentUrl}
-                onChange={handleChange}
-                placeholder="Paste CV link or file URL"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>CV File Name</label>
-              <input
-                style={styles.input}
-                name="cvFileName"
-                value={formData.cvFileName}
-                onChange={handleChange}
-                placeholder="Enter CV file name"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Offer Letter URL</label>
-              <input
-                style={styles.input}
-                name="offerLetterUrl"
-                value={formData.offerLetterUrl}
-                onChange={handleChange}
-                placeholder="Paste offer letter URL"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Offer Letter File Name</label>
-              <input
-                style={styles.input}
-                name="offerLetterFileName"
-                value={formData.offerLetterFileName}
-                onChange={handleChange}
-                placeholder="Enter offer letter file name"
               />
             </div>
           </div>
 
-          <div style={styles.formFooter}>
-            <button type="button" onClick={handleCancel} style={styles.cancelBtn}>
-              Cancel
-            </button>
-            <button type="submit" style={styles.submitBtn}>
-              {isEdit ? "Update Offer Letter" : "Submit Offer Letter"}
-            </button>
+          {/* Notice Period */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Notice Period (days):</label>
+            <input
+              style={styles.input}
+              name="notice_period"
+              value={formData.notice_period}
+              onChange={handleChange}
+            />
           </div>
+
+          <button type="submit" style={styles.saveBtn}>
+            Save
+          </button>
         </form>
       </div>
     </div>
   );
 }
 
+/* Styles — unchanged */
 const styles = {
-  container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
-    minHeight: "100vh",
-  },
-  formCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "32px",
-    maxWidth: "1000px",
+  pageContainer: { padding: "30px", background: "#f3f4f6", minHeight: "100vh" },
+  card: {
+    background: "#ffffff",
+    width: "550px",
     margin: "0 auto",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "32px",
-    paddingBottom: "20px",
-    borderBottom: "2px solid #e5e7eb",
+    borderRadius: "12px",
+    padding: "35px 40px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
   },
   title: {
-    fontSize: "28px",
+    textAlign: "center",
+    marginBottom: "25px",
+    fontSize: "26px",
     fontWeight: "700",
-    color: "#111827",
-    margin: 0,
+    color: "#333",
   },
-  backButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "20px",
-    marginBottom: "20px",
-  },
-  formGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  label: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-  },
+  form: { display: "flex", flexDirection: "column", gap: "18px" },
+  formGroup: { display: "flex", flexDirection: "column", gap: "6px" },
+  label: { fontSize: "15px", fontWeight: "600" },
   input: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    border: "1px solid #d1d5db",
+    padding: "12px",
+    border: "1px solid #cbd5e1",
     borderRadius: "8px",
-    outline: "none",
-    transition: "all 0.2s",
+    fontSize: "15px",
   },
-  textarea: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    outline: "none",
-    resize: "vertical",
-    fontFamily: "inherit",
-    transition: "all 0.2s",
-  },
-  formFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-    marginTop: "32px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e5e7eb",
-  },
-  cancelBtn: {
-    padding: "12px 24px",
-    fontSize: "14px",
+  row: { display: "flex", gap: "15px" },
+  saveBtn: {
+    width: "100%",
+    padding: "14px",
+    background: "#0f8a4b",
+    color: "#fff",
+    fontSize: "17px",
     fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
     borderRadius: "8px",
     cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  submitBtn: {
-    padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
   },
 };
