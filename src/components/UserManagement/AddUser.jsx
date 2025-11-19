@@ -1,4 +1,3 @@
-// src/components/UserManagement/AddUser.jsx
 import React, { useEffect, useState } from "react";
 import AddUserForm from "./AddUser-Form";
 import api from "../../api/client";
@@ -9,62 +8,23 @@ export default function AddUser() {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
 
-  useEffect(() => {
-    fetchUsers();
+  useEffect(() => { 
+    fetchUsers(); 
   }, []);
 
   async function fetchUsers() {
     try {
-      const res = await api.get("/users/"); // backend call
+      const res = await api.get("/users/");
       setUsers(res.data);
     } catch (e) {
       console.error("Error fetching users:", e.response?.data || e.message);
     }
   }
 
-  const saveUser = async (form) => {
-    const isEditing = !!editingUser;
-
-    const payload = {
-      name: form.fullName?.trim(),
-      email: form.userId?.trim(),
-      branch: form.branch,
-      user_level: form.userLevel,
-      phone_number: form.phoneNumber,
-      is_active: form.status === "Active",
-    };
-
-    if (!isEditing) {
-      if (!form.password?.trim()) {
-        alert("⚠️ Password is required for new users.");
-        return;
-      }
-      payload.password = form.password;
-      payload.confirm_password = form.password;
-    }
-
-    if (isEditing && form.password?.trim()) {
-      payload.password = form.password;
-      payload.confirm_password = form.password;
-    }
-
-    try {
-      if (isEditing) {
-        await api.patch(`/users/${editingUser.id}/`, payload);
-        alert("✅ User updated successfully!");
-      } else {
-        await api.post("/users/", payload);
-        alert("✅ User added successfully!");
-      }
-
-      await fetchUsers();
-      setEditingUser(null);
-      setShowForm(false);
-
-    } catch (e) {
-      console.error("❌ Save failed:", e.response?.data || e.message);
-      alert("❌ Save failed. Check console for details.");
-    }
+  const saveUser = async () => {
+    await fetchUsers();
+    setEditingUser(null);
+    setShowForm(false);
   };
 
   const deleteUser = async (id) => {
@@ -72,10 +32,9 @@ export default function AddUser() {
     try {
       await api.delete(`/users/${id}/`);
       await fetchUsers();
-      alert("✅ User deleted successfully!");
+      alert("User deleted!");
     } catch (e) {
       console.error("Delete failed:", e.response?.data || e.message);
-      alert("❌ Delete failed. Check console.");
     }
   };
 
@@ -89,14 +48,10 @@ export default function AddUser() {
     );
   });
 
-  // 🔥 FIXED BACK BUTTON HERE
   if (showForm) {
     return (
       <AddUserForm
-        onCancel={() => {
-          setEditingUser(null);
-          setShowForm(false);  // this properly closes the form
-        }}
+        onCancel={() => { setEditingUser(null); setShowForm(false); }}
         onSave={saveUser}
         editData={editingUser}
       />
@@ -107,22 +62,17 @@ export default function AddUser() {
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>User Management</h2>
+
         <div style={styles.headerActions}>
-          <div style={styles.searchContainer}>
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={styles.searchInput}
-            />
-            <span style={styles.searchIcon}>🔍</span>
-          </div>
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={styles.searchInput}
+          />
           <button
-            onClick={() => {
-              setEditingUser(null);
-              setShowForm(true);
-            }}
+            onClick={() => { setEditingUser(null); setShowForm(true); }}
             style={styles.addButton}
           >
             + Add User
@@ -133,7 +83,7 @@ export default function AddUser() {
       <div style={styles.tableContainer}>
         <table style={styles.table}>
           <thead>
-            <tr style={styles.tableHeaderRow}>
+            <tr>
               <th style={styles.tableHeader}>No</th>
               <th style={styles.tableHeader}>Name</th>
               <th style={styles.tableHeader}>Email</th>
@@ -146,11 +96,7 @@ export default function AddUser() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr>
-                <td colSpan="8" style={styles.noResults}>
-                  No users found
-                </td>
-              </tr>
+              <tr><td colSpan="8" style={styles.noResults}>No users found</td></tr>
             ) : (
               filtered.map((u, i) => (
                 <tr key={u.id} style={styles.tableRow}>
@@ -161,28 +107,19 @@ export default function AddUser() {
                   <td style={styles.tableCell}>{u.user_level}</td>
                   <td style={styles.tableCell}>{u.phone_number}</td>
                   <td style={styles.tableCell}>
-                    <span
-                      style={
-                        u.is_active
-                          ? styles.statusActive
-                          : styles.statusInactive
-                      }
-                    >
+                    <span style={u.is_active ? styles.statusActive : styles.statusInactive}>
                       {u.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
                       <button
-                        onClick={() => {
-                          setEditingUser(u);
-                          setShowForm(true);
-                        }}
+                        onClick={() => { setEditingUser(u); setShowForm(true); }}
                         style={styles.editBtn}
                       >
                         Edit
                       </button>
-                      <button
+                      <button 
                         onClick={() => deleteUser(u.id)}
                         style={styles.deleteBtn}
                       >
@@ -205,19 +142,12 @@ const styles = {
   header: { display: "flex", justifyContent: "space-between", marginBottom: "24px" },
   title: { fontSize: "28px", fontWeight: "700" },
   headerActions: { display: "flex", alignItems: "center", gap: "12px" },
-  searchContainer: { position: "relative" },
   searchInput: {
-    padding: "12px 40px 12px 16px",
+    padding: "12px 16px",
     fontSize: "14px",
     border: "2px solid #e5e7eb",
     borderRadius: "8px",
-  },
-  searchIcon: {
-    position: "absolute",
-    right: "14px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    color: "#9ca3af",
+    outline: "none",
   },
   addButton: {
     padding: "12px 20px",
@@ -236,7 +166,6 @@ const styles = {
     overflow: "hidden",
   },
   table: { width: "100%", borderCollapse: "collapse" },
-  tableHeaderRow: { backgroundColor: "#f3f4f6" },
   tableHeader: {
     padding: "12px",
     textAlign: "left",
@@ -244,6 +173,7 @@ const styles = {
     fontWeight: "600",
     color: "#6b7280",
     textTransform: "uppercase",
+    backgroundColor: "#f3f4f6",
   },
   tableRow: { borderBottom: "1px solid #e5e7eb" },
   tableCell: { padding: "12px", fontSize: "14px" },

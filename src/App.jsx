@@ -40,6 +40,10 @@ import AddUser from "./components/UserManagement/AddUser";
 import MyMenu from "./pages/MyMenu";
 import Login from "./pages/Login";
 
+import LeaveList from './components/HR/LeaveList';
+import EarlyList from './components/HR/EarlyList';
+import LateList from './components/HR/LateList';
+
 /* ✅ PrivateRoute
    Checks authentication via localStorage.
    If invalid → clears and redirects to login.
@@ -140,6 +144,10 @@ function App() {
 
           {/* ✅ My Menu */}
           <Route path="my-menu" element={<MyMenu />} />
+
+          <Route path="/leave-management/leave-list" element={<LeaveList />} />
+          <Route path="/leave-management/early-list" element={<EarlyList />} />
+          <Route path="/leave-management/late-list" element={<LateList />} />
 
           {/* ✅ Catch-all → redirect to Dashboard */}
           {/* <Route path="*" element={<Navigate to="/" replace />} /> */}

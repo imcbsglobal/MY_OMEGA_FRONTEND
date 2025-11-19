@@ -3,28 +3,17 @@ import { ChevronDown, Menu, X } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import api from "../../api/client";
 
-// IMPORTANT: Import your master menuList
-import menuList from "../../constants/menuList";
-
 export default function Navbar() {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const username = user?.name || user?.email || "User";
   const userLevel = user?.user_level || "User";
   const isAdmin = userLevel === "Admin" || userLevel === "Super Admin";
 
-  const [menuTree, setMenuTree] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("menuTree") || "[]");
-    } catch {
-      return [];
-    }
-  });
+  const [menuTree, setMenuTree] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [hrDropdownOpen, setHrDropdownOpen] = useState(false);
-  const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [masterDropdownOpen, setMasterDropdownOpen] = useState(false);
-  const [requestDropdownOpen, setRequestDropdownOpen] = useState(false);
+  // Dropdown states
+  const [openDropdowns, setOpenDropdowns] = useState({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -40,146 +29,210 @@ export default function Navbar() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // close dropdowns on outside click
+  // ---------------- OUTSIDE CLICK CLOSE ----------------
   useEffect(() => {
     const onDocumentClick = (e) => {
       if (navRef.current && !navRef.current.contains(e.target)) {
-        // clicked outside nav: close mobile menu and dropdowns
         setMobileMenuOpen(false);
-        setHrDropdownOpen(false);
-        setVehicleDropdownOpen(false);
-        setUserDropdownOpen(false);
-        setMasterDropdownOpen(false);
-        setRequestDropdownOpen(false);
+        setOpenDropdowns({});
       }
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setProfileDropdownOpen(false);
       }
     };
-
     document.addEventListener("mousedown", onDocumentClick);
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, []);
 
-  // ---------------- FILTER MENU BASED ON menu_ids ----------------
-  function buildUserMenu(menuIds) {
-    const filterRecursively = (menu) => {
-      if (!menuIds.includes(menu.id)) return null;
+  // ---------------- FORMAT MENU FROM BACKEND ----------------
+  function formatMenuItem(item) {
+    return {
+      id: item.id,
+      name: item.name || item.title,
+      title: item.name || item.title,
+      path: item.path || `/${(item.name || item.title).toLowerCase().replace(/\s+/g, "-")}`,
+      children: item.children?.map(formatMenuItem) || [],
+    };
+  }
 
-      const children =
-        menu.children
-          ?.map(filterRecursively)
-          .filter((c) => c !== null) || [];
-
-      return { ...menu, children };
+  // ---------------- FETCH MENU TREE ----------------
+  useEffect(() => {
+    const fetchMenus = async () => {
+      setLoading(true);
+      try {
+        if (!isAdmin) {
+          // For normal users - fetch their assigned menus
+          const response = await api.get("/user-controll/my-menu/");
+          console.log("User Menu Response:", response.data);
+          
+          const formatted = (response.data || []).map(formatMenuItem);
+          console.log("Formatted Menu:", formatted);
+          
+          setMenuTree(formatted);
+          localStorage.setItem("menuTree", JSON.stringify(formatted));
+        } else {
+          // For admin users - use static menu
+          setMenuTree([]);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load user menu:", error);
+        console.error("Error details:", error.response?.data);
+        
+        // Try to use cached menu if available
+        try {
+          const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
+          if (cached.length > 0) {
+            setMenuTree(cached);
+            console.log("Using cached menu");
+          }
+        } catch (e) {
+          console.error("Failed to parse cached menu");
+        }
+      } finally {
+        setLoading(false);
+      }
     };
 
-    return menuList
-      .map(filterRecursively)
-      .filter((m) => m !== null);
-  }
+    fetchMenus();
+  }, [isAdmin]);
 
-  // ---------------- FETCH USER MENU PERMISSIONS ----------------
-  useEffect(() => {
-    if (!isAdmin && user?.id) {
-      api
-        .get(`/user-controll/admin/user/${user.id}/menus/`)
-        .then((res) => {
-          const menuIds = res.data.menu_ids || [];
-          const filteredTree = buildUserMenu(menuIds);
+  // ---------------- TOGGLE DROPDOWN ----------------
+  const toggleDropdown = (menuName) => {
+    setOpenDropdowns(prev => ({
+      ...prev,
+      [menuName]: !prev[menuName]
+    }));
+  };
 
-          setMenuTree(filteredTree);
-          localStorage.setItem("menuTree", JSON.stringify(filteredTree));
-        })
-        .catch((err) => {
-          console.error("❌ Failed to fetch user menu:", err);
-        });
-    }
-  }, [isAdmin, user?.id]);
+  const closeAllDropdowns = () => {
+    setOpenDropdowns({});
+    setMobileMenuOpen(false);
+  };
 
-  // ---------------- BUILD NAV FROM TREE ----------------
-  function buildNavFromTree(tree = []) {
-    return tree.map((root) => {
-      const rootPath =
-        root.path && root.path.startsWith("/")
-          ? root.path
-          : `/${(root.key || root.title || root.name)
-              .toLowerCase()
-              .replace(/\s+/g, "-")}`;
-
-      const children = (root.children || []).map((c) => ({
-        name: c.title || c.name,
-        path:
-          c.path && c.path.startsWith("/")
-            ? c.path
-            : `/${(c.key || c.title || c.name)
-                .toLowerCase()
-                .replace(/\s+/g, "-")}`,
-      }));
-
-      return {
-        name: root.title || root.name,
-        path: rootPath,
-        hasDropdown: children.length > 0,
-        children,
-      };
-    });
-  }
-
-  // ---------------- ADMIN MENU (unchanged) ----------------
+  // ---------------- ADMIN MENU (STATIC) ----------------
   const adminNavItems = [
-    { name: "Dashboard" },
-    { name: "HR Management", hasDropdown: true },
-    { name: "Marketing" },
-    { name: "Vehicle Management", hasDropdown: true },
-    { name: "Target Management" },
-    { name: "Warehouse Management" },
-    { name: "Delivery Management" },
-    { name: "User Management", hasDropdown: true },
-    { name: "Master", hasDropdown: true },
-  ];
-
-  const userNavItems = buildNavFromTree(menuTree);
-  const navItems = isAdmin ? adminNavItems : userNavItems;
-
-  // ---------------- HR MENUS (ADMIN) ----------------
-  const hrMenuItems = [
-    { name: "CV Management", path: "/cv-management" },
-    { name: "Interview Management", path: "/interview-management" },
-    { name: "Offer Letter", path: "/offer-letter" },
-    { name: "Employee Management", path: "/employee-management" },
-    { name: "Attendance Management", path: "/attendance-management" },
-    { name: "Punch In/Punch Out", path: "/punch-in-out" },
-    { name: "Leave Management", path: "/leave-management" },
-    {
-      name: "Request",
+    { name: "Dashboard", path: "/" },
+    { 
+      name: "HR Management", 
+      hasDropdown: true,
       children: [
-        { name: "Leave Request", path: "/hr/request/leave" },
-        { name: "Late Request", path: "/hr/request/late" },
-        { name: "Early Request", path: "/hr/request/early" },
-      ],
+        { name: "CV Management", path: "/cv-management" },
+        { name: "Interview Management", path: "/interview-management" },
+        { name: "Offer Letter", path: "/offer-letter" },
+        { name: "Employee Management", path: "/employee-management" },
+        { name: "Attendance Management", path: "/attendance-management" },
+        { name: "Punch In/Punch Out", path: "/punch-in-out" },
+        {
+          name: "Leave Management",
+          children: [
+            { name: "Leave List", path: "/leave-management/leave-list" },
+            { name: "Early List", path: "/leave-management/early-list" },
+            { name: "Late List", path: "/leave-management/late-list" },
+          ],
+        },
+        {
+          name: "Request",
+          children: [
+            { name: "Leave Request", path: "/hr/request/leave" },
+            { name: "Late Request", path: "/hr/request/late" },
+            { name: "Early Request", path: "/hr/request/early" },
+          ],
+        },
+        { name: "Experience Certificate", path: "/experience-certificate" },
+        { name: "Salary Certificate", path: "/salary-certificate" },
+      ]
     },
-    { name: "Experience Certificate", path: "/experience-certificate" },
-    { name: "Salary Certificate", path: "/salary-certificate" },
+    { name: "Marketing", path: "/marketing" },
+    { 
+      name: "Vehicle Management", 
+      hasDropdown: true,
+      children: [
+        { name: "Company Vehicle", path: "/company-vehicle" },
+        { name: "Non Company Vehicle", path: "/non-company-vehicle" },
+      ]
+    },
+    { name: "Target Management", path: "/target-management" },
+    { name: "Warehouse Management", path: "/warehouse-management" },
+    { name: "Delivery Management", path: "/delivery-management" },
+    { 
+      name: "User Management", 
+      hasDropdown: true,
+      children: [
+        { name: "Add User", path: "/add-user" },
+        { name: "User Control", path: "/user-control" },
+      ]
+    },
+    { 
+      name: "Master", 
+      hasDropdown: true,
+      children: [
+        { name: "Job Titles", path: "/master/job-titles" },
+        { name: "List", path: "/master/job-titles/list" },
+      ]
+    },
   ];
 
-  // ---------------- VEHICLE MENUS (ADMIN) ----------------
-  const vehicleMenuItems = [
-    { name: "Company Vehicle", path: "/company-vehicle" },
-    { name: "Non Company Vehicle", path: "/non-company-vehicle" },
-  ];
+  // Use admin menu or user menu based on role
+  const navItems = isAdmin ? adminNavItems : menuTree;
 
-  // ---------------- USER MENUS (ADMIN) ----------------
-  const userMenuItems = [
-    { name: "Add User", path: "/add-user" },
-    { name: "User Control", path: "/user-control" },
-  ];
+  // ---------------- RENDER DROPDOWN ITEMS ----------------
+  const renderDropdownItems = (items, parentKey = "") => {
+    return items.map((item, index) => {
+      const itemKey = `${parentKey}-${item.name}-${index}`;
+      
+      if (item.children && item.children.length > 0) {
+        return (
+          <div
+            key={itemKey}
+            style={{ position: "relative" }}
+            onMouseEnter={() => !isMobile && toggleDropdown(itemKey)}
+            onMouseLeave={() => !isMobile && toggleDropdown(itemKey)}
+          >
+            <div
+              style={{
+                ...styles.dropdownItem,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+              onClick={() => isMobile && toggleDropdown(itemKey)}
+            >
+              {item.name}
+              <ChevronDown
+                size={14}
+                style={{
+                  transform: openDropdowns[itemKey] ? "rotate(-90deg)" : "rotate(0deg)",
+                  transition: "0.3s",
+                }}
+              />
+            </div>
 
-  // ---------------- MASTER MENUS ----------------
-  const masterMenuItems = [
-    { name: "Job Titles", path: "/master/job-titles" },
-    { name: "List", path: "/master/job-titles/list" },
-  ];
+            {openDropdowns[itemKey] && (
+              <div style={styles.requestSubMenu}>
+                {renderDropdownItems(item.children, itemKey)}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <NavLink
+          key={itemKey}
+          to={item.path}
+          onClick={closeAllDropdowns}
+          style={({ isActive }) => ({
+            ...styles.dropdownItem,
+            backgroundColor: isActive ? "#fee2e2" : "transparent",
+            color: isActive ? "#dc2626" : "#64748b",
+          })}
+        >
+          {item.name}
+        </NavLink>
+      );
+    });
+  };
 
   // ---------------- STYLES ----------------
   const styles = {
@@ -230,6 +283,7 @@ export default function Navbar() {
       minWidth: "220px",
       zIndex: 2000,
       padding: "6px",
+      marginTop: "2px",
     },
     dropdownItem: {
       display: "block",
@@ -252,8 +306,37 @@ export default function Navbar() {
       minWidth: "200px",
       padding: "6px",
       zIndex: 2500,
+      marginLeft: "2px",
     },
   };
+
+  // Show loading state
+  if (loading && !isAdmin) {
+    return (
+      <header style={styles.navbarContainer}>
+        <div style={styles.topNavbar}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <img
+              src="/assets/omega-logo.png"
+              alt="Omega"
+              style={{ width: 48, height: 48, objectFit: "contain" }}
+            />
+            <h1
+              style={{
+                fontSize: "28px",
+                color: "#dc2626",
+                fontWeight: "700",
+                fontStyle: "italic",
+              }}
+            >
+              Omega
+            </h1>
+          </div>
+          <div style={{ fontSize: "14px", color: "#6b7280" }}>Loading menu...</div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header style={styles.navbarContainer} ref={navRef}>
@@ -277,7 +360,7 @@ export default function Navbar() {
           </h1>
         </div>
 
-        {/* ---------------- MOBILE ICON ---------------- */}
+        {/* ---------------- MOBILE MENU ICON ---------------- */}
         <div style={{ display: isMobile ? "block" : "none", cursor: "pointer" }}>
           {mobileMenuOpen ? (
             <X size={30} onClick={() => setMobileMenuOpen(false)} />
@@ -343,180 +426,74 @@ export default function Navbar() {
 
       {/* ---------------- BOTTOM NAVBAR ---------------- */}
       <nav style={styles.bottomNavbar}>
-        {navItems.map((item) => {
-          const isDropdown =
-            item.hasDropdown &&
-            ["HR Management", "Vehicle Management", "User Management", "Master"].includes(item.name);
+        {navItems.length === 0 && !isAdmin && !loading ? (
+          <div style={{ padding: "10px", color: "#6b7280", fontSize: "14px" }}>
+            No menus assigned. Please contact administrator.
+          </div>
+        ) : (
+          navItems.map((item, index) => {
+            const itemKey = `nav-${item.name}-${index}`;
+            const hasDropdown = item.hasDropdown || (item.children && item.children.length > 0);
 
-          const dropdownOpen =
-            (item.name === "HR Management" && hrDropdownOpen) ||
-            (item.name === "Vehicle Management" && vehicleDropdownOpen) ||
-            (item.name === "User Management" && userDropdownOpen) ||
-            (item.name === "Master" && masterDropdownOpen);
+            return (
+              <div
+                key={itemKey}
+                onMouseEnter={() => !isMobile && hasDropdown && toggleDropdown(itemKey)}
+                onMouseLeave={() => !isMobile && hasDropdown && toggleDropdown(itemKey)}
+                style={{ position: "relative" }}
+              >
+                {hasDropdown ? (
+                  <>
+                    <div
+                      style={{
+                        ...styles.navLink,
+                        cursor: "pointer",
+                        color: location.pathname.startsWith(item.path || `/${item.name.toLowerCase()}`) 
+                          ? "#dc2626" 
+                          : "#475569",
+                        borderBottomColor: location.pathname.startsWith(item.path || `/${item.name.toLowerCase()}`)
+                          ? "#dc2626"
+                          : "transparent",
+                      }}
+                      onClick={() => {
+                        if (isMobile) {
+                          toggleDropdown(itemKey);
+                        }
+                      }}
+                    >
+                      {item.name}
+                      <ChevronDown
+                        size={16}
+                        style={{
+                          transform: openDropdowns[itemKey] ? "rotate(180deg)" : "rotate(0deg)",
+                          transition: "0.3s",
+                        }}
+                      />
+                    </div>
 
-          const menuItems = isAdmin
-            ? item.name === "HR Management"
-              ? hrMenuItems
-              : item.name === "Vehicle Management"
-              ? vehicleMenuItems
-              : item.name === "User Management"
-              ? userMenuItems
-              : item.name === "Master"
-              ? masterMenuItems
-              : []
-            : item.children || [];
-
-          return (
-            <div
-              key={item.name}
-              onMouseEnter={() => {
-                if (!isMobile) {
-                  if (item.name === "HR Management") setHrDropdownOpen(true);
-                  if (item.name === "Vehicle Management") setVehicleDropdownOpen(true);
-                  if (item.name === "User Management") setUserDropdownOpen(true);
-                  if (item.name === "Master") setMasterDropdownOpen(true);
-                }
-              }}
-              onMouseLeave={() => {
-                if (!isMobile) {
-                  setHrDropdownOpen(false);
-                  setVehicleDropdownOpen(false);
-                  setUserDropdownOpen(false);
-                  setMasterDropdownOpen(false);
-                  setRequestDropdownOpen(false);
-                }
-              }}
-              style={{ position: "relative" }}
-            >
-              {/* ---- MAIN NAV ITEM ---- */}
-              {isDropdown ? (
-                <>
+                    {openDropdowns[itemKey] && (
+                      <div style={styles.dropdownMenu}>
+                        {renderDropdownItems(item.children || [], itemKey)}
+                      </div>
+                    )}
+                  </>
+                ) : (
                   <NavLink
-                    to={`/${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    to={item.path || `/${item.name.toLowerCase().replace(/\s+/g, "-")}`}
                     style={({ isActive }) => ({
                       ...styles.navLink,
                       color: isActive ? "#dc2626" : styles.navLink.color,
                       borderBottomColor: isActive ? "#dc2626" : "transparent",
                     })}
-                    onClick={(e) => {
-                      // MOBILE: toggle dropdown instead of navigating
-                      if (isMobile) {
-                        e.preventDefault();
-                        // toggle only the clicked dropdown, close others
-                        setHrDropdownOpen((s) => (item.name === "HR Management" ? !s : false));
-                        setVehicleDropdownOpen((s) => (item.name === "Vehicle Management" ? !s : false));
-                        setUserDropdownOpen((s) => (item.name === "User Management" ? !s : false));
-                        setMasterDropdownOpen((s) => (item.name === "Master" ? !s : false));
-                        // make sure mobile menu stays open
-                        setMobileMenuOpen(true);
-                      } else {
-                        // desktop: prevent navigation and rely on hover/toggle
-                        e.preventDefault();
-                        if (item.name === "HR Management") setHrDropdownOpen((s) => !s);
-                        if (item.name === "Vehicle Management") setVehicleDropdownOpen((s) => !s);
-                        if (item.name === "User Management") setUserDropdownOpen((s) => !s);
-                        if (item.name === "Master") setMasterDropdownOpen((s) => !s);
-                      }
-                    }}
+                    onClick={closeAllDropdowns}
                   >
                     {item.name}
-                    <ChevronDown
-                      size={16}
-                      style={{
-                        transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                        transition: "0.3s",
-                      }}
-                    />
                   </NavLink>
-
-                  {/* ---- DROPDOWN ---- */}
-                  {dropdownOpen && (
-                    <div style={styles.dropdownMenu}>
-                      {menuItems.map((mi) =>
-                        mi.children ? (
-                          <div
-                            key={mi.name}
-                            style={{ position: "relative" }}
-                            onMouseEnter={() => setRequestDropdownOpen(true)}
-                            onMouseLeave={() => setRequestDropdownOpen(false)}
-                          >
-                            <div style={styles.dropdownItem}>
-                              {mi.name} <ChevronDown size={14} style={{ float: "right" }} />
-                            </div>
-
-                            {requestDropdownOpen && (
-                              <div style={styles.requestSubMenu}>
-                                {mi.children.map((sub) => (
-                                  <NavLink
-                                    key={sub.name}
-                                    to={sub.path}
-                                    onClick={() => {
-                                      // close mobile menu after navigation
-                                      setMobileMenuOpen(false);
-                                      setHrDropdownOpen(false);
-                                      setVehicleDropdownOpen(false);
-                                      setUserDropdownOpen(false);
-                                      setMasterDropdownOpen(false);
-                                      setRequestDropdownOpen(false);
-                                    }}
-                                    style={({ isActive }) => ({
-                                      ...styles.dropdownItem,
-                                      backgroundColor: isActive ? "#fee2e2" : "transparent",
-                                      color: isActive ? "#dc2626" : "#64748b",
-                                    })}
-                                  >
-                                    {sub.name}
-                                  </NavLink>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <NavLink
-                            key={mi.name}
-                            to={mi.path}
-                            onClick={() => {
-                              setMobileMenuOpen(false);
-                              setHrDropdownOpen(false);
-                              setVehicleDropdownOpen(false);
-                              setUserDropdownOpen(false);
-                              setMasterDropdownOpen(false);
-                            }}
-                            style={({ isActive }) => ({
-                              ...styles.dropdownItem,
-                              backgroundColor: isActive ? "#fee2e2" : "transparent",
-                              color: isActive ? "#dc2626" : "#64748b",
-                            })}
-                          >
-                            {mi.name}
-                          </NavLink>
-                        )
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <NavLink
-                  to={
-                    item.path
-                      ? item.path
-                      : item.name === "Dashboard"
-                      ? "/"
-                      : `/${item.name.toLowerCase().replace(/\s+/g, "-")}`
-                  }
-                  style={({ isActive }) => ({
-                    ...styles.navLink,
-                    color: isActive ? "#dc2626" : styles.navLink.color,
-                    borderBottomColor: isActive ? "#dc2626" : "transparent",
-                  })}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.name}
-                </NavLink>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          })
+        )}
       </nav>
     </header>
   );

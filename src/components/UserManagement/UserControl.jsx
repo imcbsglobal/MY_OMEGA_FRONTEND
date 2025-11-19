@@ -1,7 +1,6 @@
-// src/components/UserManagement/UserControl.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../../api/client"; // ✅ axios client with token interceptor
+import api from "../../api/client";
 
 export default function UserControl() {
   const [selectedUser, setSelectedUser] = useState("");
@@ -15,19 +14,6 @@ export default function UserControl() {
       backgroundColor: "#f8fafc",
       minHeight: "100vh",
       fontFamily: "Inter, sans-serif",
-    },
-    topButton: {
-      background: "#1d4ed8",
-      color: "white",
-      border: "none",
-      padding: "8px 18px",
-      borderRadius: "6px",
-      fontSize: "13px",
-      fontWeight: "600",
-      marginBottom: "20px",
-      cursor: "pointer",
-      boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-      transition: "background 0.2s ease",
     },
     card: {
       width: "50%",
@@ -67,13 +53,6 @@ export default function UserControl() {
       outline: "none",
       color: "#111827",
       boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-      appearance: "none",
-      backgroundImage:
-        "linear-gradient(45deg, transparent 50%, #1d4ed8 50%), linear-gradient(135deg, #1d4ed8 50%, transparent 50%)",
-      backgroundPosition:
-        "calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px)",
-      backgroundSize: "5px 5px, 5px 5px",
-      backgroundRepeat: "no-repeat",
     },
     actionBtn: {
       width: "100%",
@@ -88,13 +67,24 @@ export default function UserControl() {
       boxShadow: "0px 3px 6px rgba(0,0,0,0.15)",
       transition: "background 0.2s ease",
     },
+    actionBtnDisabled: {
+      width: "100%",
+      background: "#94a3b8",
+      border: "none",
+      color: "#fff",
+      fontWeight: "600",
+      padding: "10px",
+      borderRadius: "8px",
+      cursor: "not-allowed",
+      fontSize: "14px",
+      boxShadow: "0px 3px 6px rgba(0,0,0,0.15)",
+    },
   };
 
-  // ✅ Fetch user list from backend
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await api.get("/user-controll/admin/users/"); // ✅ Fixed endpoint
+        const res = await api.get("/user-controll/admin/users/");
         setUsers(res.data);
       } catch (error) {
         console.error("Error fetching users:", error);
@@ -109,13 +99,6 @@ export default function UserControl() {
 
   return (
     <div style={styles.page}>
-      {/* <button
-        style={styles.topButton}
-        onClick={() => navigate("/configure-access/default")}
-      >
-        Set Default Menus
-      </button> */}
-
       <div style={styles.card}>
         <div style={styles.header}>Select User for Menu Control</div>
 
@@ -134,7 +117,7 @@ export default function UserControl() {
         </select>
 
         <button
-          style={styles.actionBtn}
+          style={selectedUser ? styles.actionBtn : styles.actionBtnDisabled}
           disabled={!selectedUser}
           onClick={() => navigate(`/configure-access/${selectedUser}`)}
         >

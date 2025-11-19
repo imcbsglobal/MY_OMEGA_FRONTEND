@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import api from "../../api/client"; // ✅ axios instance
-import { toast } from "react-toastify";
+import api from "../../api/client";
 
 export default function AddUserForm({ onCancel, onSave, editData }) {
   const [formData, setFormData] = useState({
@@ -13,175 +12,173 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
     status: "Active",
   });
 
-  // ✅ Prefill when editing
   useEffect(() => {
     if (editData) {
       setFormData({
-        fullName: editData.name || "",
-        userId: editData.email || "",
+        fullName: editData.name,
+        userId: editData.email,
         password: "",
-        branch: editData.branch || "",
-        userLevel: editData.user_level || "User",
-        phoneNumber: editData.phone_number || "",
+        branch: editData.branch,
+        userLevel: editData.user_level,
+        phoneNumber: editData.phone_number,
         status: editData.is_active ? "Active" : "Inactive",
       });
     }
   }, [editData]);
 
-  // ✅ Input handler
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((p) => ({ ...p, [name]: value }));
   };
 
-  // ✅ Submit handler (with confirm_password + no photo)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    // 🔹 Password validation for new users
-    if (!editData && !formData.password?.trim()) {
-      alert("Please enter a password before creating a new user.");
-      return;
-    }
-
-    try {
-      const payload = {
-        name: formData.fullName,
-        username: formData.userId,
-        email: formData.userId,
-        password: formData.password,
-        confirm_password: formData.password,
-        branch: formData.branch,
-        user_level: formData.userLevel,
-        phone_number: formData.phoneNumber,
-        is_active: formData.status === "Active",
-      };
-
-      const url = editData
-        ? `/users/${editData.id}/`
-        : `/users/`;
-
-      const res = editData
-        ? await api.patch(url, payload)
-        : await api.post(url, payload);
-
-      // 🔹 Success message
-      alert(editData ? "✅ User updated successfully!" : "🎉 User added successfully!");
-      toast.success(editData ? "User updated successfully!" : "User added successfully!");
-
-      onSave && onSave(res.data);
-    } catch (error) {
-      console.error("User save failed:", error.response?.data || error.message);
-      alert(JSON.stringify(error.response?.data || error.message, null, 2));
-    }
+  // base payload (no password)
+  const payload = {
+    name: formData.fullName,
+    email: formData.userId,
+    branch: formData.branch,
+    user_level: formData.userLevel,
+    phone_number: formData.phoneNumber,
+    is_active: formData.status === "Active",
   };
+
+  // 🔥 Only include password if user typed something
+  if (formData.password && formData.password.trim().length > 0) {
+    payload.password = formData.password;
+    payload.confirm_password = formData.password;
+  }
+
+  try {
+    if (editData) {
+      await api.patch(`/users/${editData.id}/`, payload);
+      alert("User updated!");
+    } else {
+      // 🔥 Backend requires password for new users
+      payload.password = formData.password;
+      payload.confirm_password = formData.password;
+
+      await api.post(`/users/`, payload);
+      alert("User created!");
+    }
+
+    onSave();
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    alert("Save failed: " + JSON.stringify(err.response?.data));
+  }
+};
+
 
   return (
     <div style={styles.container}>
       <div style={styles.formCard}>
-        {/* Header */}
         <div style={styles.header}>
-          <h2 style={styles.title}>
-            {editData ? "Edit User" : "Add New User"}
-          </h2>
+          <h2 style={styles.title}>{editData ? "Edit User" : "Add User"}</h2>
           <button onClick={onCancel} style={styles.backButton}>
-            ← Back to List
+            Back
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.grid}>
-            {/* Full Name */}
             <div style={styles.field}>
-              <label style={styles.label}>Full Name *</label>
+              <label style={styles.label}>Full Name</label>
               <input
-                style={styles.input}
                 name="fullName"
+                placeholder="Full Name"
                 value={formData.fullName}
                 onChange={handleChange}
+                style={styles.input}
                 required
               />
             </div>
 
-            {/* Email */}
             <div style={styles.field}>
-              <label style={styles.label}>Email (User ID) *</label>
+              <label style={styles.label}>Email (User ID)</label>
               <input
-                style={styles.input}
                 name="userId"
-                type="email"
+                placeholder="Email (User ID)"
                 value={formData.userId}
                 onChange={handleChange}
+                style={styles.input}
                 required
               />
             </div>
 
-            {/* Password */}
             <div style={styles.field}>
-              <label style={styles.label}>Password *</label>
+              <label style={styles.label}>Password</label>
               <input
-                type="password"
                 name="password"
-                placeholder="Enter password"
+                type="password"
+                placeholder="Password"
                 value={formData.password}
                 onChange={handleChange}
                 style={styles.input}
-                autoComplete="new-password"
                 required={!editData}
               />
             </div>
 
-            {/* Branch */}
             <div style={styles.field}>
-              <label style={styles.label}>Branch *</label>
-              <select
-                style={styles.input}
-                name="branch"
-                value={formData.branch}
+              <label style={styles.label}>Branch</label>
+              <select 
+                name="branch" 
+                value={formData.branch} 
                 onChange={handleChange}
+                style={styles.input}
                 required
               >
                 <option value="">Select Branch</option>
-                <option>MAIN</option>
+                <option>Main</option>
               </select>
             </div>
 
-            {/* User Level */}
             <div style={styles.field}>
               <label style={styles.label}>User Level</label>
               <select
-                style={styles.input}
                 name="userLevel"
                 value={formData.userLevel}
                 onChange={handleChange}
+                style={styles.input}
               >
-                <option value="">Select User Level</option>
-                <option value="User">User</option>
-                <option value="Admin">Admin</option>
-                <option value="Super Admin">Super Admin</option>
+                <option>User</option>
+                <option>Admin</option>
+                <option>Super Admin</option>
               </select>
             </div>
 
-            {/* Phone */}
             <div style={styles.field}>
-              <label style={styles.label}>Phone</label>
+              <label style={styles.label}>Phone Number</label>
               <input
-                style={styles.input}
                 name="phoneNumber"
+                placeholder="Phone"
                 value={formData.phoneNumber}
                 onChange={handleChange}
+                style={styles.input}
               />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Status</label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                style={styles.input}
+              >
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
             </div>
           </div>
 
-          {/* Footer */}
           <div style={styles.footer}>
             <button type="button" onClick={onCancel} style={styles.cancelBtn}>
               Cancel
             </button>
             <button type="submit" style={styles.saveBtn}>
-              {editData ? "Update User" : "Create User"}
+              {editData ? "Update" : "Create"}
             </button>
           </div>
         </form>
@@ -190,7 +187,6 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
   );
 }
 
-// ✅ Styles (unchanged)
 const styles = {
   container: {
     padding: "24px",
@@ -237,17 +233,21 @@ const styles = {
   label: {
     fontWeight: "600",
     fontSize: "14px",
+    marginBottom: "6px",
   },
   input: {
     padding: "12px",
     border: "1px solid #ccc",
     borderRadius: "8px",
+    outline: "none",
   },
   footer: {
     display: "flex",
     justifyContent: "flex-end",
     gap: "12px",
     paddingTop: "15px",
+    marginTop: "15px",
+    borderTop: "1px solid #eee",
   },
   cancelBtn: {
     padding: "10px 20px",
