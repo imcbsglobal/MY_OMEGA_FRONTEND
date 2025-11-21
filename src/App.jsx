@@ -27,7 +27,7 @@ import PunchInPunchOut from "./components/HR/PunchInPunchOut";
 import LeaveManagement from "./components/HR/LeaveManagement";
 import RequestLeave from "./components/HR/RequestLeave";
 
-// ✅ Request pages
+// Request pages
 import LeaveRequest from "./components/HR/requests/LeaveRequest";
 import LateRequest from "./components/HR/requests/LateRequest";
 import EarlyRequest from "./components/HR/requests/EarlyRequest";
@@ -44,10 +44,9 @@ import LeaveList from './components/HR/LeaveList';
 import EarlyList from './components/HR/EarlyList';
 import LateList from './components/HR/LateList';
 
-/* ✅ PrivateRoute
-   Checks authentication via localStorage.
-   If invalid → clears and redirects to login.
-*/
+// ✅ NEW — Break List
+import BreakList from "./components/HR/BreakList";
+
 function PrivateRoute({ children }) {
   const isAuthenticated =
     localStorage.getItem("isAuthenticated") === "true" &&
@@ -65,11 +64,10 @@ function App() {
   return (
     <Router>
       <Routes>
-
-        {/* ✅ Public Route - Login */}
+        {/* Public Route */}
         <Route path="/login" element={<Login />} />
 
-        {/* ✅ Protected Routes */}
+        {/* Protected Routes */}
         <Route
           path="/"
           element={
@@ -81,76 +79,78 @@ function App() {
           {/* Dashboard */}
           <Route index element={<Dashboard />} />
 
-          {/* ✅ CV Management Routes */}
+          {/* CV Management */}
           <Route path="cv-management" element={<CVManagement />} />
           <Route path="cv-management/add" element={<CVForm />} />
           <Route path="cv-management/edit/:uuid" element={<CVForm />} />
           <Route path="cv-management/view/:uuid" element={<CVView />} />
 
-          {/* ✅ Interview Management Routes */}
+          {/* Interview */}
           <Route path="interview-management" element={<InterviewManagement />} />
           <Route path="interview-management/add" element={<Interview_Form />} />
           <Route path="interview-management/edit/:id" element={<Interview_Form />} />
           <Route path="interview-management/view/:id" element={<Interview_View />} />
 
-          {/* ✅ Offer Letter Routes */}
+          {/* Offer Letter */}
           <Route path="offer-letter" element={<OfferLetter />} />
           <Route path="offer-letter/add" element={<OfferLetter_Form />} />
           <Route path="offer-letter/edit/:id" element={<OfferLetter_Form />} />
           <Route path="offer-letter/view/:id" element={<OfferLetter_View />} />
 
-          {/* ✅ Employee Management Routes */}
+          {/* Employee */}
           <Route path="employee-management" element={<EmployeeManagement />} />
           <Route path="employee-management/add" element={<Employee_Form />} />
           <Route path="employee-management/edit/:id" element={<Employee_Form />} />
           <Route path="employee-management/view/:id" element={<Employee_View />} />
 
-          {/* ✅ Experience Certificate Routes */}
+          {/* Experience Certificate */}
           <Route path="experience-certificate" element={<ExperienceCertificate />} />
           <Route path="experience-certificate/add" element={<ExperienceCertificate_Form />} />
           <Route path="experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
           <Route path="experience-certificate/view/:id" element={<ExperienceCertificate_View />} />
 
-          {/* ✅ Salary Certificate Routes */}
+          {/* Salary Certificate */}
           <Route path="salary-certificate" element={<SalaryCertificate />} />
           <Route path="salary-certificate/add" element={<SalaryCertificate_Form />} />
           <Route path="salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
           <Route path="salary-certificate/view/:id" element={<SalaryCertificate_View />} />
 
-          {/* ✅ Attendance Management */}
+          {/* Attendance */}
           <Route path="attendance-management" element={<AttendanceManagement />} />
 
-          {/* ✅ Punch In / Punch Out */}
+          {/* Punch In / Out */}
           <Route path="punch-in-out" element={<PunchInPunchOut />} />
 
-          {/* ✅ Leave Management */}
+          {/* Leave Management */}
           <Route path="leave-management" element={<LeaveManagement />} />
           <Route path="leave-management/add" element={<RequestLeave />} />
 
-          {/* ✅ HR → Request submenu pages */}
+          {/* Request submenu */}
           <Route path="hr/request/leave" element={<LeaveRequest />} />
           <Route path="hr/request/late" element={<LateRequest />} />
           <Route path="hr/request/early" element={<EarlyRequest />} />
 
-          {/* ✅ Master Data */}
+          {/* Master */}
           <Route path="master/job-titles" element={<JobTitles />} />
           <Route path="master/job-titles/new" element={<JobTitleForm />} />
           <Route path="master/job-titles/:id/edit" element={<JobTitleForm />} />
 
-          {/* ✅ User Management */}
+          {/* User Management */}
           <Route path="add-user" element={<AddUser />} />
           <Route path="user-control" element={<UserControl />} />
           <Route path="configure-access/:id" element={<ConfigureAccess />} />
 
-          {/* ✅ My Menu */}
+          {/* My Menu */}
           <Route path="my-menu" element={<MyMenu />} />
 
+          {/* Leave Lists */}
           <Route path="/leave-management/leave-list" element={<LeaveList />} />
           <Route path="/leave-management/early-list" element={<EarlyList />} />
           <Route path="/leave-management/late-list" element={<LateList />} />
 
-          {/* ✅ Catch-all → redirect to Dashboard */}
-          {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
+          {/* ✅ NEW — Break List Route */}
+          <Route path="/leave-management/break-list" element={<BreakList />} />
+
         </Route>
       </Routes>
     </Router>

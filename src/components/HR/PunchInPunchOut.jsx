@@ -3,22 +3,18 @@ import api from "../../api/client";
 
 const PunchinPunchout = () => {
 
- const toIST12 = (utc) => {
-  if (!utc) return null;
-
-  const d = new Date(utc);
-  if (isNaN(d.getTime())) return null;
-
-  return d.toLocaleTimeString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-};
-
-
+  const toIST12 = (utc) => {
+    if (!utc) return null;
+    const d = new Date(utc);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
 
   const [todayStatus, setTodayStatus] = useState({
     punchIn: null,
@@ -30,38 +26,82 @@ const PunchinPunchout = () => {
   const [breakStatus, setBreakStatus] = useState({
     breaks: [],
     isOnBreak: false,
+    currentBreakId: null,
   });
-  const formatToIST12 = (utcString) => {
-  if (!utcString) return null;
-  const date = new Date(utcString);
-  return date.toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-};
 
+  const formatToIST12 = (utcString) => {
+    if (!utcString) return null;
+    const date = new Date(utcString);
+    return date.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
 
   const [selectedMonth, setSelectedMonth] = useState("2025-11");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isPunching, setIsPunching] = useState(false); // prevent double punch
+  const [isPunching, setIsPunching] = useState(false);
+  const [isBreakProcessing, setIsBreakProcessing] = useState(false);
 
   // ✅ Load today's status
   const loadTodayStatus = async () => {
     try {
       const { data } = await api.get("/hr/attendance/today_status/");
-     setTodayStatus({
-      punchIn: formatToIST12(data?.punch_in_time),
-      punchInLocation: data?.punch_in_location || null,
-      punchOut: formatToIST12(data?.punch_out_time),
-      punchOutLocation: data?.punch_out_location || null,
-    });
-
+      setTodayStatus({
+        punchIn: formatToIST12(data?.punch_in_time),
+        punchInLocation: data?.punch_in_location || null,
+        punchOut: formatToIST12(data?.punch_out_time),
+        punchOutLocation: data?.punch_out_location || null,
+      });
     } catch (err) {
       console.error("❌ Failed to load today's status:", err);
+    }
+  };
+
+  // ✅ Load today's breaks with better error handling
+  const loadTodayBreaks = async () => {
+    try {
+      const { data } = await api.get("/hr/attendance/today_breaks/");
+      
+      // Handle multiple response formats
+      let breaksArray = [];
+      if (Array.isArray(data)) {
+        breaksArray = data;
+      } else if (data.breaks && Array.isArray(data.breaks)) {
+        breaksArray = data.breaks;
+      } else if (data.data && Array.isArray(data.data)) {
+        breaksArray = data.data;
+      }
+
+      // Transform to consistent format
+      const breaks = breaksArray.map(b => ({
+        id: b.id,
+        start: formatToIST12(b.break_in || b.start_time || b.break_start),
+        end: (b.break_out || b.end_time || b.break_end) 
+          ? formatToIST12(b.break_out || b.end_time || b.break_end) 
+          : null,
+      }));
+
+      // Check if there's an ongoing break
+      const ongoingBreak = breaks.find(b => !b.end);
+      
+      setBreakStatus({
+        breaks,
+        isOnBreak: !!ongoingBreak,
+        currentBreakId: ongoingBreak?.id || null,
+      });
+    } catch (err) {
+      console.error("❌ Failed to load today's breaks:", err);
+      // Reset to safe state if API fails
+      setBreakStatus({
+        breaks: [],
+        isOnBreak: false,
+        currentBreakId: null,
+      });
     }
   };
 
@@ -118,15 +158,13 @@ const PunchinPunchout = () => {
             ...prev,
             punchIn:
               resp.data.punch_in_time ||
-            new Date().toLocaleTimeString("en-IN", {
-            timeZone: "Asia/Kolkata",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: true,
-          }),
-
-
+              new Date().toLocaleTimeString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+              }),
             punchInLocation:
               resp.data.punch_in_location || locationName || "Unknown",
           }));
@@ -158,13 +196,12 @@ const PunchinPunchout = () => {
           const { latitude, longitude } = pos.coords;
           const locationName = await getAddressFromLocation(latitude, longitude);
           console.log("📍 Punch-Out location:", locationName);
-        const resp = await api.post("/hr/attendance/punch_out/", {
+          
+          const resp = await api.post("/hr/attendance/punch_out/", {
             latitude,
             longitude,
-            location: locationName,   // ✔ correct key
-        });
-
-
+            location: locationName,
+          });
 
           console.log("✅ Punch Out Response:", resp.data);
 
@@ -172,12 +209,11 @@ const PunchinPunchout = () => {
             ...prev,
             punchOut:
               resp.data.punch_out_time ||
-             new Date().toLocaleTimeString("en-IN", {
-              timeZone: "Asia/Kolkata",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-
+              new Date().toLocaleTimeString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
             punchOutLocation:
               resp.data.punch_out_location || locationName || "Unknown",
           }));
@@ -198,50 +234,77 @@ const PunchinPunchout = () => {
     }
   };
 
+  // ✅ Handle Break Start - Improved error handling
+  const handleBreakStart = async () => {
+    if (isBreakProcessing || breakStatus.isOnBreak) return;
+    if (todayStatus.punchIn === null || todayStatus.punchOut !== null) {
+      alert("Please punch in first and ensure you haven't punched out yet.");
+      return;
+    }
+
+    setIsBreakProcessing(true);
+    try {
+      const resp = await api.post("/hr/attendance/start_break/");
+      console.log("✅ Break Start Response:", resp.data);
+
+      // Reload breaks immediately
+      await loadTodayBreaks();
+      
+      // Show success message
+      alert("Break started successfully!");
+    } catch (err) {
+      console.error("❌ Break start failed:", err);
+      const errorMsg = err?.response?.data?.detail 
+        || err?.response?.data?.error 
+        || err?.response?.data?.message
+        || err.message;
+      alert("Break start failed: " + errorMsg);
+    } finally {
+      setIsBreakProcessing(false);
+    }
+  };
+
+  // ✅ Handle Break End - Improved error handling
+  const handleBreakEnd = async () => {
+    if (isBreakProcessing || !breakStatus.isOnBreak) {
+      alert("No active break to end.");
+      return;
+    }
+
+    setIsBreakProcessing(true);
+    try {
+      const resp = await api.post("/hr/attendance/end_break/");
+      console.log("✅ Break End Response:", resp.data);
+
+      // Reload breaks immediately
+      await loadTodayBreaks();
+      
+      // Show success message
+      alert("Break ended successfully!");
+    } catch (err) {
+      console.error("❌ Break end failed:", err);
+      
+      // Better error message extraction
+      const errorMsg = err?.response?.data?.detail 
+        || err?.response?.data?.error 
+        || err?.response?.data?.message
+        || err.message;
+      
+      alert("Break end failed: " + errorMsg);
+      
+      // Reload break status to sync with server
+      await loadTodayBreaks();
+    } finally {
+      setIsBreakProcessing(false);
+    }
+  };
+
   // ✅ Load data on mount/month change
   useEffect(() => {
     loadTodayStatus();
+    loadTodayBreaks();
     loadMonthlySummary();
   }, [selectedMonth]);
-
-  // ✅ Handle Break Time
-  const handleBreakPunchIn = () => {
-    const now = new Date();
-   const time = now.toLocaleTimeString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-
-
-    if (breakStatus.isOnBreak) {
-      const updatedBreaks = [...breakStatus.breaks];
-      const lastBreak = updatedBreaks[updatedBreaks.length - 1];
-      lastBreak.end = time;
-      setBreakStatus({ breaks: updatedBreaks, isOnBreak: false });
-    } else {
-      setBreakStatus((prev) => ({
-        breaks: [...prev.breaks, { start: time, end: null }],
-        isOnBreak: true,
-      }));
-    }
-  };
-
-  const handleBreakPunchOut = () => {
-    if (breakStatus.isOnBreak) {
-      const now = new Date();
-      const time = now.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-      const updatedBreaks = [...breakStatus.breaks];
-      const lastBreak = updatedBreaks[updatedBreaks.length - 1];
-      lastBreak.end = time;
-      setBreakStatus({ breaks: updatedBreaks, isOnBreak: false });
-    }
-  };
 
   const getStatusStyle = (status) => {
     const statusStyles = {
@@ -261,6 +324,7 @@ const PunchinPunchout = () => {
 
   const handleRefresh = () => {
     loadTodayStatus();
+    loadTodayBreaks();
     loadMonthlySummary();
   };
 
@@ -302,13 +366,12 @@ const PunchinPunchout = () => {
                 {todayStatus.punchInLocation || "Not punched in yet"}
               </span>
             </div>
-                    <div style={styles.statusRow}>
-          <span style={styles.statusLabel}>Punch Out:</span>
-          <span style={styles.statusValue}>
-            {todayStatus.punchOut || "Not punched out yet"}
-          </span>
-        </div>
-
+            <div style={styles.statusRow}>
+              <span style={styles.statusLabel}>Punch Out:</span>
+              <span style={styles.statusValue}>
+                {todayStatus.punchOut || "Not punched out yet"}
+              </span>
+            </div>
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch Out Location:</span>
               <span style={styles.statusValue}>
@@ -353,13 +416,16 @@ const PunchinPunchout = () => {
         <div style={styles.statusCard}>
           <div style={styles.statusHeader}>
             <span style={styles.statusLabel}>Today's Break Status</span>
+            {breakStatus.isOnBreak && (
+              <span style={styles.activeBreakBadge}>● Break Active</span>
+            )}
           </div>
           <div style={styles.breakDetails}>
             {breakStatus.breaks.length === 0 ? (
               <div style={styles.noBreaks}>No breaks taken today</div>
             ) : (
               breakStatus.breaks.map((b, i) => (
-                <div key={i} style={styles.breakItem}>
+                <div key={b.id || i} style={styles.breakItem}>
                   <span style={styles.breakLabel}>Break {i + 1}:</span>
                   <span style={styles.breakTime}>
                     {b.start} to {b.end || "In progress..."}
@@ -374,26 +440,30 @@ const PunchinPunchout = () => {
             style={{
               ...styles.breakInBtn,
               ...(todayStatus.punchIn === null ||
-              todayStatus.punchOut !== null
+              todayStatus.punchOut !== null ||
+              breakStatus.isOnBreak
                 ? styles.buttonDisabled
                 : {}),
             }}
-            onClick={handleBreakPunchIn}
+            onClick={handleBreakStart}
             disabled={
-              todayStatus.punchIn === null || todayStatus.punchOut !== null
+              todayStatus.punchIn === null ||
+              todayStatus.punchOut !== null ||
+              breakStatus.isOnBreak ||
+              isBreakProcessing
             }
           >
-            ☕ Break Punch In
+            ☕ Start Break
           </button>
           <button
             style={{
               ...styles.breakOutBtn,
               ...(!breakStatus.isOnBreak ? styles.buttonDisabled : {}),
             }}
-            onClick={handleBreakPunchOut}
-            disabled={!breakStatus.isOnBreak}
+            onClick={handleBreakEnd}
+            disabled={!breakStatus.isOnBreak || isBreakProcessing}
           >
-            ⏸ Break Punch Out
+            ⏸ End Break
           </button>
         </div>
       </div>
@@ -437,15 +507,12 @@ const PunchinPunchout = () => {
                           {record.status}
                         </span>
                       </td>
-                          <td style={styles.tableCell}>
-                      {formatToIST12(record.punch_in || record.punch_in_time)}
-                    </td>
-
-                    <td style={styles.tableCell}>
-                      {formatToIST12(record.punch_out || record.punch_out_time)}
-                    </td>
-
-
+                      <td style={styles.tableCell}>
+                        {formatToIST12(record.punch_in || record.punch_in_time)}
+                      </td>
+                      <td style={styles.tableCell}>
+                        {formatToIST12(record.punch_out || record.punch_out_time)}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -458,7 +525,7 @@ const PunchinPunchout = () => {
   );
 };
 
-// ✅ Styles (unchanged)
+// ✅ Styles
 const styles = {
   container: {
     padding: "20px",
@@ -530,8 +597,21 @@ const styles = {
     marginBottom: "20px",
     border: "1px solid #e5e7eb",
   },
-  statusHeader: { marginBottom: "16px" },
+  statusHeader: { 
+    marginBottom: "16px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   statusLabel: { fontSize: "16px", fontWeight: "600", color: "#374151" },
+  activeBreakBadge: {
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#f59e0b",
+    backgroundColor: "#fef3c7",
+    padding: "4px 12px",
+    borderRadius: "12px",
+  },
   statusDetails: { display: "flex", flexDirection: "column", gap: "12px" },
   statusRow: {
     display: "flex",

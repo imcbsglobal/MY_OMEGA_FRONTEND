@@ -45,56 +45,69 @@ export default function Navbar() {
   }, []);
 
   // ---------------- FORMAT MENU FROM BACKEND ----------------
-  function formatMenuItem(item) {
-    return {
-      id: item.id,
-      name: item.name || item.title,
-      title: item.name || item.title,
-      path: item.path || `/${(item.name || item.title).toLowerCase().replace(/\s+/g, "-")}`,
-      children: item.children?.map(formatMenuItem) || [],
-    };
-  }
+function formatMenuItem(item) {
+  if (!item) return null;
+
+  const name = item.name || item.title || "menu";
+  const key = item.key || item.id || name;
+
+  return {
+    id: item.id,
+    key: key,
+    name: name,
+    title: name,
+    path:
+      item.path ||
+      `/${key.toString().toLowerCase().replace(/\s+/g, "-")}`,
+
+    children: (item.children || []).map((child) => formatMenuItem(child)),
+
+    allowed_actions: item.allowed_actions || {
+      can_view: item.can_view ?? true,
+      can_edit: item.can_edit ?? false,
+      can_delete: item.can_delete ?? false,
+    },
+  };
+}
+
+
+
 
   // ---------------- FETCH MENU TREE ----------------
-  useEffect(() => {
-    const fetchMenus = async () => {
-      setLoading(true);
-      try {
-        if (!isAdmin) {
-          // For normal users - fetch their assigned menus
-          const response = await api.get("/user-controll/my-menu/");
-          console.log("User Menu Response:", response.data);
-          
-          const formatted = (response.data || []).map(formatMenuItem);
-          console.log("Formatted Menu:", formatted);
-          
-          setMenuTree(formatted);
-          localStorage.setItem("menuTree", JSON.stringify(formatted));
-        } else {
-          // For admin users - use static menu
-          setMenuTree([]);
-        }
-      } catch (error) {
-        console.error("❌ Failed to load user menu:", error);
-        console.error("Error details:", error.response?.data);
-        
-        // Try to use cached menu if available
-        try {
-          const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
-          if (cached.length > 0) {
-            setMenuTree(cached);
-            console.log("Using cached menu");
-          }
-        } catch (e) {
-          console.error("Failed to parse cached menu");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
+useEffect(() => {
+  const fetchMenus = async () => {
+    setLoading(true);
+    try {
+      if (!isAdmin) {
+        // Normal User → Fetch assigned menus
+        const response = await api.get("/user-controll/my-menu/");
+        console.log("User Menu Response:", response.data);
 
-    fetchMenus();
-  }, [isAdmin]);
+        const menuArr = response.data?.menu || [];   // ✅ FIX 1: Extract actual menu array
+
+        const formatted = menuArr.map((item) => formatMenuItem(item));  // ✅ FIX 2: Format correctly
+        console.log("Formatted Menu:", formatted);
+
+        setMenuTree(formatted);
+        localStorage.setItem("menuTree", JSON.stringify(formatted));
+      } else {
+        setMenuTree([]);
+      }
+    } catch (error) {
+      console.error("❌ Failed to load user menu:", error);
+
+      const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
+      if (cached.length > 0) {
+        setMenuTree(cached);
+        console.log("Using cached menu");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchMenus();
+}, [isAdmin]);
 
   // ---------------- TOGGLE DROPDOWN ----------------
   const toggleDropdown = (menuName) => {
@@ -128,6 +141,8 @@ export default function Navbar() {
             { name: "Leave List", path: "/leave-management/leave-list" },
             { name: "Early List", path: "/leave-management/early-list" },
             { name: "Late List", path: "/leave-management/late-list" },
+            { name: "Break List", path: "/leave-management/break-list" },
+
           ],
         },
         {

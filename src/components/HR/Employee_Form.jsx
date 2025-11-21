@@ -1,411 +1,475 @@
-import React, { useState, useEffect } from "react";
+// Employee_Form.jsx
+// USER API ONLY - Fetches from User Management (CV section removed)
+
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import api from "../../api/client";
 
 export default function EmployeeForm() {
-  const navigate = useNavigate();
   const { id } = useParams();
-  const isEditMode = Boolean(id);
+  const navigate = useNavigate();
+  const isEdit = Boolean(id);
 
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [employeeData, setEmployeeData] = useState({
-    name: "",
+  const [form, setForm] = useState({
+    full_name: "",
     email: "",
     location: "",
-    personalPhone: "",
-    residentialPhone: "",
-    jobTitle: "",
-    dutyTime: "",
-    joiningDate: "",
-    bankAccount: "",
-    bankDetails: "",
-    aadharUrl: "",
-    aadharFileName: "",
-    createdUser: "myomega@gmail.com",
-    createdDate: "",
+    personal_phone: "",
+    residential_phone: "",
+    job_title: "",
+    duty_time: "",
+    joining_date: "",
+    bank_account: "",
+    bank_details: "",
+    aadhar_url: "",
+    aadhar_file_name: "",
   });
 
+  const [loading, setLoading] = useState(false);
+
+  // User Search States
+  const [userSearch, setUserSearch] = useState("");
+  const [userResults, setUserResults] = useState([]);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [userLoading, setUserLoading] = useState(false);
+
   useEffect(() => {
-    if (isEditMode) {
-      loadEmployeeData();
-    }
+    if (isEdit) loadEmployee();
   }, [id]);
 
-  const loadEmployeeData = () => {
+  // Search Users when user types
+  useEffect(() => {
+    if (userSearch.length >= 2) {
+      searchUsers();
+    } else {
+      setUserResults([]);
+      setShowUserDropdown(false);
+    }
+  }, [userSearch]);
+
+  async function searchUsers() {
+    setUserLoading(true);
     try {
-      const storedData = localStorage.getItem('employee-management-data');
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        const employee = data.find(item => item.id === parseInt(id));
-        if (employee) {
-          setEmployeeData(employee);
-        } else {
-          alert('Employee not found');
-          navigate('/employee-management');
-        }
-      }
-    } catch (error) {
-      console.error('Error loading employee data:', error);
-      alert('Failed to load employee data');
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setEmployeeData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setUploadedFile(file);
-      const fileUrl = URL.createObjectURL(file);
-      setEmployeeData((prev) => ({ ...prev, aadharUrl: fileUrl, aadharFileName: file.name }));
-    }
-  };
-
-  const handleRemoveFile = () => {
-    if (employeeData.aadharUrl) {
-      URL.revokeObjectURL(employeeData.aadharUrl);
-    }
-    setUploadedFile(null);
-    setEmployeeData((prev) => ({ ...prev, aadharUrl: "", aadharFileName: "" }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!employeeData.name.trim() || !employeeData.email.trim()) {
-      alert("Please fill in name and email");
-      return;
-    }
-
-    try {
-      const storedData = localStorage.getItem('employee-management-data');
-      let data = storedData ? JSON.parse(storedData) : [];
+      // ✅ FETCH FROM USER MANAGEMENT API
+      const res = await api.get(`/users/`);
+      console.log("User API Response:", res.data);
       
-      const currentDate = new Date().toLocaleString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-
-      if (isEditMode) {
-        // Update existing employee
-        data = data.map(employee => 
-          employee.id === parseInt(id) ? { ...employee, ...employeeData } : employee
+      // Handle all possible data structures
+      let userData = res.data.data || res.data.results || res.data || [];
+      
+      if (!Array.isArray(userData)) {
+        userData = [];
+      }
+      
+      console.log("User Data Array:", userData);
+      
+      // Filter users by search query
+      const query = userSearch.toLowerCase();
+      const filtered = userData.filter(user => {
+        const firstName = user.first_name || "";
+        const lastName = user.last_name || "";
+        const fullName = user.full_name || `${firstName} ${lastName}`.trim();
+        const username = user.username || "";
+        const email = user.email || "";
+        
+        return (
+          fullName.toLowerCase().includes(query) ||
+          firstName.toLowerCase().includes(query) ||
+          lastName.toLowerCase().includes(query) ||
+          username.toLowerCase().includes(query) ||
+          email.toLowerCase().includes(query)
         );
+      });
+      
+      console.log("Filtered Users:", filtered);
+      setUserResults(filtered);
+      setShowUserDropdown(true);
+    } catch (err) {
+      console.error("User search error:", err);
+      console.error("Error details:", err.response?.data);
+      setUserResults([]);
+    } finally {
+      setUserLoading(false);
+    }
+  }
+
+  function selectUser(user) {
+    // ✅ AUTO-FILL FORM WITH USER DATA
+    const firstName = user.first_name || "";
+    const lastName = user.last_name || "";
+    const fullName = user.full_name || `${firstName} ${lastName}`.trim() || user.username || "";
+    
+    setForm({
+      ...form,
+      full_name: fullName,
+      email: user.email || "",
+      personal_phone: user.phone || user.mobile || user.phone_number || user.contact || "",
+      location: user.address || user.location || user.city || "",
+      residential_phone: user.residential_phone || user.home_phone || "",
+    });
+    
+    setUserSearch(fullName);
+    setShowUserDropdown(false);
+  }
+
+  async function loadEmployee() {
+    setLoading(true);
+    try {
+      const res = await api.get(`/employee-management/employees/${id}/`);
+      setForm(res.data);
+    } catch (err) {
+      console.error("Load error:", err);
+      alert("Failed to load employee");
+      navigate("/employee-management");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleChange(e) {
+    const value = e.target.type === "file" ? e.target.files[0] : e.target.value;
+    setForm({ ...form, [e.target.name]: value });
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (isEdit) {
+        await api.patch(`/employee-management/employees/${id}/`, form);
+        alert("Employee updated successfully");
       } else {
-        // Add new employee
-        const newEmployee = {
-          ...employeeData,
-          id: Date.now(),
-          createdDate: currentDate,
-          createdUser: "myomega@gmail.com"
-        };
-        data.push(newEmployee);
+        await api.post(`/employee-management/employees/`, form);
+        alert("Employee created successfully");
       }
 
-      localStorage.setItem('employee-management-data', JSON.stringify(data));
-      alert(isEditMode ? 'Employee updated successfully!' : 'Employee added successfully!');
-      navigate('/employee-management');
-    } catch (error) {
-      console.error('Error saving employee:', error);
-      alert('Failed to save employee. Please try again.');
+      navigate("/employee-management", { replace: true });
+    } catch (err) {
+      console.error("Save error:", err);
+      alert(`Failed to save employee: ${err.response?.data?.detail || err.message}`);
+      setLoading(false);
     }
-  };
+  }
 
-  const handleCancel = () => {
-    navigate('/employee-management');
-  };
+  if (loading && isEdit) {
+    return (
+      <div style={S.page}>
+        <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>
+          Loading employee data...
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.formCard}>
-        <div style={styles.formHeader}>
-          <h2 style={styles.formTitle}>{isEditMode ? "Edit Employee" : "Add New Employee"}</h2>
-          <button onClick={handleCancel} style={styles.backButton}>
-            ← Back to List
+    <div style={S.page}>
+      <h2 style={S.pageTitle}>{isEdit ? "Edit Employee" : "Add New Employee"}</h2>
+
+      <form onSubmit={handleSubmit} style={S.formCard}>
+
+        {/* USER SEARCH SECTION - Only show when adding new employee */}
+        {!isEdit && (
+          <div style={S.userSearchBox}>
+            <div style={S.searchHeader}>
+              <span style={S.searchIcon}>👤</span>
+              <span style={S.searchTitle}>Add Employee from User Account (Optional)</span>
+            </div>
+            
+            <div style={{ position: "relative" }}>
+              <label style={S.label}>Search User by Name or Email</label>
+              <input
+                type="text"
+                placeholder="Type to search existing users..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                style={S.searchInput}
+                autoComplete="off"
+              />
+              
+              {userLoading && (
+                <div style={S.loadingText}>Searching users...</div>
+              )}
+              
+              {showUserDropdown && userResults.length > 0 && (
+                <div style={S.dropdown}>
+                  {userResults.map((user) => {
+                    const firstName = user.first_name || "";
+                    const lastName = user.last_name || "";
+                    const displayName = user.full_name || `${firstName} ${lastName}`.trim() || user.username;
+                    
+                    return (
+                      <div
+                        key={user.id || user.user_id}
+                        onClick={() => selectUser(user)}
+                        style={S.dropdownItem}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "#ffffff"}
+                      >
+                        <div style={S.itemName}>{displayName}</div>
+                        <div style={S.itemDetails}>
+                          {user.email && <span>{user.email}</span>}
+                          {user.username && <span> • @{user.username}</span>}
+                          {(user.phone || user.mobile) && <span> • {user.phone || user.mobile}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {showUserDropdown && userResults.length === 0 && !userLoading && (
+                <div style={S.dropdown}>
+                  <div style={S.noResults}>No users found</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <Section label="Personal Information" />
+
+        <div style={S.row}>
+          <Field label="Full Name *" name="full_name" value={form.full_name} onChange={handleChange} required />
+          <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
+        </div>
+
+        <div style={S.row}>
+          <Field label="Job Title *" name="job_title" value={form.job_title} onChange={handleChange} required />
+          <Field label="Joining Date *" name="joining_date" type="date" value={form.joining_date} onChange={handleChange} required />
+        </div>
+
+        <Section label="Contact Information" />
+
+        <div style={S.row}>
+          <Field label="Personal Phone" name="personal_phone" value={form.personal_phone} onChange={handleChange} />
+          <Field label="Residential Phone" name="residential_phone" value={form.residential_phone} onChange={handleChange} />
+        </div>
+
+        <Field label="Location *" name="location" value={form.location} onChange={handleChange} required />
+
+        <Section label="Employment Details" />
+
+        <Field label="Duty Time" name="duty_time" value={form.duty_time} onChange={handleChange} placeholder="e.g., 9 AM - 5 PM" />
+
+        <Section label="Bank Details" />
+
+        <div style={S.row}>
+          <Field label="Bank Account" name="bank_account" value={form.bank_account} onChange={handleChange} />
+          <Field label="Bank Details" name="bank_details" value={form.bank_details} onChange={handleChange} />
+        </div>
+
+        <div style={S.btnRow}>
+          <button type="button" style={S.cancelBtn} onClick={() => navigate("/employee-management")} disabled={loading}>
+            ✖ Cancel
+          </button>
+
+          <button type="submit" style={S.saveBtn} disabled={loading}>
+            {loading ? "Saving..." : "💾 Save Employee"}
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.formGrid}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Name *</label>
-              <input 
-                style={styles.input} 
-                name="name" 
-                value={employeeData.name} 
-                onChange={handleInputChange} 
-                placeholder="Enter full name"
-                required
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email *</label>
-              <input 
-                style={styles.input} 
-                type="email"
-                name="email" 
-                value={employeeData.email} 
-                onChange={handleInputChange} 
-                placeholder="Enter email address"
-                required
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Location</label>
-              <input 
-                style={styles.input} 
-                name="location" 
-                value={employeeData.location} 
-                onChange={handleInputChange} 
-                placeholder="Enter location"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Personal Phone</label>
-              <input 
-                style={styles.input} 
-                name="personalPhone" 
-                value={employeeData.personalPhone} 
-                onChange={handleInputChange} 
-                placeholder="Enter personal phone"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Residential Phone</label>
-              <input 
-                style={styles.input} 
-                name="residentialPhone" 
-                value={employeeData.residentialPhone} 
-                onChange={handleInputChange} 
-                placeholder="Enter residential phone"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Job Title</label>
-              <input 
-                style={styles.input} 
-                name="jobTitle" 
-                value={employeeData.jobTitle} 
-                onChange={handleInputChange} 
-                placeholder="Enter job title"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Duty Time</label>
-              <input 
-                style={styles.input} 
-                name="dutyTime" 
-                value={employeeData.dutyTime} 
-                onChange={handleInputChange} 
-                placeholder="e.g., 9:00 AM - 6:00 PM"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Joining Date</label>
-              <input 
-                style={styles.input} 
-                type="date" 
-                name="joiningDate" 
-                value={employeeData.joiningDate} 
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Bank Account</label>
-              <input 
-                style={styles.input} 
-                name="bankAccount" 
-                value={employeeData.bankAccount} 
-                onChange={handleInputChange} 
-                placeholder="Enter bank account number"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Bank Details</label>
-              <input 
-                style={styles.input} 
-                name="bankDetails" 
-                value={employeeData.bankDetails} 
-                onChange={handleInputChange} 
-                placeholder="Enter bank name & branch"
-              />
-            </div>
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Aadhar Document</label>
-            <input 
-              style={styles.fileInput} 
-              type="file" 
-              accept=".pdf,.jpg,.jpeg,.png" 
-              onChange={handleFileUpload}
-            />
-            {(uploadedFile || employeeData.aadharFileName) && (
-              <div style={styles.filePreview}>
-                <span style={styles.fileName}>
-                  {uploadedFile ? uploadedFile.name : employeeData.aadharFileName}
-                </span>
-                <button type="button" onClick={handleRemoveFile} style={styles.removeFileBtn}>
-                  Remove
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div style={styles.formFooter}>
-            <button type="button" onClick={handleCancel} style={styles.cancelBtn}>
-              Cancel
-            </button>
-            <button type="submit" style={styles.submitBtn}>
-              {isEditMode ? "Update Employee" : "Submit Employee"}
-            </button>
-          </div>
-        </form>
-      </div>
+      </form>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
+/* FIELD COMPONENT */
+function Field({ label, name, value, onChange, type = "text", required = false, placeholder = "" }) {
+  return (
+    <div style={S.fieldBox}>
+      <label style={S.label}>{label}</label>
+      <input 
+        name={name} 
+        type={type} 
+        value={type !== "file" ? value : undefined} 
+        onChange={onChange} 
+        style={S.input}
+        required={required}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+/* SECTION TITLE */
+function Section({ label }) {
+  return (
+    <div style={S.sectionBox}>
+      <div style={S.sectionTitle}>{label}</div>
+    </div>
+  );
+}
+
+/* STYLES */
+const S = {
+  page: {
+    background: "#f7f9fb",
+    padding: 24,
     minHeight: "100vh",
   },
-  formCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    maxWidth: "1000px",
-    margin: "0 auto",
-  },
-  formHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "24px",
-    borderBottom: "1px solid #e5e7eb",
-  },
-  formTitle: {
-    fontSize: "24px",
+
+  pageTitle: {
+    fontSize: 24,
     fontWeight: "700",
+    marginBottom: 20,
     color: "#111827",
-    margin: 0,
   },
-  backButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
+
+  formCard: {
+    background: "#ffffff",
+    padding: 20,
+    borderRadius: 8,
+    border: "1px solid #e5e7eb",
   },
-  form: {
-    padding: "24px",
+
+  sectionBox: {
+    background: "#f3f4f6",
+    padding: "8px 12px",
+    borderRadius: 6,
+    marginTop: 20,
+    marginBottom: 12,
   },
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "20px",
-    marginBottom: "20px",
+
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#111827",
   },
-  formGroup: {
+
+  row: {
+    display: "flex",
+    gap: 16,
+    marginBottom: 16,
+  },
+
+  fieldBox: {
+    flex: 1,
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
   },
+
   label: {
-    fontSize: "14px",
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: 600,
+    marginBottom: 4,
     color: "#374151",
   },
+
   input: {
-    padding: "12px 14px",
-    fontSize: "14px",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    outline: "none",
-    transition: "all 0.2s",
-  },
-  fileInput: {
     padding: "10px 12px",
-    fontSize: "14px",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    cursor: "pointer",
+    borderRadius: 6,
+    border: "1px solid #e5e7eb",
+    background: "#ffffff",
+    outline: "none",
   },
-  filePreview: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginTop: "8px",
-    padding: "10px 14px",
-    backgroundColor: "#f3f4f6",
-    borderRadius: "8px",
-  },
-  fileName: {
-    flex: 1,
-    fontSize: "14px",
-    color: "#374151",
-  },
-  removeFileBtn: {
-    padding: "6px 14px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#dc2626",
-    backgroundColor: "white",
-    border: "1px solid #fecaca",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  formFooter: {
+
+  btnRow: {
     display: "flex",
     justifyContent: "flex-end",
-    gap: "12px",
-    marginTop: "24px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e5e7eb",
+    gap: 12,
+    marginTop: 24,
   },
+
   cancelBtn: {
-    padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
+    background: "#f3f4f6",
+    padding: "10px 16px",
+    borderRadius: 6,
+    border: "1px solid #e5e7eb",
     cursor: "pointer",
-    transition: "all 0.2s",
+    fontSize: 14,
   },
-  submitBtn: {
-    padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
+
+  saveBtn: {
+    background: "#3b82f6",
+    padding: "10px 16px",
+    borderRadius: 6,
     border: "none",
-    borderRadius: "8px",
+    color: "#ffffff",
     cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    fontSize: 14,
+  },
+
+  // User Search Styles
+  userSearchBox: {
+    background: "#f0fdf4",
+    border: "2px solid #86efac",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+  },
+
+  searchHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  searchIcon: {
+    fontSize: 20,
+  },
+
+  searchTitle: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#111827",
+  },
+
+  searchInput: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: 6,
+    border: "1px solid #e5e7eb",
+    background: "#ffffff",
+    outline: "none",
+    fontSize: 14,
+  },
+
+  loadingText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 6,
+  },
+
+  dropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    background: "#ffffff",
+    border: "1px solid #e5e7eb",
+    borderRadius: 6,
+    maxHeight: 300,
+    overflowY: "auto",
+    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+    zIndex: 100,
+  },
+
+  dropdownItem: {
+    padding: 12,
+    borderBottom: "1px solid #f3f4f6",
+    cursor: "pointer",
+    background: "#ffffff",
+  },
+
+  itemName: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#111827",
+    marginBottom: 4,
+  },
+
+  itemDetails: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+
+  noResults: {
+    padding: 12,
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: 13,
   },
 };

@@ -1,314 +1,210 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+// Employee_View.jsx
+// API CONNECTED - Color theme matched to CV Management
+
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import api from "../../api/client";
 
 export default function EmployeeView() {
-  const navigate = useNavigate();
   const { id } = useParams();
-  const [employeeData, setEmployeeData] = useState(null);
+  const navigate = useNavigate();
+  const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadEmployeeData();
+    fetchEmployee();
   }, [id]);
 
-  const loadEmployeeData = () => {
+  async function fetchEmployee() {
     try {
-      const storedData = localStorage.getItem('employee-management-data');
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        const employee = data.find(item => item.id === parseInt(id));
-        if (employee) {
-          setEmployeeData(employee);
-        } else {
-          alert('Employee not found');
-          navigate('/employee-management');
-        }
-      } else {
-        alert('No employee data available');
-        navigate('/employee-management');
-      }
-    } catch (error) {
-      console.error('Error loading employee data:', error);
-      alert('Failed to load employee data');
-      navigate('/employee-management');
+      const res = await api.get(`/employee-management/employees/${id}/`);
+      setEmployee(res.data);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      alert(`Failed to load employee: ${err.response?.data?.detail || err.message}`);
+      navigate("/employee-management");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleBack = () => {
-    navigate('/employee-management');
-  };
-
-  const handleEdit = () => {
-    navigate(`/employee-management/edit/${id}`);
-  };
-
-  const handleViewAadhar = () => {
-    if (employeeData?.aadharUrl) {
-      window.open(employeeData.aadharUrl, "_blank");
-    } else {
-      alert("No Aadhar document available");
-    }
-  };
+  }
 
   if (loading) {
     return (
-      <div style={{...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh'}}>
-        <div style={{fontSize: '18px', color: '#6b7280'}}>Loading employee details...</div>
+      <div style={{ padding: 24, color: "#6b7280" }}>
+        Loading employee details…
       </div>
     );
   }
 
-  if (!employeeData) {
-    return null;
-  }
+  if (!employee) return null;
 
   return (
     <div style={styles.container}>
-      <div style={styles.viewCard}>
-        <div style={styles.viewHeader}>
-          <h2 style={styles.viewTitle}>Employee Details</h2>
-          <div style={styles.headerActions}>
-            <button onClick={handleEdit} style={styles.editButton}>
-              ✏️ Edit Employee
+      <div style={styles.card}>
+        {/* HEADER */}
+        <div style={styles.header}>
+          <div>
+            <h2 style={styles.title}>{employee.name}</h2>
+            <p style={styles.subText}>{employee.email}</p>
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => navigate(`/employee-management/edit/${id}`)}
+              style={styles.editBtn}
+            >
+              Edit
             </button>
-            <button onClick={handleBack} style={styles.backButton}>
-              ← Back to List
+            <button
+              onClick={() => navigate("/employee-management")}
+              style={styles.backBtn}
+            >
+              Back
             </button>
           </div>
         </div>
 
-        <div style={styles.viewBody}>
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Personal Information</h3>
-            <div style={styles.viewGrid}>
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Name:</span>
-                <span style={styles.viewValue}>{employeeData.name}</span>
-              </div>
+        {/* PERSONAL INFO */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Personal Information</h3>
 
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Email:</span>
-                <span style={styles.viewValue}>{employeeData.email}</span>
-              </div>
+          <div style={styles.grid}>
+            <Info label="Name" value={employee.name} />
+            <Info label="Email" value={employee.email} />
+            <Info label="Personal Phone" value={employee.personal_phone} />
+            <Info label="Residential Phone" value={employee.residential_phone} />
+          </div>
+        </div>
 
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Personal Phone:</span>
-                <span style={styles.viewValue}>{employeeData.personalPhone || "N/A"}</span>
-              </div>
+        {/* JOB DETAILS */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Employment Details</h3>
 
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Residential Phone:</span>
-                <span style={styles.viewValue}>{employeeData.residentialPhone || "N/A"}</span>
-              </div>
+          <div style={styles.grid}>
+            <Info label="Job Title" value={employee.job_title} />
+            <Info label="Duty Time" value={employee.duty_time} />
+            <Info label="Joining Date" value={employee.joining_date} />
+            <Info label="Location" value={employee.location} />
+          </div>
+        </div>
+
+        {/* BANK DETAILS */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Bank Details</h3>
+
+          <div style={styles.grid}>
+            <Info label="Bank Account" value={employee.bank_account} />
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Info label="Bank Details" value={employee.bank_details} />
             </div>
           </div>
+        </div>
 
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Employment Details</h3>
-            <div style={styles.viewGrid}>
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Job Title:</span>
-                <span style={styles.viewValue}>{employeeData.jobTitle || "N/A"}</span>
-              </div>
+        {/* AADHAR */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Aadhar</h3>
 
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Duty Time:</span>
-                <span style={styles.viewValue}>{employeeData.dutyTime || "N/A"}</span>
-              </div>
-
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Joining Date:</span>
-                <span style={styles.viewValue}>{employeeData.joiningDate || "N/A"}</span>
-              </div>
-
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Location:</span>
-                <span style={styles.viewValue}>{employeeData.location || "N/A"}</span>
-              </div>
+          {employee.aadhar_file_name ? (
+            <div style={styles.fileBox}>
+              <span>{employee.aadhar_file_name}</span>
+              <button
+                onClick={() => window.open(employee.aadhar_url, "_blank")}
+                style={styles.viewBtn}
+              >
+                View
+              </button>
             </div>
-          </div>
-
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Bank Details</h3>
-            <div style={styles.viewGrid}>
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Bank Account:</span>
-                <span style={styles.viewValue}>{employeeData.bankAccount || "N/A"}</span>
-              </div>
-
-              <div style={{...styles.viewField, gridColumn: "1 / -1"}}>
-                <span style={styles.viewLabel}>Bank Details:</span>
-                <span style={styles.viewValue}>{employeeData.bankDetails || "N/A"}</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Aadhar Document</h3>
-            <div style={styles.aadharAttachmentSection}>
-              {employeeData.aadharFileName ? (
-                <div style={styles.aadharAttachmentBox}>
-                  <div style={styles.aadharAttachmentInfo}>
-                    <span style={styles.aadharFileName}>{employeeData.aadharFileName}</span>
-                    <button onClick={handleViewAadhar} style={styles.viewAadharBtn}>
-                      📄 View Aadhar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={styles.noAadhar}>
-                  No Aadhar document uploaded
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>System Information</h3>
-            <div style={styles.viewGrid}>
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Created By:</span>
-                <span style={styles.viewValue}>{employeeData.createdUser}</span>
-              </div>
-
-              <div style={styles.viewField}>
-                <span style={styles.viewLabel}>Created Date:</span>
-                <span style={styles.viewValue}>{employeeData.createdDate}</span>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <p style={{ color: "#6b7280" }}>No aadhar uploaded</p>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+function Info({ label, value }) {
+  return (
+    <div>
+      <div style={styles.label}>{label}</div>
+      <div style={styles.value}>{value || "N/A"}</div>
+    </div>
+  );
+}
+
 const styles = {
   container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
+    padding: 24,
+    background: "#f9fafb",
     minHeight: "100vh",
   },
-  viewCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    maxWidth: "1000px",
+  card: {
+    maxWidth: 1000,
     margin: "0 auto",
+    background: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
-  viewHeader: {
+
+  header: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    padding: "24px",
-    borderBottom: "1px solid #e5e7eb",
+    marginBottom: 20,
   },
-  viewTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
-  headerActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  editButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#3b82f6",
-    backgroundColor: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    borderRadius: "8px",
+  title: { margin: 0, fontSize: 22, fontWeight: 700, color: "#111827" },
+  subText: { margin: 0, color: "#6b7280" },
+
+  editBtn: {
+    background: "#fef3c7",
+    border: "1px solid #fde68a",
+    padding: "8px 14px",
+    borderRadius: 8,
     cursor: "pointer",
-    transition: "all 0.2s",
   },
-  backButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
+  backBtn: {
+    background: "#fff",
+    border: "1px solid #e5e7eb",
+    padding: "8px 14px",
+    borderRadius: 8,
     cursor: "pointer",
-    transition: "all 0.2s",
   },
-  viewBody: {
-    padding: "24px",
-  },
-  section: {
-    marginBottom: "32px",
-  },
+
+  section: { marginTop: 20 },
   sectionTitle: {
-    fontSize: "18px",
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: "16px",
-    paddingBottom: "8px",
+    fontSize: 17,
+    fontWeight: 700,
+    color: "#111827",
+    marginBottom: 10,
     borderBottom: "1px solid #e5e7eb",
+    paddingBottom: 6,
   },
-  viewGrid: {
+
+  grid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "20px",
+    gap: 12,
   },
-  viewField: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  viewLabel: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#6b7280",
-  },
-  viewValue: {
-    fontSize: "16px",
-    color: "#374151",
-    fontWeight: "500",
-  },
-  aadharAttachmentSection: {
-    marginTop: "8px",
-  },
-  aadharAttachmentBox: {
+
+  label: { fontSize: 12, color: "#6b7280", fontWeight: 600 },
+  value: { fontSize: 14, color: "#111827", marginTop: 4 },
+
+  fileBox: {
+    padding: 14,
+    background: "#f9fafb",
     border: "1px solid #e5e7eb",
-    borderRadius: "8px",
-    padding: "16px",
-    backgroundColor: "#f9fafb",
-  },
-  aadharAttachmentInfo: {
+    borderRadius: 8,
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
   },
-  aadharFileName: {
-    fontSize: "14px",
-    color: "#374151",
-    fontWeight: "500",
-  },
-  viewAadharBtn: {
-    padding: "8px 16px",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "white",
+
+  viewBtn: {
+    background: "#eff6ff",
     border: "1px solid #bfdbfe",
-    borderRadius: "6px",
+    padding: "6px 10px",
+    borderRadius: 6,
     cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  noAadhar: {
-    padding: "20px",
-    textAlign: "center",
-    color: "#9ca3af",
-    fontSize: "14px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "8px",
-    border: "1px dashed #d1d5db",
+    color: "#3b82f6",
   },
 };
