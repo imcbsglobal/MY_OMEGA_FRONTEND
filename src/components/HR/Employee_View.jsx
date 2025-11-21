@@ -1,5 +1,5 @@
 // Employee_View.jsx
-// API CONNECTED - Color theme matched to CV Management
+// Show exact backend fields (no renaming). Safe rendering if some fields missing.
 
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -12,199 +12,137 @@ export default function EmployeeView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchEmployee();
+    load();
   }, [id]);
 
-  async function fetchEmployee() {
+  async function load() {
+    setLoading(true);
     try {
       const res = await api.get(`/employee-management/employees/${id}/`);
-      setEmployee(res.data);
+      setEmployee(res.data || {});
     } catch (err) {
-      console.error("Fetch error:", err);
-      alert(`Failed to load employee: ${err.response?.data?.detail || err.message}`);
+      console.error("load employee:", err);
+      alert("Failed to load employee");
       navigate("/employee-management");
     } finally {
       setLoading(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ padding: 24, color: "#6b7280" }}>
-        Loading employee details…
-      </div>
-    );
-  }
+  if (loading) return <div style={{ padding: 20 }}>Loading…</div>;
+  if (!employee) return <div style={{ padding: 20 }}>No data</div>;
 
-  if (!employee) return null;
+  // Helper to safely show primitive values or JSON string for objects
+  const show = (v) => {
+    if (v === null || v === undefined || v === "") return "—";
+    if (typeof v === "object") return <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{JSON.stringify(v, null, 2)}</pre>;
+    return String(v);
+  };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.page}>
       <div style={styles.card}>
-        {/* HEADER */}
         <div style={styles.header}>
           <div>
-            <h2 style={styles.title}>{employee.name}</h2>
-            <p style={styles.subText}>{employee.email}</p>
+            <h2 style={styles.name}>{employee.full_name ?? employee.user_name ?? "—"}</h2>
+            <div style={styles.meta}>{employee.employee_id ?? employee.user_email ?? ""}</div>
+            <div style={styles.status}>{String(employee.is_active ?? "")}</div>
           </div>
 
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              onClick={() => navigate(`/employee-management/edit/${id}`)}
-              style={styles.editBtn}
-            >
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => navigate(`/employee-management/edit/${employee.id}`)} style={styles.btn}>
               Edit
             </button>
-            <button
-              onClick={() => navigate("/employee-management")}
-              style={styles.backBtn}
-            >
+            <button onClick={() => navigate("/employee-management")} style={styles.btnAlt}>
               Back
             </button>
           </div>
         </div>
 
-        {/* PERSONAL INFO */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Personal Information</h3>
+        {/* Job Info (exact keys) */}
+        <Section title="Job Information">
+          <Row label="employment_status" value={show(employee.employment_status ?? employee.job_info?.employment_status)} />
+          <Row label="employment_type" value={show(employee.employment_type ?? employee.job_info?.employment_type)} />
+          <Row label="department" value={show(employee.department ?? employee.job_info?.department)} />
+          <Row label="designation" value={show(employee.designation ?? employee.job_info?.designation)} />
+          <Row label="reporting_manager" value={show(employee.reporting_manager ?? employee.job_info?.reporting_manager)} />
+          <Row label="date_of_joining" value={show(employee.date_of_joining ?? employee.job_info?.date_of_joining)} />
+          <Row label="date_of_leaving" value={show(employee.date_of_leaving ?? employee.job_info?.date_of_leaving)} />
+          <Row label="probation_end_date" value={show(employee.probation_end_date ?? employee.job_info?.probation_end_date)} />
+          <Row label="confirmation_date" value={show(employee.confirmation_date ?? employee.job_info?.confirmation_date)} />
+          <Row label="basic_salary" value={show(employee.basic_salary ?? employee.job_info?.basic_salary)} />
+          <Row label="allowances" value={show(employee.allowances ?? employee.job_info?.allowances)} />
+          <Row label="gross_salary" value={show(employee.gross_salary ?? employee.job_info?.gross_salary)} />
+          <Row label="location" value={show(employee.location ?? employee.job_info?.location)} />
+          <Row label="work_location" value={show(employee.work_location ?? employee.job_info?.work_location)} />
+          <Row label="duty_time" value={show(employee.duty_time ?? employee.job_info?.duty_time)} />
+        </Section>
 
-          <div style={styles.grid}>
-            <Info label="Name" value={employee.name} />
-            <Info label="Email" value={employee.email} />
-            <Info label="Personal Phone" value={employee.personal_phone} />
-            <Info label="Residential Phone" value={employee.residential_phone} />
-          </div>
-        </div>
+        {/* Contact Info */}
+        <Section title="Contact Details">
+          <Row label="personal_phone" value={show(employee.personal_phone)} />
+          <Row label="residential_phone" value={show(employee.residential_phone)} />
+          <Row label="emergency_contact_name" value={show(employee.contact_info?.emergency_contact_name)} />
+          <Row label="emergency_contact_phone" value={show(employee.contact_info?.emergency_contact_phone)} />
+          <Row label="emergency_contact_relation" value={show(employee.contact_info?.emergency_contact_relation)} />
+        </Section>
 
-        {/* JOB DETAILS */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Employment Details</h3>
+        {/* Bank Info */}
+        <Section title="Bank Details">
+          <Row label="account_holder_name" value={show(employee.bank_info?.account_holder_name)} />
+          <Row label="salary_account_number" value={show(employee.bank_info?.salary_account_number)} />
+          <Row label="salary_bank_name" value={show(employee.bank_info?.salary_bank_name)} />
+          <Row label="salary_ifsc_code" value={show(employee.bank_info?.salary_ifsc_code)} />
+          <Row label="salary_branch" value={show(employee.bank_info?.salary_branch)} />
+          <Row label="pf_number" value={show(employee.pf_number)} />
+          <Row label="esi_number" value={show(employee.esi_number)} />
+          <Row label="pan_number" value={show(employee.pan_number)} />
+          <Row label="aadhar_number" value={show(employee.aadhar_number)} />
+        </Section>
 
-          <div style={styles.grid}>
-            <Info label="Job Title" value={employee.job_title} />
-            <Info label="Duty Time" value={employee.duty_time} />
-            <Info label="Joining Date" value={employee.joining_date} />
-            <Info label="Location" value={employee.location} />
-          </div>
-        </div>
-
-        {/* BANK DETAILS */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Bank Details</h3>
-
-          <div style={styles.grid}>
-            <Info label="Bank Account" value={employee.bank_account} />
-
-            <div style={{ gridColumn: "1 / -1" }}>
-              <Info label="Bank Details" value={employee.bank_details} />
-            </div>
-          </div>
-        </div>
-
-        {/* AADHAR */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Aadhar</h3>
-
-          {employee.aadhar_file_name ? (
-            <div style={styles.fileBox}>
-              <span>{employee.aadhar_file_name}</span>
-              <button
-                onClick={() => window.open(employee.aadhar_url, "_blank")}
-                style={styles.viewBtn}
-              >
-                View
-              </button>
-            </div>
-          ) : (
-            <p style={{ color: "#6b7280" }}>No aadhar uploaded</p>
-          )}
-        </div>
+        {/* Other */}
+        <Section title="Other">
+          <Row label="blood_group" value={show(employee.blood_group)} />
+          <Row label="marital_status" value={show(employee.marital_status)} />
+          <Row label="notes" value={show(employee.notes)} />
+          <Row label="is_active" value={show(employee.is_active)} />
+        </Section>
       </div>
     </div>
   );
 }
 
-function Info({ label, value }) {
+function Section({ title, children }) {
   return (
-    <div>
+    <div style={styles.section}>
+      <div style={styles.sectionTitle}>{title}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div style={styles.row}>
       <div style={styles.label}>{label}</div>
-      <div style={styles.value}>{value || "N/A"}</div>
+      <div style={styles.value}>{value}</div>
     </div>
   );
 }
 
 const styles = {
-  container: {
-    padding: 24,
-    background: "#f9fafb",
-    minHeight: "100vh",
-  },
-  card: {
-    maxWidth: 1000,
-    margin: "0 auto",
-    background: "#fff",
-    padding: 20,
-    borderRadius: 8,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
+  page: { padding: 20, background: "#fff", minHeight: "100vh" },
+  card: { border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, background: "#fff" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  name: { margin: 0, fontSize: 20, fontWeight: 700, color: "#111827" },
+  meta: { color: "#6b7280" },
+  status: { marginTop: 6, color: "#059669", fontWeight: 700 },
+  btn: { padding: "8px 12px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff" },
+  btnAlt: { padding: "8px 12px", borderRadius: 6, background: "#f3f4f6", border: "1px solid #e5e7eb" },
 
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  title: { margin: 0, fontSize: 22, fontWeight: 700, color: "#111827" },
-  subText: { margin: 0, color: "#6b7280" },
-
-  editBtn: {
-    background: "#fef3c7",
-    border: "1px solid #fde68a",
-    padding: "8px 14px",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
-  backBtn: {
-    background: "#fff",
-    border: "1px solid #e5e7eb",
-    padding: "8px 14px",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
-
-  section: { marginTop: 20 },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: 700,
-    color: "#111827",
-    marginBottom: 10,
-    borderBottom: "1px solid #e5e7eb",
-    paddingBottom: 6,
-  },
-
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-  },
-
-  label: { fontSize: 12, color: "#6b7280", fontWeight: 600 },
-  value: { fontSize: 14, color: "#111827", marginTop: 4 },
-
-  fileBox: {
-    padding: 14,
-    background: "#f9fafb",
-    border: "1px solid #e5e7eb",
-    borderRadius: 8,
-    display: "flex",
-    justifyContent: "space-between",
-  },
-
-  viewBtn: {
-    background: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    padding: "6px 10px",
-    borderRadius: 6,
-    cursor: "pointer",
-    color: "#3b82f6",
-  },
+  section: { marginTop: 14, padding: 12, border: "1px solid #e5e7eb", borderRadius: 8, background: "#fbfdff" },
+  sectionTitle: { fontWeight: 700, color: "#374151", marginBottom: 8 },
+  row: { display: "flex", gap: 12, padding: "6px 0", alignItems: "flex-start" },
+  label: { width: 240, color: "#6b7280", fontSize: 13, fontWeight: 600 },
+  value: { color: "#374151", fontSize: 14, flex: 1 },
 };

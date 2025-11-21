@@ -1,5 +1,5 @@
 // EmployeeManagement.jsx
-// FIXED - Handles all possible field name variations from API
+// Updated to match exact backend field structure
 
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -36,77 +36,31 @@ export default function EmployeeManagement() {
       }
 
       console.log("Employee Data Array:", employeeData);
-      console.log("Sample Employee (raw):", employeeData[0]);
       
-      if (employeeData.length > 0) {
-        console.log("All fields in first employee:", Object.keys(employeeData[0]));
-        console.log("Full first employee:", JSON.stringify(employeeData[0], null, 2));
-      }
-
-      // Process employees - Map ALL possible field variations
+      // Process employees with exact backend field names
       const processedEmployees = employeeData.map((emp, index) => {
-        // ID: Try multiple variations
-        const id = emp.id || emp.employee_id || emp.pk || emp._id || emp.uuid || index;
+        // Use exact backend field names
+        const id = emp.id || emp.employee_id || index;
         
-        // Name: Try ALL possible field names (full_name is primary for this API)
-        const name = emp.full_name || 
-                     emp.name || 
-                     emp.employee_name || 
-                     emp.username || 
-                     emp.user_name ||
-                     emp.display_name ||
-                     emp.first_name ||
-                     `Employee ${index + 1}`;
-
-        // Email: Try variations
-        const email = emp.email || emp.user_email || emp.email_address || "";
-
-        // Job Title: Try variations  
-        const job_title = emp.job_title || emp.position || emp.role || emp.designation || "";
-
-        // Phone: Try variations
-        const personal_phone = emp.personal_phone || emp.phone || emp.mobile || emp.contact || "";
-        const residential_phone = emp.residential_phone || emp.home_phone || "";
-
-        // Location: Try variations
-        const location = emp.location || emp.address || emp.city || emp.place || "";
-
-        // Joining Date: Try variations
-        const joining_date = emp.joining_date || emp.join_date || emp.hire_date || emp.start_date || "";
-
-        // Duty Time
-        const duty_time = emp.duty_time || emp.work_hours || emp.shift || "";
-
-        // Bank Details
-        const bank_account = emp.bank_account || emp.account_number || "";
-        const bank_details = emp.bank_details || emp.bank_info || "";
-
-        console.log(`Processing Employee ${index}:`, {
-          id,
-          name,
-          email,
-          job_title,
-          originalData: emp
-        });
-
+        // Map to display fields while keeping all original data
         return {
-          ...emp, // Keep all original fields
+          ...emp, // Keep all original backend fields
           id,
-          name,
-          email,
-          job_title,
-          personal_phone,
-          residential_phone,
-          location,
-          joining_date,
-          duty_time,
-          bank_account,
-          bank_details
+          // Display fields
+          name: emp.full_name || `Employee ${index + 1}`,
+          email: emp.user_email || "",
+          job_title: emp.designation || emp.job_info?.designation || "",
+          personal_phone: emp.personal_phone || "",
+          location: emp.location || emp.job_info?.location || "",
+          joining_date: emp.date_of_joining || emp.job_info?.date_of_joining || "",
+          duty_time: emp.duty_time || emp.job_info?.duty_time || "",
+          department: emp.department || emp.job_info?.department || "",
+          employment_status: emp.employment_status || emp.job_info?.employment_status || "",
+          is_active: emp.is_active !== undefined ? emp.is_active : true
         };
       });
 
       console.log("Processed Employees:", processedEmployees);
-      console.log("Sample Processed Employee:", processedEmployees[0]);
 
       setEmployees(processedEmployees);
       
@@ -149,7 +103,8 @@ export default function EmployeeManagement() {
       (e.name || "").toLowerCase().includes(q) ||
       (e.email || "").toLowerCase().includes(q) ||
       (e.job_title || "").toLowerCase().includes(q) ||
-      (e.personal_phone || "").toString().includes(q)
+      (e.employee_id || "").toString().toLowerCase().includes(q) ||
+      (e.department || "").toLowerCase().includes(q)
     );
   });
 
@@ -187,9 +142,6 @@ export default function EmployeeManagement() {
         <strong>Total:</strong> {employees.length} | 
         <strong> Filtered:</strong> {filtered.length} | 
         <strong> Search:</strong> "{search}"
-        <span style={{ marginLeft: 10, fontSize: 11, color: "#92400e" }}>
-          (Check console for detailed field mapping)
-        </span>
       </div>
 
       {/* Main Split Layout */}
@@ -219,6 +171,14 @@ export default function EmployeeManagement() {
                     <div style={{ flex: 1 }}>
                       <div style={S.leftName}>{emp.name || "Unknown"}</div>
                       <div style={S.leftJob}>{emp.job_title || "No Title"}</div>
+                      <div style={S.leftId}>ID: {emp.employee_id || "N/A"}</div>
+                    </div>
+                    <div style={{
+                      ...S.statusBadge,
+                      background: emp.is_active ? "#d1fae5" : "#fee2e2",
+                      color: emp.is_active ? "#059669" : "#dc2626"
+                    }}>
+                      {emp.is_active ? "Active" : "Inactive"}
                     </div>
                   </div>
                 </div>
@@ -270,7 +230,14 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
           <div>
             <div style={S.detailName}>{employee.name || "Unknown"}</div>
             <div style={S.detailEmail}>{employee.email || "No email"}</div>
-            <div style={S.badge}>ACTIVE</div>
+            <div style={S.detailId}>Employee ID: {employee.employee_id || "N/A"}</div>
+            <div style={{
+              ...S.badge,
+              background: employee.is_active ? "#d1fae5" : "#fee2e2",
+              color: employee.is_active ? "#059669" : "#dc2626"
+            }}>
+              {employee.is_active ? "ACTIVE" : "INACTIVE"}
+            </div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -282,9 +249,27 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
       <div style={S.section}>
         <div style={S.sectionTitle}>Job Information</div>
         <div style={S.grid}>
-          <Info label="Job Title" value={employee.job_title} />
-          <Info label="Joining Date" value={employee.joining_date} />
-          <Info label="Duty Time" value={employee.duty_time} />
+          <Info label="Employee ID" value={employee.employee_id} />
+          <Info label="Designation" value={employee.designation || employee.job_info?.designation} />
+          <Info label="Department" value={employee.department || employee.job_info?.department} />
+          <Info label="Employment Status" value={employee.employment_status || employee.job_info?.employment_status} />
+          <Info label="Employment Type" value={employee.employment_type || employee.job_info?.employment_type} />
+          <Info label="Location" value={employee.location || employee.job_info?.location} />
+          <Info label="Duty Time" value={employee.duty_time || employee.job_info?.duty_time} />
+          <Info label="Reporting Manager" value={employee.reporting_manager || employee.job_info?.reporting_manager} />
+          <Info label="Date of Joining" value={employee.date_of_joining || employee.job_info?.date_of_joining} />
+          <Info label="Date of Leaving" value={employee.date_of_leaving || employee.job_info?.date_of_leaving} />
+          <Info label="Probation End Date" value={employee.probation_end_date || employee.job_info?.probation_end_date} />
+          <Info label="Confirmation Date" value={employee.confirmation_date || employee.job_info?.confirmation_date} />
+        </div>
+      </div>
+
+      <div style={S.section}>
+        <div style={S.sectionTitle}>Salary Information</div>
+        <div style={S.grid}>
+          <Info label="Basic Salary" value={employee.basic_salary || employee.job_info?.basic_salary} />
+          <Info label="Allowances" value={employee.allowances || employee.job_info?.allowances} />
+          <Info label="Gross Salary" value={employee.gross_salary || employee.job_info?.gross_salary} />
         </div>
       </div>
 
@@ -292,16 +277,33 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
         <div style={S.sectionTitle}>Contact Details</div>
         <div style={S.grid}>
           <Info label="Personal Phone" value={employee.personal_phone} />
-          <Info label="Residential Phone" value={employee.residential_phone} />
-          <Info label="Location" value={employee.location} />
+          <Info label="Emergency Contact Name" value={employee.contact_info?.emergency_contact_name} />
+          <Info label="Emergency Contact Phone" value={employee.contact_info?.emergency_contact_phone} />
+          <Info label="Emergency Contact Relation" value={employee.contact_info?.emergency_contact_relation} />
         </div>
       </div>
 
       <div style={S.section}>
         <div style={S.sectionTitle}>Bank Details</div>
         <div style={S.grid}>
-          <Info label="Bank Account" value={employee.bank_account} />
-          <Info label="Bank Details" value={employee.bank_details} />
+          <Info label="Account Holder Name" value={employee.bank_info?.account_holder_name} />
+          <Info label="Salary Account Number" value={employee.bank_info?.salary_account_number} />
+          <Info label="Bank Name" value={employee.bank_info?.salary_bank_name} />
+          <Info label="IFSC Code" value={employee.bank_info?.salary_ifsc_code} />
+          <Info label="Branch" value={employee.bank_info?.salary_branch} />
+        </div>
+      </div>
+
+      <div style={S.section}>
+        <div style={S.sectionTitle}>Personal Information</div>
+        <div style={S.grid}>
+          <Info label="PF Number" value={employee.pf_number} />
+          <Info label="ESI Number" value={employee.esi_number} />
+          <Info label="PAN Number" value={employee.pan_number} />
+          <Info label="Aadhar Number" value={employee.aadhar_number} />
+          <Info label="Blood Group" value={employee.blood_group} />
+          <Info label="Marital Status" value={employee.marital_status} />
+          <Info label="Notes" value={employee.notes} />
         </div>
       </div>
     </div>
@@ -336,7 +338,7 @@ const S = {
   },
 
   main: { display: "flex", gap: 20 },
-  left: { width: 300, background: "#fff", borderRadius: 8, border: "1px solid #e5e7eb", overflow: "hidden" },
+  left: { width: 350, background: "#fff", borderRadius: 8, border: "1px solid #e5e7eb", overflow: "hidden" },
   leftHeader: { padding: 12, fontWeight: 700, background: "#f3f4f6", borderBottom: "1px solid #e5e7eb", color: "#374151", fontSize: 13 },
   leftList: { maxHeight: "70vh", overflowY: "auto" },
   leftItem: { padding: 12, borderBottom: "1px solid #f1f5f9", cursor: "pointer", transition: "background 0.2s" },
@@ -345,24 +347,27 @@ const S = {
   avatar: { width: 42, height: 42, background: "#e0e7ff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#4338ca", flexShrink: 0 },
   leftName: { fontWeight: 700, fontSize: 14, color: "#111827" },
   leftJob: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  leftId: { fontSize: 11, color: "#9ca3af", marginTop: 2 },
+  statusBadge: { fontSize: 10, padding: "2px 6px", borderRadius: 8, fontWeight: 600 },
   noResults: { textAlign: "center", padding: 30, color: "#6b7280", fontSize: 14 },
   
   right: { flex: 1, background: "#fff", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" },
   empty: { textAlign: "center", padding: 40, color: "#6b7280", fontSize: 14 },
   
   detailCard: { display: "flex", flexDirection: "column", gap: 20 },
-  detailHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 },
+  detailHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 },
   detailAvatar: { width: 70, height: 70, background: "#eef2ff", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: "#4c1d95" },
   detailName: { fontSize: 20, fontWeight: 700, color: "#111827" },
   detailEmail: { color: "#6b7280", marginTop: 2, fontSize: 14 },
-  badge: { background: "#d1fae5", color: "#059669", padding: "4px 10px", borderRadius: 12, display: "inline-block", fontSize: 11, fontWeight: 700, marginTop: 6 },
+  detailId: { color: "#6b7280", marginTop: 2, fontSize: 12 },
+  badge: { padding: "4px 10px", borderRadius: 12, display: "inline-block", fontSize: 11, fontWeight: 700, marginTop: 6 },
   editBtn: { background: "#fef3c7", border: "1px solid #fde68a", padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   deleteBtn: { background: "#fee2e2", border: "1px solid #fecaca", padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   
   section: { background: "#fbfdff", padding: 14, borderRadius: 8, border: "1px solid #e5e7eb" },
   sectionTitle: { fontWeight: 700, color: "#374151", marginBottom: 10, fontSize: 14 },
-  grid: { display: "flex", gap: 12, flexWrap: "wrap" },
-  infoBox: { flex: 1, minWidth: 150, background: "#fff", borderRadius: 8, padding: 12, border: "1px solid #e5e7eb" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12 },
+  infoBox: { background: "#fff", borderRadius: 8, padding: 12, border: "1px solid #e5e7eb" },
   infoLabel: { fontSize: 12, color: "#6b7280", fontWeight: 600 },
   infoValue: { fontSize: 14, marginTop: 4, color: "#374151" },
 };

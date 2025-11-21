@@ -1,5 +1,5 @@
 // Employee_Form.jsx
-// USER API ONLY - Fetches from User Management (CV section removed)
+// Updated with user fetching and selection
 
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -9,467 +9,1040 @@ export default function EmployeeForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
-  const [form, setForm] = useState({
+  const [formData, setFormData] = useState({
+    user: '',
+    employee_id: '',
+    employment_status: 'Permanent',
+    employment_type: 'Full-time',
+    department: '',
+    designation: '',
+    location: '',
+    duty_time: '',
+    reporting_manager: '',
+    date_of_joining: '',
+    date_of_leaving: '',
+    probation_end_date: '',
+    confirmation_date: '',
+    basic_salary: '',
+    allowances: '',
+    gross_salary: '',
+    pf_number: '',
+    esi_number: '',
+    pan_number: '',
+    aadhar_number: '',
+    account_holder_name: '',
+    salary_account_number: '',
+    salary_bank_name: '',
+    salary_ifsc_code: '',
+    salary_branch: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    emergency_contact_relation: '',
+    blood_group: '',
+    marital_status: '',
+    notes: '',
+    is_active: true,
+    // New fields for the form layout
     full_name: "",
-    email: "",
-    location: "",
+    date_of_birth: "",
     personal_phone: "",
     residential_phone: "",
-    job_title: "",
-    duty_time: "",
-    joining_date: "",
-    bank_account: "",
-    bank_details: "",
-    aadhar_url: "",
-    aadhar_file_name: "",
+    address: "",
+    place: "",
+    district: "",
+    organization: ""
   });
 
-  const [loading, setLoading] = useState(false);
-
-  // User Search States
-  const [userSearch, setUserSearch] = useState("");
-  const [userResults, setUserResults] = useState([]);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [userLoading, setUserLoading] = useState(false);
+  // Fetch users list
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await api.get('/users/');
+      const userData = Array.isArray(response.data) ? response.data : (response.data?.results || response.data?.data || []);
+      setUsers(userData);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      alert("Failed to load users list");
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   useEffect(() => {
+    fetchUsers();
     if (isEdit) loadEmployee();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Search Users when user types
-  useEffect(() => {
-    if (userSearch.length >= 2) {
-      searchUsers();
-    } else {
-      setUserResults([]);
-      setShowUserDropdown(false);
-    }
-  }, [userSearch]);
-
-  async function searchUsers() {
-    setUserLoading(true);
-    try {
-      // ✅ FETCH FROM USER MANAGEMENT API
-      const res = await api.get(`/users/`);
-      console.log("User API Response:", res.data);
-      
-      // Handle all possible data structures
-      let userData = res.data.data || res.data.results || res.data || [];
-      
-      if (!Array.isArray(userData)) {
-        userData = [];
-      }
-      
-      console.log("User Data Array:", userData);
-      
-      // Filter users by search query
-      const query = userSearch.toLowerCase();
-      const filtered = userData.filter(user => {
-        const firstName = user.first_name || "";
-        const lastName = user.last_name || "";
-        const fullName = user.full_name || `${firstName} ${lastName}`.trim();
-        const username = user.username || "";
-        const email = user.email || "";
-        
-        return (
-          fullName.toLowerCase().includes(query) ||
-          firstName.toLowerCase().includes(query) ||
-          lastName.toLowerCase().includes(query) ||
-          username.toLowerCase().includes(query) ||
-          email.toLowerCase().includes(query)
-        );
-      });
-      
-      console.log("Filtered Users:", filtered);
-      setUserResults(filtered);
-      setShowUserDropdown(true);
-    } catch (err) {
-      console.error("User search error:", err);
-      console.error("Error details:", err.response?.data);
-      setUserResults([]);
-    } finally {
-      setUserLoading(false);
-    }
-  }
-
-  function selectUser(user) {
-    // ✅ AUTO-FILL FORM WITH USER DATA
-    const firstName = user.first_name || "";
-    const lastName = user.last_name || "";
-    const fullName = user.full_name || `${firstName} ${lastName}`.trim() || user.username || "";
-    
-    setForm({
-      ...form,
-      full_name: fullName,
-      email: user.email || "",
-      personal_phone: user.phone || user.mobile || user.phone_number || user.contact || "",
-      location: user.address || user.location || user.city || "",
-      residential_phone: user.residential_phone || user.home_phone || "",
-    });
-    
-    setUserSearch(fullName);
-    setShowUserDropdown(false);
-  }
-
   async function loadEmployee() {
-    setLoading(true);
     try {
       const res = await api.get(`/employee-management/employees/${id}/`);
-      setForm(res.data);
+      const data = res.data || {};
+
+      setFormData(prev => ({
+        ...prev,
+        user: data.job_info?.user || data.user || "",
+        employee_id: data.employee_id || "",
+        employment_status: data.job_info?.employment_status || data.employment_status || "Permanent",
+        employment_type: data.job_info?.employment_type || data.employment_type || "Full-time",
+        department: data.job_info?.department || data.department || "",
+        designation: data.designation || data.job_info?.designation || "",
+        location: data.job_info?.location || data.location || "",
+        duty_time: data.job_info?.duty_time || data.duty_time || "",
+        reporting_manager: data.job_info?.reporting_manager || data.reporting_manager || "",
+        date_of_joining: data.job_info?.date_of_joining || data.date_of_joining || "",
+        date_of_leaving: data.job_info?.date_of_leaving || data.date_of_leaving || "",
+        probation_end_date: data.job_info?.probation_end_date || data.probation_end_date || "",
+        confirmation_date: data.job_info?.confirmation_date || data.confirmation_date || "",
+        basic_salary: data.job_info?.basic_salary || data.basic_salary || "",
+        allowances: data.job_info?.allowances || data.allowances || "",
+        gross_salary: data.job_info?.gross_salary || data.gross_salary || "",
+        pf_number: data.pf_number || "",
+        esi_number: data.esi_number || "",
+        pan_number: data.pan_number || "",
+        aadhar_number: data.aadhar_number || "",
+        account_holder_name: data.bank_info?.account_holder_name || "",
+        salary_account_number: data.bank_info?.salary_account_number || "",
+        salary_bank_name: data.bank_info?.salary_bank_name || "",
+        salary_ifsc_code: data.bank_info?.salary_ifsc_code || "",
+        salary_branch: data.bank_info?.salary_branch || "",
+        emergency_contact_name: data.contact_info?.emergency_contact_name || "",
+        emergency_contact_phone: data.contact_info?.emergency_contact_phone || "",
+        emergency_contact_relation: data.contact_info?.emergency_contact_relation || "",
+        blood_group: data.blood_group || "",
+        marital_status: data.marital_status || "",
+        notes: data.notes || "",
+        is_active: data.is_active !== undefined ? data.is_active : true,
+        full_name: data.full_name || "",
+        personal_phone: data.personal_phone || "",
+        residential_phone: data.residential_phone || ""
+      }));
     } catch (err) {
-      console.error("Load error:", err);
-      alert("Failed to load employee");
+      console.error("loadEmployee:", err);
+      alert("Failed to load employee data");
       navigate("/employee-management");
-    } finally {
-      setLoading(false);
     }
   }
 
   function handleChange(e) {
-    const value = e.target.type === "file" ? e.target.files[0] : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+    const { name, value, type, checked } = e.target;
+    
+    // Auto-fill employee ID when user is selected
+    if (name === 'user' && value) {
+      const selectedUser = users.find(u => u.id === parseInt(value));
+      if (selectedUser) {
+        setFormData(prev => ({ 
+          ...prev, 
+          [name]: value,
+          employee_id: selectedUser.email || selectedUser.username || `EMP${selectedUser.id}`,
+          full_name: selectedUser.name || selectedUser.full_name || selectedUser.username || ""
+        }));
+        return;
+      }
+    }
+    
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: type === "checkbox" ? checked : value 
+    }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setLoading(true);
+
+    // Validate required fields
+    if (!formData.user && !isEdit) {
+      alert('Please select a user');
+      return;
+    }
+
+    if (!formData.employee_id) {
+      alert('Employee ID is required');
+      return;
+    }
+
+    if (!formData.full_name) {
+      alert('Full Name is required');
+      return;
+    }
+
+    // Prepare payload exactly as backend expects
+    const payload = {
+      user: formData.user,
+      employee_id: formData.employee_id,
+      employment_status: formData.employment_status,
+      employment_type: formData.employment_type,
+      department: formData.department,
+      designation: formData.designation,
+      location: formData.location,
+      duty_time: formData.duty_time,
+      reporting_manager: formData.reporting_manager,
+      date_of_joining: formData.date_of_joining || null,
+      date_of_leaving: formData.date_of_leaving || null,
+      probation_end_date: formData.probation_end_date || null,
+      confirmation_date: formData.confirmation_date || null,
+      basic_salary: formData.basic_salary || null,
+      allowances: formData.allowances || null,
+      gross_salary: formData.gross_salary || null,
+      pf_number: formData.pf_number,
+      esi_number: formData.esi_number,
+      pan_number: formData.pan_number,
+      aadhar_number: formData.aadhar_number,
+      account_holder_name: formData.account_holder_name,
+      salary_account_number: formData.salary_account_number,
+      salary_bank_name: formData.salary_bank_name,
+      salary_ifsc_code: formData.salary_ifsc_code,
+      salary_branch: formData.salary_branch,
+      emergency_contact_name: formData.emergency_contact_name,
+      emergency_contact_phone: formData.emergency_contact_phone,
+      emergency_contact_relation: formData.emergency_contact_relation,
+      blood_group: formData.blood_group,
+      marital_status: formData.marital_status,
+      notes: formData.notes,
+      is_active: formData.is_active,
+      full_name: formData.full_name,
+      personal_phone: formData.personal_phone,
+      residential_phone: formData.residential_phone
+    };
 
     try {
       if (isEdit) {
-        await api.patch(`/employee-management/employees/${id}/`, form);
+        await api.patch(`/employee-management/employees/${id}/`, payload);
         alert("Employee updated successfully");
       } else {
-        await api.post(`/employee-management/employees/`, form);
+        await api.post("/employee-management/employees/", payload);
         alert("Employee created successfully");
       }
-
-      navigate("/employee-management", { replace: true });
+      navigate("/employee-management");
     } catch (err) {
-      console.error("Save error:", err);
-      alert(`Failed to save employee: ${err.response?.data?.detail || err.message}`);
-      setLoading(false);
+      console.error("submit:", err);
+      const msg = err?.response?.data ? JSON.stringify(err.response.data) : String(err);
+      alert("Failed to save: " + msg);
     }
   }
 
-  if (loading && isEdit) {
-    return (
-      <div style={S.page}>
-        <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>
-          Loading employee data...
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div style={S.page}>
-      <h2 style={S.pageTitle}>{isEdit ? "Edit Employee" : "Add New Employee"}</h2>
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <h2 style={styles.title}>{isEdit ? "Edit Employee" : "Add New Employee"}</h2>
 
-      <form onSubmit={handleSubmit} style={S.formCard}>
+        {/* CV Section
+        <div style={styles.section}>
+          <div style={styles.checkboxContainer}>
+            <input 
+              type="checkbox" 
+              id="addFromCV" 
+              style={styles.checkbox}
+            />
+            <label htmlFor="addFromCV" style={styles.checkboxLabel}>
+              Add Employee from CV (Optional)
+            </label>
+          </div>
+          
+          <div style={styles.cvSearchSection}>
+            <label style={styles.label}>Search CV by Name</label>
+            <input
+              type="text"
+              placeholder="Type to search existing CV..."
+              style={styles.input}
+            />
+          </div>
 
-        {/* USER SEARCH SECTION - Only show when adding new employee */}
-        {!isEdit && (
-          <div style={S.userSearchBox}>
-            <div style={S.searchHeader}>
-              <span style={S.searchIcon}>👤</span>
-              <span style={S.searchTitle}>Add Employee from User Account (Optional)</span>
-            </div>
-            
-            <div style={{ position: "relative" }}>
-              <label style={S.label}>Search User by Name or Email</label>
+          <div style={styles.fileUploadSection}>
+            <label style={styles.label}>Upload CV</label>
+            <div style={styles.fileUpload}>
               <input
-                type="text"
-                placeholder="Type to search existing users..."
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                style={S.searchInput}
-                autoComplete="off"
+                type="file"
+                id="cvUpload"
+                style={styles.fileInput}
+                accept=".pdf,.doc,.docx"
               />
-              
-              {userLoading && (
-                <div style={S.loadingText}>Searching users...</div>
-              )}
-              
-              {showUserDropdown && userResults.length > 0 && (
-                <div style={S.dropdown}>
-                  {userResults.map((user) => {
-                    const firstName = user.first_name || "";
-                    const lastName = user.last_name || "";
-                    const displayName = user.full_name || `${firstName} ${lastName}`.trim() || user.username;
-                    
-                    return (
-                      <div
-                        key={user.id || user.user_id}
-                        onClick={() => selectUser(user)}
-                        style={S.dropdownItem}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "#ffffff"}
-                      >
-                        <div style={S.itemName}>{displayName}</div>
-                        <div style={S.itemDetails}>
-                          {user.email && <span>{user.email}</span>}
-                          {user.username && <span> • @{user.username}</span>}
-                          {(user.phone || user.mobile) && <span> • {user.phone || user.mobile}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              
-              {showUserDropdown && userResults.length === 0 && !userLoading && (
-                <div style={S.dropdown}>
-                  <div style={S.noResults}>No users found</div>
-                </div>
-              )}
+              <label htmlFor="cvUpload" style={styles.fileLabel}>
+                Choose File
+              </label>
+              <span style={styles.fileName}>No file chosen</span>
             </div>
           </div>
-        )}
 
-        <Section label="Personal Information" />
+          <div style={styles.cvActions}>
+            <button type="button" style={styles.secondaryButton}>
+              Education
+            </button>
+            <button type="button" style={styles.secondaryButton}>
+              Experience
+            </button>
+          </div>
+        </div> */}
 
-        <div style={S.row}>
-          <Field label="Full Name *" name="full_name" value={form.full_name} onChange={handleChange} required />
-          <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
-        </div>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          {/* User Selection */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>User Account</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Select User <span style={styles.required}>*</span>
+                </label>
+                <select
+                  name="user"
+                  value={formData.user}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required={!isEdit}
+                  disabled={isEdit}
+                >
+                  <option value="">Select a User</option>
+                  {loadingUsers ? (
+                    <option value="">Loading users...</option>
+                  ) : (
+                    users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name || user.full_name || user.username || user.email} 
+                        {user.email ? ` (${user.email})` : ''}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {!isEdit && (
+                  <div style={styles.helperText}>
+                    Selecting a user will auto-fill Employee ID and Full Name
+                  </div>
+                )}
+              </div>
 
-        <div style={S.row}>
-          <Field label="Job Title *" name="job_title" value={form.job_title} onChange={handleChange} required />
-          <Field label="Joining Date *" name="joining_date" type="date" value={form.joining_date} onChange={handleChange} required />
-        </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Employee ID <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="employee_id"
+                  value={formData.employee_id}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                  placeholder="Auto-filled when user is selected"
+                />
+              </div>
+            </div>
+          </div>
 
-        <Section label="Contact Information" />
+          {/* Personal Information */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Personal Information</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Full Name <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                  placeholder="Auto-filled when user is selected"
+                />
+              </div>
 
-        <div style={S.row}>
-          <Field label="Personal Phone" name="personal_phone" value={form.personal_phone} onChange={handleChange} />
-          <Field label="Residential Phone" name="residential_phone" value={form.residential_phone} onChange={handleChange} />
-        </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Date of Birth <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                />
+              </div>
 
-        <Field label="Location *" name="location" value={form.location} onChange={handleChange} required />
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Phone <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="tel"
+                  name="personal_phone"
+                  value={formData.personal_phone}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                />
+              </div>
 
-        <Section label="Employment Details" />
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Blood Group</label>
+                <select
+                  name="blood_group"
+                  value={formData.blood_group}
+                  onChange={handleChange}
+                  style={styles.input}
+                >
+                  <option value="">Select Blood Group</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                </select>
+              </div>
 
-        <Field label="Duty Time" name="duty_time" value={form.duty_time} onChange={handleChange} placeholder="e.g., 9 AM - 5 PM" />
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Marital Status</label>
+                <select
+                  name="marital_status"
+                  value={formData.marital_status}
+                  onChange={handleChange}
+                  style={styles.input}
+                >
+                  <option value="">Select Marital Status</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Divorced">Divorced</option>
+                  <option value="Widowed">Widowed</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-        <Section label="Bank Details" />
+          {/* Contact Information */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Contact Information</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Phone (Personal) <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="tel"
+                  name="personal_phone"
+                  value={formData.personal_phone}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                />
+              </div>
 
-        <div style={S.row}>
-          <Field label="Bank Account" name="bank_account" value={form.bank_account} onChange={handleChange} />
-          <Field label="Bank Details" name="bank_details" value={form.bank_details} onChange={handleChange} />
-        </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Phone (Residential)</label>
+                <input
+                  type="tel"
+                  name="residential_phone"
+                  value={formData.residential_phone}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
 
-        <div style={S.btnRow}>
-          <button type="button" style={S.cancelBtn} onClick={() => navigate("/employee-management")} disabled={loading}>
-            ✖ Cancel
-          </button>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Address</label>
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  style={styles.textarea}
+                  rows="3"
+                  placeholder="Full address..."
+                />
+              </div>
 
-          <button type="submit" style={S.saveBtn} disabled={loading}>
-            {loading ? "Saving..." : "💾 Save Employee"}
-          </button>
-        </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Place <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="place"
+                  value={formData.place}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                />
+              </div>
 
-      </form>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  District <span style={styles.required}>*</span>
+                </label>
+                <select
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                >
+                  <option value="">Select a District</option>
+                  <option value="district1">District 1</option>
+                  <option value="district2">District 2</option>
+                  <option value="district3">District 3</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Emergency Contact Name</label>
+                <input
+                  type="text"
+                  name="emergency_contact_name"
+                  value={formData.emergency_contact_name}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Emergency Contact Phone</label>
+                <input
+                  type="tel"
+                  name="emergency_contact_phone"
+                  value={formData.emergency_contact_phone}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Emergency Contact Relation</label>
+                <input
+                  type="text"
+                  name="emergency_contact_relation"
+                  value={formData.emergency_contact_relation}
+                  onChange={handleChange}
+                  style={styles.input}
+                  placeholder="e.g., Father, Mother, Spouse"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Job Information */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Job Information</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Job Title <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="designation"
+                  value={formData.designation}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Department</label>
+                <input
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  Joining Date <span style={styles.required}>*</span>
+                </label>
+                <input
+                  type="date"
+                  name="date_of_joining"
+                  value={formData.date_of_joining}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Duty Time</label>
+                <input
+                  type="text"
+                  name="duty_time"
+                  value={formData.duty_time}
+                  onChange={handleChange}
+                  style={styles.input}
+                  placeholder="e.g., 9:00 AM - 6:00 PM"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Reporting Manager</label>
+                <input
+                  type="text"
+                  name="reporting_manager"
+                  value={formData.reporting_manager}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date of Leaving</label>
+                <input
+                  type="date"
+                  name="date_of_leaving"
+                  value={formData.date_of_leaving}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Probation End Date</label>
+                <input
+                  type="date"
+                  name="probation_end_date"
+                  value={formData.probation_end_date}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Confirmation Date</label>
+                <input
+                  type="date"
+                  name="confirmation_date"
+                  value={formData.confirmation_date}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Employment Status</label>
+                <select
+                  name="employment_status"
+                  value={formData.employment_status}
+                  onChange={handleChange}
+                  style={styles.input}
+                >
+                  <option value="Permanent">Permanent</option>
+                  <option value="Probation">Probation</option>
+                  <option value="Contract">Contract</option>
+                  <option value="Temporary">Temporary</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Employment Type</label>
+                <select
+                  name="employment_type"
+                  value={formData.employment_type}
+                  onChange={handleChange}
+                  style={styles.input}
+                >
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Intern">Intern</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Salary Information */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Salary Information</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Basic Salary</label>
+                <input
+                  type="number"
+                  name="basic_salary"
+                  value={formData.basic_salary}
+                  onChange={handleChange}
+                  style={styles.input}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Allowances</label>
+                <input
+                  type="number"
+                  name="allowances"
+                  value={formData.allowances}
+                  onChange={handleChange}
+                  style={styles.input}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Gross Salary</label>
+                <input
+                  type="number"
+                  name="gross_salary"
+                  value={formData.gross_salary}
+                  onChange={handleChange}
+                  style={styles.input}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Bank Information */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Bank Details</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Account Holder Name</label>
+                <input
+                  type="text"
+                  name="account_holder_name"
+                  value={formData.account_holder_name}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Salary Account Number</label>
+                <input
+                  type="text"
+                  name="salary_account_number"
+                  value={formData.salary_account_number}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Bank Name</label>
+                <input
+                  type="text"
+                  name="salary_bank_name"
+                  value={formData.salary_bank_name}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>IFSC Code</label>
+                <input
+                  type="text"
+                  name="salary_ifsc_code"
+                  value={formData.salary_ifsc_code}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Branch</label>
+                <input
+                  type="text"
+                  name="salary_branch"
+                  value={formData.salary_branch}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Government IDs */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Government IDs</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>PF Number</label>
+                <input
+                  type="text"
+                  name="pf_number"
+                  value={formData.pf_number}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>ESI Number</label>
+                <input
+                  type="text"
+                  name="esi_number"
+                  value={formData.esi_number}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>PAN Number</label>
+                <input
+                  type="text"
+                  name="pan_number"
+                  value={formData.pan_number}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Aadhar Number</label>
+                <input
+                  type="text"
+                  name="aadhar_number"
+                  value={formData.aadhar_number}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Information */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Additional Information</h3>
+            <div style={styles.grid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Notes</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  style={styles.textarea}
+                  rows="4"
+                  placeholder="Additional notes..."
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={formData.is_active}
+                    onChange={handleChange}
+                    style={styles.checkbox}
+                  />
+                  Active Employee
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div style={styles.formActions}>
+            <button 
+              type="button" 
+              onClick={() => navigate("/employee-management")} 
+              style={styles.cancelButton}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              style={styles.submitButton}
+            >
+              {isEdit ? "Update Employee" : "Create Employee"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
 
-/* FIELD COMPONENT */
-function Field({ label, name, value, onChange, type = "text", required = false, placeholder = "" }) {
-  return (
-    <div style={S.fieldBox}>
-      <label style={S.label}>{label}</label>
-      <input 
-        name={name} 
-        type={type} 
-        value={type !== "file" ? value : undefined} 
-        onChange={onChange} 
-        style={S.input}
-        required={required}
-        placeholder={placeholder}
-      />
-    </div>
-  );
-}
-
-/* SECTION TITLE */
-function Section({ label }) {
-  return (
-    <div style={S.sectionBox}>
-      <div style={S.sectionTitle}>{label}</div>
-    </div>
-  );
-}
-
-/* STYLES */
-const S = {
+const styles = {
   page: {
-    background: "#f7f9fb",
-    padding: 24,
-    minHeight: "100vh",
+    padding: '20px',
+    background: '#f7f9fb',
+    minHeight: '100vh'
   },
-
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 20,
-    color: "#111827",
+  card: {
+    background: '#fff',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb',
+    padding: '24px',
+    maxWidth: '900px',
+    margin: '0 auto'
   },
-
-  formCard: {
-    background: "#ffffff",
-    padding: 20,
-    borderRadius: 8,
-    border: "1px solid #e5e7eb",
+  title: {
+    fontSize: '22px',
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: '24px',
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: '12px'
   },
-
-  sectionBox: {
-    background: "#f3f4f6",
-    padding: "8px 12px",
-    borderRadius: 6,
-    marginTop: 20,
-    marginBottom: 12,
+  section: {
+    marginBottom: '24px',
+    padding: '20px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    background: '#fbfdff'
   },
-
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: "#111827",
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: '16px',
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: '8px'
   },
-
-  row: {
-    display: "flex",
-    gap: 16,
-    marginBottom: 16,
+  checkboxContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '16px'
   },
-
-  fieldBox: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
+  checkbox: {
+    marginRight: '8px',
+    width: '16px',
+    height: '16px'
   },
-
+  checkboxLabel: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#374151'
+  },
+  cvSearchSection: {
+    marginBottom: '16px'
+  },
+  fileUploadSection: {
+    marginBottom: '16px'
+  },
+  fileUpload: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  fileInput: {
+    display: 'none'
+  },
+  fileLabel: {
+    padding: '8px 16px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    background: '#fff',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: '#374151'
+  },
+  fileName: {
+    fontSize: '14px',
+    color: '#6b7280'
+  },
+  cvActions: {
+    display: 'flex',
+    gap: '12px'
+  },
+  secondaryButton: {
+    padding: '8px 16px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    background: '#fff',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: '#374151'
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0'
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '16px'
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
   label: {
-    fontSize: 12,
-    fontWeight: 600,
-    marginBottom: 4,
-    color: "#374151",
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: '6px'
   },
-
+  required: {
+    color: '#dc2626'
+  },
+  helperText: {
+    fontSize: '12px',
+    color: '#6b7280',
+    marginTop: '4px',
+    fontStyle: 'italic'
+  },
   input: {
-    padding: "10px 12px",
-    borderRadius: 6,
-    border: "1px solid #e5e7eb",
-    background: "#ffffff",
-    outline: "none",
+    padding: '10px 12px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    fontSize: '14px',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    width: '100%',
+    boxSizing: 'border-box'
   },
-
-  btnRow: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 12,
-    marginTop: 24,
+  textarea: {
+    padding: '10px 12px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    fontSize: '14px',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    width: '100%',
+    boxSizing: 'border-box',
+    resize: 'vertical',
+    minHeight: '80px'
   },
-
-  cancelBtn: {
-    background: "#f3f4f6",
-    padding: "10px 16px",
-    borderRadius: 6,
-    border: "1px solid #e5e7eb",
-    cursor: "pointer",
-    fontSize: 14,
+  formActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '12px',
+    marginTop: '24px',
+    paddingTop: '20px',
+    borderTop: '1px solid #e5e7eb'
   },
-
-  saveBtn: {
-    background: "#3b82f6",
-    padding: "10px 16px",
-    borderRadius: 6,
-    border: "none",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontSize: 14,
+  cancelButton: {
+    padding: '10px 20px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    background: '#fff',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#374151'
   },
-
-  // User Search Styles
-  userSearchBox: {
-    background: "#f0fdf4",
-    border: "2px solid #86efac",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
-  },
-
-  searchHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-
-  searchIcon: {
-    fontSize: 20,
-  },
-
-  searchTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: "#111827",
-  },
-
-  searchInput: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: 6,
-    border: "1px solid #e5e7eb",
-    background: "#ffffff",
-    outline: "none",
-    fontSize: 14,
-  },
-
-  loadingText: {
-    fontSize: 12,
-    color: "#6b7280",
-    marginTop: 6,
-  },
-
-  dropdown: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
-    marginTop: 4,
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 6,
-    maxHeight: 300,
-    overflowY: "auto",
-    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-    zIndex: 100,
-  },
-
-  dropdownItem: {
-    padding: 12,
-    borderBottom: "1px solid #f3f4f6",
-    cursor: "pointer",
-    background: "#ffffff",
-  },
-
-  itemName: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#111827",
-    marginBottom: 4,
-  },
-
-  itemDetails: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-
-  noResults: {
-    padding: 12,
-    textAlign: "center",
-    color: "#6b7280",
-    fontSize: 13,
-  },
+  submitButton: {
+    padding: '10px 20px',
+    border: 'none',
+    borderRadius: '6px',
+    background: '#3b82f6',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#fff'
+  }
 };
