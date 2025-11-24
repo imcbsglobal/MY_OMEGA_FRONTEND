@@ -18,10 +18,10 @@ import Employee_Form from "./components/HR/Employee_Form";
 import Employee_View from "./components/HR/Employee_View";
 import ExperienceCertificate from "./components/HR/ExperienceCertificate";
 import ExperienceCertificate_Form from "./components/HR/ExperienceCertificate_Form";
-import ExperienceCertificate_View from "./components/HR/ExperienceCertificate_View";
+// import ExperienceCertificate_View from "./components/HR/ExperienceCertificate_View";
 import SalaryCertificate from "./components/HR/SalaryCertificate";
 import SalaryCertificate_Form from "./components/HR/SalaryCertificate_Form";
-import SalaryCertificate_View from "./components/HR/SalaryCertificate_View";
+// import SalaryCertificate_View from "./components/HR/SalaryCertificate_View";
 import AttendanceManagement from "./components/HR/AttendanceManagement";
 import PunchInPunchOut from "./components/HR/PunchInPunchOut";
 import LeaveManagement from "./components/HR/LeaveManagement";
@@ -107,13 +107,13 @@ function App() {
           <Route path="experience-certificate" element={<ExperienceCertificate />} />
           <Route path="experience-certificate/add" element={<ExperienceCertificate_Form />} />
           <Route path="experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
-          <Route path="experience-certificate/view/:id" element={<ExperienceCertificate_View />} />
+          {/* <Route path="experience-certificate/view/:id" element={<ExperienceCertificate_View />} /> */}
 
           {/* Salary Certificate */}
           <Route path="salary-certificate" element={<SalaryCertificate />} />
           <Route path="salary-certificate/add" element={<SalaryCertificate_Form />} />
           <Route path="salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
-          <Route path="salary-certificate/view/:id" element={<SalaryCertificate_View />} />
+          {/* <Route path="salary-certificate/view/:id" element={<SalaryCertificate_View />} /> */}
 
           {/* Attendance */}
           <Route path="attendance-management" element={<AttendanceManagement />} />

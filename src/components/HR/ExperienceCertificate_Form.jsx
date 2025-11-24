@@ -1,48 +1,53 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import api from "../../api/client";
 
 export default function ExperienceCertificateForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
+  const [employees, setEmployees] = useState([]);
   const [certificateData, setCertificateData] = useState({
-    name: "",
-    address: "",
-    phoneNumber: "",
-    jobTitle: "",
-    joiningDate: "",
-    endDate: "",
-    certificateUrl: "",
-    certificateFileName: "",
-    approved: "Pending",
-    addedBy: "myomega@gmail.com",
-    approvedBy: "",
-    createdDate: "",
+    employee: "",
+    offer_letter: "",
+    joining_date: "",
   });
 
   useEffect(() => {
+    loadEmployees();
     if (isEditMode) {
       loadCertificateData();
     }
   }, [id]);
 
-  const loadCertificateData = () => {
+  const loadEmployees = async () => {
     try {
-      const storedData = localStorage.getItem('experience-certificate-data');
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        const certificate = data.find(item => item.id === parseInt(id));
-        if (certificate) {
-          setCertificateData(certificate);
-        } else {
-          alert('Certificate not found');
-          navigate('/experience-certificate');
-        }
+      const res = await api.get("/certificate/employees/");
+      if (res?.data?.data) {
+        setEmployees(res.data.data);
       }
-    } catch (error) {
-      console.error('Error loading certificate data:', error);
-      alert('Failed to load certificate data');
+    } catch (err) {
+      console.error("Error loading employees:", err);
+      alert("Failed to load employees.");
+    }
+  };
+
+  const loadCertificateData = async () => {
+    try {
+      const res = await api.get(`/certificate/experience-certificates/${id}/`);
+      if (res?.data?.data) {
+        const cert = res.data.data;
+        setCertificateData({
+          employee: cert.employee || "",
+          offer_letter: cert.offer_letter || "",
+          joining_date: cert.joining_date || "",
+        });
+      }
+    } catch (err) {
+      console.error("Error loading certificate:", err);
+      alert("Certificate not found.");
+      navigate("/experience-certificate");
     }
   };
 
@@ -51,160 +56,116 @@ export default function ExperienceCertificateForm() {
     setCertificateData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!certificateData.name.trim() || !certificateData.jobTitle.trim()) {
-      alert("Please fill in name and job title");
+
+    if (!certificateData.employee) {
+      alert("Please select an employee");
       return;
     }
 
+    // Prepare payload based on API requirements
+    const payload = {
+      employee: Number(certificateData.employee),
+    };
+
+    // Add offer_letter or joining_date based on what's provided
+    if (certificateData.offer_letter) {
+      payload.offer_letter = Number(certificateData.offer_letter);
+    } else if (certificateData.joining_date) {
+      payload.joining_date = certificateData.joining_date;
+    }
+
     try {
-      const storedData = localStorage.getItem('experience-certificate-data');
-      let data = storedData ? JSON.parse(storedData) : [];
-      
-      const currentDate = new Date().toLocaleString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-
       if (isEditMode) {
-        // Update existing certificate
-        data = data.map(cert => 
-          cert.id === parseInt(id) ? { ...cert, ...certificateData } : cert
-        );
+        await api.put(`/certificate/experience-certificates/${id}/`, payload);
+        alert("Certificate updated successfully!");
       } else {
-        // Add new certificate
-        const newCertificate = {
-          ...certificateData,
-          id: Date.now(),
-          createdDate: currentDate,
-          addedBy: "myomega@gmail.com"
-        };
-        data.push(newCertificate);
+        await api.post("/certificate/experience-certificates/", payload);
+        alert("Certificate created successfully!");
       }
-
-      localStorage.setItem('experience-certificate-data', JSON.stringify(data));
-      alert(isEditMode ? 'Certificate updated successfully!' : 'Certificate added successfully!');
-      navigate('/experience-certificate');
-    } catch (error) {
-      console.error('Error saving certificate:', error);
-      alert('Failed to save certificate. Please try again.');
+      navigate("/experience-certificate");
+    } catch (err) {
+      console.error("Error saving certificate:", err);
+      alert("Failed to save certificate. Please try again.");
     }
   };
 
   const handleCancel = () => {
-    navigate('/experience-certificate');
+    navigate("/experience-certificate");
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.formCard}>
-        <div style={styles.formHeader}>
-          <h2 style={styles.formTitle}>{isEditMode ? "Edit Certificate" : "Add New Certificate"}</h2>
-          <button onClick={handleCancel} style={styles.backButton}>
-            ← Back to List
-          </button>
-        </div>
+        <h2 style={styles.formTitle}>
+          {isEditMode ? "Edit Experience Certificate" : "Add Experience Certificate"}
+        </h2>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.formGrid}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Name *</label>
-              <input 
-                style={styles.input} 
-                name="name" 
-                value={certificateData.name} 
-                onChange={handleInputChange} 
-                placeholder="Enter full name"
-                required
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Phone Number</label>
-              <input 
-                style={styles.input} 
-                name="phoneNumber" 
-                value={certificateData.phoneNumber} 
-                onChange={handleInputChange} 
-                placeholder="Enter phone number"
-              />
-            </div>
-
-            <div style={{...styles.formGroup, gridColumn: "1 / -1"}}>
-              <label style={styles.label}>Address</label>
-              <textarea 
-                style={styles.textarea} 
-                name="address" 
-                value={certificateData.address} 
-                onChange={handleInputChange}
-                rows="3" 
-                placeholder="Enter full address"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Job Title *</label>
-              <input 
-                style={styles.input} 
-                name="jobTitle" 
-                value={certificateData.jobTitle} 
-                onChange={handleInputChange} 
-                placeholder="Enter job title"
-                required
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Joining Date</label>
-              <input 
-                style={styles.input} 
-                type="date" 
-                name="joiningDate" 
-                value={certificateData.joiningDate} 
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>End Date</label>
-              <input 
-                style={styles.input} 
-                type="date" 
-                name="endDate" 
-                value={certificateData.endDate} 
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Approval Status</label>
-              <select 
-                style={styles.input} 
-                name="approved" 
-                value={certificateData.approved} 
-                onChange={handleInputChange}
-              >
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </div>
+          {/* Employee Name */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Employee Name:</label>
+            <select
+              style={styles.select}
+              name="employee"
+              value={certificateData.employee}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="">Select Employee</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} - {emp.job_title}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div style={styles.formFooter}>
-            <button type="button" onClick={handleCancel} style={styles.cancelBtn}>
-              Cancel
-            </button>
-            <button type="submit" style={styles.submitBtn}>
-              {isEditMode ? "Update Certificate" : "Submit Certificate"}
-            </button>
+          {/* Start Date (Joining Date) */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Start Date:</label>
+            <input
+              style={styles.input}
+              type="date"
+              name="joining_date"
+              value={certificateData.joining_date}
+              onChange={handleInputChange}
+              placeholder="dd-mm-yyyy"
+            />
           </div>
+
+          {/* End Date (Optional - can be used for offer_letter ID if needed) */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>End Date:</label>
+            <input
+              style={styles.input}
+              type="date"
+              name="end_date"
+              placeholder="dd-mm-yyyy"
+            />
+          </div>
+
+          {/* Offer Letter (Optional) */}
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Offer Letter ID (Optional):</label>
+            <input
+              style={styles.input}
+              type="number"
+              name="offer_letter"
+              value={certificateData.offer_letter}
+              onChange={handleInputChange}
+              placeholder="Enter offer letter ID"
+            />
+            <small style={styles.hint}>
+              Leave empty if you want to use the Start Date above
+            </small>
+          </div>
+
+          {/* Submit Button */}
+          <button type="submit" style={styles.submitBtn}>
+            {isEditMode ? "Update" : "Add"}
+          </button>
         </form>
       </div>
     </div>
@@ -213,49 +174,32 @@ export default function ExperienceCertificateForm() {
 
 const styles = {
   container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
     minHeight: "100vh",
+    backgroundColor: "#f5f5f5",
+    padding: "20px",
   },
   formCard: {
     backgroundColor: "white",
     borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    maxWidth: "1000px",
-    margin: "0 auto",
-  },
-  formHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "24px",
-    borderBottom: "1px solid #e5e7eb",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    padding: "32px",
+    maxWidth: "500px",
+    width: "100%",
   },
   formTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
-  backButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
+    fontSize: "22px",
     fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
+    color: "#333",
+    marginBottom: "24px",
+    textAlign: "center",
   },
   form: {
-    padding: "24px",
-  },
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    display: "flex",
+    flexDirection: "column",
     gap: "20px",
-    marginBottom: "20px",
   },
   formGroup: {
     display: "flex",
@@ -264,8 +208,18 @@ const styles = {
   },
   label: {
     fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
+    fontWeight: "500",
+    color: "#333",
+  },
+  select: {
+    padding: "12px 14px",
+    fontSize: "14px",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    outline: "none",
+    backgroundColor: "white",
+    cursor: "pointer",
+    transition: "border-color 0.2s",
   },
   input: {
     padding: "12px 14px",
@@ -273,47 +227,23 @@ const styles = {
     border: "1px solid #d1d5db",
     borderRadius: "8px",
     outline: "none",
-    transition: "all 0.2s",
+    transition: "border-color 0.2s",
   },
-  textarea: {
-    padding: "12px 14px",
-    fontSize: "14px",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    outline: "none",
-    resize: "vertical",
-    fontFamily: "inherit",
-    transition: "all 0.2s",
-  },
-  formFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-    marginTop: "24px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e5e7eb",
-  },
-  cancelBtn: {
-    padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
+  hint: {
+    fontSize: "12px",
+    color: "#6b7280",
+    fontStyle: "italic",
   },
   submitBtn: {
-    padding: "12px 24px",
-    fontSize: "14px",
+    padding: "14px 24px",
+    fontSize: "16px",
     fontWeight: "600",
     color: "white",
     backgroundColor: "#3b82f6",
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    marginTop: "8px",
+    transition: "background-color 0.2s",
   },
 };

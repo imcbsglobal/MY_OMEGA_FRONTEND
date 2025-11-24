@@ -1,228 +1,225 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/client";
 
-export default function SalaryCertificateList() {
+// Certificate Modal Component
+function CertificateModal({ certificate, onClose }) {
+  if (!certificate) return null;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const numberToWords = (num) => {
+    const amount = parseFloat(num);
+    
+    if (amount === 50000) return "Fifty Thousand";
+    if (amount === 65000) return "Sixty Five Thousand";
+    if (amount === 52000) return "Fifty Two Thousand";
+    if (amount === 55000) return "Fifty Five Thousand";
+    if (amount === 60000) return "Sixty Thousand";
+    if (amount === 70000) return "Seventy Thousand";
+    if (amount === 75000) return "Seventy Five Thousand";
+    if (amount === 80000) return "Eighty Thousand";
+    
+    return amount.toFixed(0);
+  };
+
+  return (
+    <div style={modalStyles.overlay} onClick={onClose}>
+      <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+        <button style={modalStyles.closeBtn} onClick={onClose}>✕</button>
+        
+        <div style={modalStyles.certificateContainer}>
+          <div style={modalStyles.certificate}>
+            <div style={modalStyles.header}>
+              <h1 style={modalStyles.companyName}>ABC COMPANY</h1>
+              <p style={modalStyles.tagline}>Excellence in Service</p>
+            </div>
+
+            <div style={modalStyles.divider}></div>
+
+            <h2 style={modalStyles.certificateTitle}>SALARY CERTIFICATE</h2>
+
+            <div style={modalStyles.content}>
+              <p style={modalStyles.date}>
+                <strong>Date:</strong> {certificate.issued_date}
+              </p>
+
+              <p style={modalStyles.toWhom}>To Whom It May Concern,</p>
+
+              <p style={modalStyles.paragraph}>
+                This is to certify that <strong>{certificate.emp_name}</strong> is working with our organization as <strong>{certificate.emp_job_title}</strong> since <strong>{certificate.emp_joining_date}</strong>.
+              </p>
+
+              <p style={modalStyles.paragraph}>
+                The current monthly salary of <strong>{certificate.emp_name}</strong> is <strong>₹{certificate.salary}</strong> (Rupees {numberToWords(certificate.salary)} only).
+              </p>
+
+              <p style={modalStyles.paragraph}>
+                This certificate is issued upon the employee's request for official purposes.
+              </p>
+
+              <div style={modalStyles.employeeDetails}>
+                <h3 style={modalStyles.detailsTitle}>Employee Details:</h3>
+                <p><strong>Name:</strong> {certificate.emp_name}</p>
+                <p><strong>Email:</strong> {certificate.emp_email}</p>
+                <p><strong>Designation:</strong> {certificate.emp_job_title}</p>
+                <p><strong>Address:</strong> {certificate.emp_address}</p>
+                <p><strong>Date of Joining:</strong> {certificate.emp_joining_date}</p>
+              </div>
+
+              <div style={modalStyles.footer}>
+                <p style={modalStyles.regards}>Best Regards,</p>
+                <div style={modalStyles.signature}>
+                  <div style={modalStyles.signatureLine}></div>
+                  <p style={modalStyles.signatureName}>{certificate.generated_by_name}</p>
+                  <p style={modalStyles.signatureTitle}>HR Manager</p>
+                  <p style={modalStyles.signatureCompany}>ABC Company</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={modalStyles.actions}>
+          <button style={modalStyles.printBtn} onClick={handlePrint}>
+            🖨️ Print Certificate
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function SalaryCertificate() {
   const navigate = useNavigate();
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
+  const itemsPerPage = 25;
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const itemsPerPage = 25;
 
   useEffect(() => {
-    loadCertificates();
+    loadData();
   }, []);
 
-  const loadCertificates = () => {
+  const loadData = async () => {
     try {
-      const storedData = localStorage.getItem('salary-certificate-data');
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        setCertificates(data);
-      } else {
-        const initialData = [
-          {
-            id: 1,
-            name: "Rajesh Kumar",
-            jobTitle: "Senior Developer",
-            joiningDate: "2023-01-15",
-            location: "Bangalore",
-            employeeSalary: "85000",
-            approvedBy: "HR Manager",
-            status: "Approved",
-            certificateUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-            certificateFileName: "salary_cert_rajesh.pdf",
-            createdUser: "myomega@gmail.com",
-            createdDate: "20/10/2025, 10:30 AM",
-          },
-          {
-            id: 2,
-            name: "Priya Sharma",
-            jobTitle: "Marketing Manager",
-            joiningDate: "2022-06-10",
-            location: "Mumbai",
-            employeeSalary: "95000",
-            approvedBy: "Finance Head",
-            status: "Pending",
-            certificateUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-            certificateFileName: "salary_cert_priya.pdf",
-            createdUser: "myomega@gmail.com",
-            createdDate: "22/10/2025, 02:15 PM",
-          },
-        ];
-        localStorage.setItem('salary-certificate-data', JSON.stringify(initialData));
-        setCertificates(initialData);
-      }
-    } catch (error) {
-      console.error('Error loading certificates:', error);
-      setCertificates([]);
-    } finally {
-      setLoading(false);
+      const res = await api.get("/certificate/salary-certificates/");
+      setCertificates(res?.data?.data || []);
+      console.log(res.data)
+    } catch (err) {
+      console.error("Load error:", err);
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
+    try {
+      await api.delete(`/certificate/salary-certificates/${id}/`);
+      setCertificates((prev) => prev.filter((x) => x.id !== id));
+    } catch (err) {
+      alert("Delete failed");
     }
   };
 
-  const handleAddNewClick = () => {
-    navigate('/salary-certificate/add');
+  const handleEdit = (id) =>
+    navigate(`/salary-certificate/edit/${id}`);
+
+  const handleViewCertificate = (certificate) => {
+    setSelectedCertificate(certificate);
   };
 
-  const handleEditClick = (certificate) => {
-    navigate(`/salary-certificate/edit/${certificate.id}`);
-  };
+  const filtered = certificates.filter((c) =>
+    c.emp_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const handleViewClick = (certificate) => {
-    navigate(`/salary-certificate/view/${certificate.id}`);
-  };
-
-  const handleViewCertificateClick = (certUrl, certFileName) => {
-    if (certUrl) {
-      window.open(certUrl, "_blank");
-    } else {
-      alert("No certificate attachment available");
-    }
-  };
-
-  const handleDeleteClick = (id) => {
-    if (window.confirm("Are you sure you want to delete this record?")) {
-      try {
-        const storedData = localStorage.getItem('salary-certificate-data');
-        if (storedData) {
-          const data = JSON.parse(storedData);
-          const updatedCertificates = data.filter(cert => cert.id !== id);
-          localStorage.setItem('salary-certificate-data', JSON.stringify(updatedCertificates));
-          setCertificates(updatedCertificates);
-        }
-      } catch (error) {
-        console.error('Error deleting certificate:', error);
-        alert('Failed to delete. Please try again.');
-      }
-    }
-  };
-
-  const filteredCertificates = certificates.filter(cert => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase().trim();
-    return (
-      cert.name?.toLowerCase().includes(query) ||
-      cert.jobTitle?.toLowerCase().includes(query) ||
-      cert.location?.toLowerCase().includes(query) ||
-      cert.approvedBy?.toLowerCase().includes(query) ||
-      cert.status?.toLowerCase().includes(query) ||
-      cert.employeeSalary?.includes(query)
-    );
-  });
-
-  const totalPages = Math.ceil(filteredCertificates.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentCertificates = filteredCertificates.slice(startIndex, endIndex);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(prev - 1, 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  };
-
-  const handlePageClick = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
-  const getStatusStyle = (status) => {
-    const statusStyles = {
-      Pending: { backgroundColor: "#fef3c7", color: "#92400e" },
-      Approved: { backgroundColor: "#d1fae5", color: "#065f46" },
-      Rejected: { backgroundColor: "#fee2e2", color: "#991b1b" },
-    };
-    return statusStyles[status] || { backgroundColor: "#f3f4f6", color: "#374151" };
-  };
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const start = (currentPage - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  const rows = filtered.slice(start, end);
 
   if (loading) {
     return (
-      <div style={{...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh'}}>
-        <div style={{fontSize: '18px', color: '#6b7280'}}>Loading salary certificate data...</div>
+      <div style={{ padding: "40px", textAlign: "center" }}>
+        <p style={{ fontSize: "18px", color: "#6b7280" }}>Loading salary certificates...</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={styles.title}>Salary Certificate Management</h2>
-        <div style={styles.headerActions}>
-          <div style={styles.searchContainer}>
+    <div style={S.container}>
+      <div style={S.header}>
+        <h2 style={S.title}>Salary Certificate Management</h2>
+
+        <div style={S.headerActions}>
+          <div style={S.searchContainer}>
             <input
               type="text"
               placeholder="Search by name, job, location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={styles.searchInput}
+              style={S.searchInput}
             />
-            <span style={styles.searchIcon}>🔍</span>
+            <span style={S.searchIcon}>🔍</span>
           </div>
-          <button onClick={handleAddNewClick} style={styles.addButton}>
+
+          <button onClick={() => navigate("/salary-certificate/add")} style={S.addButton}>
             + Add New
           </button>
         </div>
       </div>
 
-      <div style={styles.tableContainer}>
-        <table style={styles.table}>
+      <div style={S.tableContainer}>
+        <table style={S.table}>
           <thead>
-            <tr style={styles.tableHeaderRow}>
-              <th style={styles.tableHeader}>SL NO</th>
-              <th style={styles.tableHeader}>NAME</th>
-              <th style={styles.tableHeader}>JOB TITLE</th>
-              <th style={styles.tableHeader}>JOINING DATE</th>
-              <th style={styles.tableHeader}>LOCATION</th>
-              <th style={styles.tableHeader}>EMPLOYEE SALARY</th>
-              <th style={styles.tableHeader}>APPROVED BY</th>
-              <th style={styles.tableHeader}>STATUS</th>
-              <th style={styles.tableHeader}>CERTIFICATE</th>
-              <th style={styles.tableHeader}>ACTION</th>
+            <tr style={S.tableHeaderRow}>
+              <th style={S.tableHeader}>SL NO</th>
+              <th style={S.tableHeader}>NAME</th>
+              <th style={S.tableHeader}>JOB TITLE</th>
+              <th style={S.tableHeader}>JOINING DATE</th>
+              <th style={S.tableHeader}>ADDRESS</th>
+              <th style={S.tableHeader}>SALARY</th>
+              <th style={S.tableHeader}>ISSUED DATE</th>
+              <th style={S.tableHeader}>CERTIFICATE</th>
+              <th style={S.tableHeader}>ACTION</th>
             </tr>
           </thead>
+
           <tbody>
-            {currentCertificates.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
-                <td colSpan="10" style={styles.noResults}>
-                  {searchQuery ? `No results found for "${searchQuery}"` : "No certificate records available"}
+                <td colSpan="9" style={S.noResults}>
+                  No results found
                 </td>
               </tr>
             ) : (
-              currentCertificates.map((cert, index) => (
-                <tr key={cert.id} style={styles.tableRow}>
-                  <td style={styles.tableCell}>{startIndex + index + 1}</td>
-                  <td style={styles.tableCell}>{cert.name}</td>
-                  <td style={styles.tableCell}>{cert.jobTitle}</td>
-                  <td style={styles.tableCell}>{cert.joiningDate || "N/A"}</td>
-                  <td style={styles.tableCell}>{cert.location || "N/A"}</td>
-                  <td style={styles.tableCell}>
-                    {cert.employeeSalary ? `₹${cert.employeeSalary}` : "N/A"}
-                  </td>
-                  <td style={styles.tableCell}>{cert.approvedBy || "N/A"}</td>
-                  <td style={styles.tableCell}>
-                    <span style={{...styles.statusBadge, ...getStatusStyle(cert.status)}}>
-                      {cert.status || "N/A"}
-                    </span>
-                  </td>
-                  <td style={styles.tableCell}>
+              rows.map((item, idx) => (
+                <tr key={item.id} style={S.tableRow}>
+                  <td style={S.tableCell}>{start + idx + 1}</td>
+                  <td style={S.tableCell}>{item.emp_name}</td>
+                  <td style={S.tableCell}>{item.emp_job_title}</td>
+                  <td style={S.tableCell}>{item.emp_joining_date}</td>
+                  <td style={S.tableCell}>{item.emp_address}</td>
+                  <td style={S.tableCell}>₹{item.salary}</td>
+                  <td style={S.tableCell}>{item.issued_date}</td>
+
+                  <td style={S.tableCell}>
                     <button 
-                      style={styles.viewCertBtn}
-                      onClick={() => handleViewCertificateClick(cert.certificateUrl, cert.certificateFileName)}
+                      style={S.viewCvBtn} 
+                      onClick={() => handleViewCertificate(item)}
                     >
-                      📄 View Certificate
+                      View
                     </button>
                   </td>
-                  <td style={styles.tableCell}>
-                    <div style={styles.actionButtons}>
-                      <button onClick={() => handleViewClick(cert)} style={styles.viewBtn}>View</button>
-                      <button onClick={() => handleEditClick(cert)} style={styles.editBtn}>Edit</button>
-                      <button onClick={() => handleDeleteClick(cert.id)} style={styles.deleteBtn}>Delete</button>
+
+                  <td style={S.tableCell}>
+                    <div style={S.actionButtons}>
+                      <button style={S.editBtn} onClick={() => handleEdit(item.id)}>Edit</button>
+                      <button style={S.deleteBtn} onClick={() => handleDelete(item.id)}>Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -232,65 +229,76 @@ export default function SalaryCertificateList() {
         </table>
       </div>
 
-      <div style={styles.paginationContainer}>
-        <div style={styles.paginationInfo}>
-          Showing {filteredCertificates.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredCertificates.length)} of {filteredCertificates.length} entries
-          {searchQuery && <span style={styles.searchIndicator}> (filtered from {certificates.length} total)</span>}
-        </div>
-        <div style={styles.paginationButtons}>
-          <button 
-            onClick={handlePreviousPage} 
+      {/* Pagination */}
+      <div style={S.paginationContainer}>
+        <span style={S.paginationInfo}>
+          Showing {rows.length ? start + 1 : 0} to {Math.min(end, filtered.length)} of{" "}
+          {filtered.length} entries
+        </span>
+
+        <div style={S.paginationButtons}>
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
-            style={{...styles.paginationBtn, ...(currentPage === 1 ? styles.paginationBtnDisabled : {})}}
+            style={{
+              ...S.paginationBtn,
+              ...(currentPage === 1 ? S.paginationBtnDisabled : {}),
+            }}
           >
-            Previous
+            Prev
           </button>
-          
-          <div style={styles.pageNumbers}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
-              if (
-                pageNum === 1 || 
-                pageNum === totalPages || 
-                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-              ) {
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => handlePageClick(pageNum)}
-                    style={{
-                      ...styles.pageNumberBtn,
-                      ...(pageNum === currentPage ? styles.pageNumberBtnActive : {})
-                    }}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                return <span key={pageNum} style={styles.pageEllipsis}>...</span>;
-              }
-              return null;
-            })}
+
+          <div style={S.pageNumbers}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                onClick={() => setCurrentPage(n)}
+                style={{
+                  ...S.pageNumberBtn,
+                  ...(n === currentPage ? S.pageNumberBtnActive : {}),
+                }}
+              >
+                {n}
+              </button>
+            ))}
           </div>
 
-          <button 
-            onClick={handleNextPage} 
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
-            style={{...styles.paginationBtn, ...(currentPage === totalPages ? styles.paginationBtnDisabled : {})}}
+            style={{
+              ...S.paginationBtn,
+              ...(currentPage === totalPages ? S.paginationBtnDisabled : {}),
+            }}
           >
             Next
           </button>
         </div>
       </div>
+
+      {/* Certificate Modal */}
+      {selectedCertificate && (
+        <CertificateModal 
+          certificate={selectedCertificate} 
+          onClose={() => setSelectedCertificate(null)} 
+        />
+      )}
     </div>
   );
 }
 
-const styles = {
+/* -------------------------------------------------
+   EXACT SAME CV MANAGEMENT STYLING
+   (copied from CVManagement.jsx) 100% same
+-------------------------------------------------- */
+
+const S = {
   container: {
     padding: "24px",
     backgroundColor: "#f9fafb",
     minHeight: "100vh",
   },
+
   header: {
     display: "flex",
     justifyContent: "space-between",
@@ -299,16 +307,26 @@ const styles = {
     flexWrap: "wrap",
     gap: "16px",
   },
+
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
+  },
+
   headerActions: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
   },
+
   searchContainer: {
     position: "relative",
     display: "flex",
     alignItems: "center",
   },
+
   searchInput: {
     padding: "12px 40px 12px 16px",
     fontSize: "14px",
@@ -316,10 +334,10 @@ const styles = {
     borderRadius: "8px",
     outline: "none",
     width: "320px",
-    transition: "all 0.3s",
     fontWeight: "500",
     color: "#374151",
   },
+
   searchIcon: {
     position: "absolute",
     right: "14px",
@@ -327,17 +345,7 @@ const styles = {
     pointerEvents: "none",
     color: "#9ca3af",
   },
-  searchIndicator: {
-    color: "#6b7280",
-    fontStyle: "italic",
-    fontSize: "13px",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
+
   addButton: {
     padding: "12px 24px",
     fontSize: "14px",
@@ -347,22 +355,24 @@ const styles = {
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   },
+
   tableContainer: {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     overflow: "hidden",
   },
+
   table: {
     width: "100%",
     borderCollapse: "collapse",
   },
+
   tableHeaderRow: {
     backgroundColor: "#f3f4f6",
   },
+
   tableHeader: {
     padding: "12px 16px",
     textAlign: "left",
@@ -372,23 +382,18 @@ const styles = {
     textTransform: "uppercase",
     borderBottom: "2px solid #e5e7eb",
   },
+
   tableRow: {
     borderBottom: "1px solid #e5e7eb",
-    transition: "background-color 0.2s",
   },
+
   tableCell: {
     padding: "12px 16px",
     fontSize: "14px",
     color: "#374151",
   },
-  statusBadge: {
-    padding: "4px 12px",
-    borderRadius: "12px",
-    fontSize: "12px",
-    fontWeight: "600",
-    display: "inline-block",
-  },
-  viewCertBtn: {
+
+  viewCvBtn: {
     padding: "6px 12px",
     fontSize: "13px",
     fontWeight: "500",
@@ -397,12 +402,13 @@ const styles = {
     border: "1px solid #bfdbfe",
     borderRadius: "6px",
     cursor: "pointer",
-    transition: "all 0.2s",
   },
+
   actionButtons: {
     display: "flex",
     gap: "6px",
   },
+
   viewBtn: {
     padding: "6px 12px",
     fontSize: "13px",
@@ -412,8 +418,8 @@ const styles = {
     border: "1px solid #a7f3d0",
     borderRadius: "6px",
     cursor: "pointer",
-    transition: "all 0.2s",
   },
+
   editBtn: {
     padding: "6px 12px",
     fontSize: "13px",
@@ -422,9 +428,8 @@ const styles = {
     backgroundColor: "#dbeafe",
     border: "1px solid #bfdbfe",
     borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
   },
+
   deleteBtn: {
     padding: "6px 12px",
     fontSize: "13px",
@@ -433,9 +438,16 @@ const styles = {
     backgroundColor: "#fee2e2",
     border: "1px solid #fecaca",
     borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
   },
+
+  noResults: {
+    padding: "40px",
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: "16px",
+    fontWeight: "500",
+  },
+
   paginationContainer: {
     display: "flex",
     justifyContent: "space-between",
@@ -446,15 +458,18 @@ const styles = {
     borderRadius: "12px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   },
+
   paginationInfo: {
     fontSize: "14px",
     color: "#6b7280",
   },
+
   paginationButtons: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
   },
+
   paginationBtn: {
     padding: "8px 16px",
     fontSize: "14px",
@@ -464,17 +479,19 @@ const styles = {
     border: "1px solid #d1d5db",
     borderRadius: "8px",
     cursor: "pointer",
-    transition: "all 0.2s",
   },
+
   paginationBtnDisabled: {
     opacity: 0.5,
     cursor: "not-allowed",
   },
+
   pageNumbers: {
     display: "flex",
     alignItems: "center",
     gap: "4px",
   },
+
   pageNumberBtn: {
     padding: "8px 12px",
     fontSize: "14px",
@@ -484,23 +501,199 @@ const styles = {
     border: "1px solid #d1d5db",
     borderRadius: "6px",
     cursor: "pointer",
-    transition: "all 0.2s",
-    minWidth: "40px",
   },
+
   pageNumberBtnActive: {
     backgroundColor: "#3b82f6",
     color: "white",
     borderColor: "#3b82f6",
   },
-  pageEllipsis: {
-    padding: "8px 4px",
-    color: "#9ca3af",
+};
+
+/* -------------------------------------------------
+   MODAL STYLES FOR CERTIFICATE
+-------------------------------------------------- */
+
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+    padding: "20px",
   },
-  noResults: {
+
+  modal: {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    maxWidth: "900px",
+    width: "100%",
+    maxHeight: "90vh",
+    overflow: "auto",
+    position: "relative",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+  },
+
+  closeBtn: {
+    position: "absolute",
+    top: "16px",
+    right: "16px",
+    background: "#fee2e2",
+    color: "#dc2626",
+    border: "none",
+    borderRadius: "50%",
+    width: "32px",
+    height: "32px",
+    fontSize: "20px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+
+  certificateContainer: {
     padding: "40px",
+  },
+
+  certificate: {
+    border: "3px solid #3b82f6",
+    borderRadius: "8px",
+    padding: "40px",
+    backgroundColor: "#ffffff",
+  },
+
+  header: {
     textAlign: "center",
-    color: "#6b7280",
+    marginBottom: "20px",
+  },
+
+  companyName: {
+    fontSize: "36px",
+    fontWeight: "700",
+    color: "#1e3a8a",
+    margin: "0 0 8px 0",
+    letterSpacing: "2px",
+  },
+
+  tagline: {
+    fontSize: "14px",
+    color: "#64748b",
+    margin: 0,
+    fontStyle: "italic",
+  },
+
+  divider: {
+    height: "3px",
+    backgroundColor: "#3b82f6",
+    margin: "20px 0",
+  },
+
+  certificateTitle: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#1e3a8a",
+    textAlign: "center",
+    margin: "20px 0",
+    letterSpacing: "3px",
+  },
+
+  content: {
+    lineHeight: "1.8",
+    color: "#374151",
+  },
+
+  date: {
+    fontSize: "14px",
+    marginBottom: "20px",
+  },
+
+  toWhom: {
     fontSize: "16px",
-    fontWeight: "500",
+    fontWeight: "600",
+    marginBottom: "20px",
+  },
+
+  paragraph: {
+    fontSize: "15px",
+    marginBottom: "16px",
+    textAlign: "justify",
+  },
+
+  employeeDetails: {
+    backgroundColor: "#f3f4f6",
+    padding: "20px",
+    borderRadius: "8px",
+    marginTop: "30px",
+    marginBottom: "30px",
+  },
+
+  detailsTitle: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#1e3a8a",
+    marginBottom: "12px",
+  },
+
+  footer: {
+    marginTop: "40px",
+  },
+
+  regards: {
+    fontSize: "15px",
+    marginBottom: "60px",
+  },
+
+  signature: {
+    textAlign: "left",
+  },
+
+  signatureLine: {
+    width: "200px",
+    height: "2px",
+    backgroundColor: "#374151",
+    marginBottom: "8px",
+  },
+
+  signatureName: {
+    fontSize: "16px",
+    fontWeight: "600",
+    margin: "0 0 4px 0",
+  },
+
+  signatureTitle: {
+    fontSize: "14px",
+    color: "#64748b",
+    margin: "0 0 4px 0",
+  },
+
+  signatureCompany: {
+    fontSize: "14px",
+    color: "#64748b",
+    margin: 0,
+  },
+
+  actions: {
+    padding: "20px 40px 40px 40px",
+    display: "flex",
+    justifyContent: "center",
+    gap: "12px",
+  },
+
+  printBtn: {
+    padding: "12px 24px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
   },
 };
