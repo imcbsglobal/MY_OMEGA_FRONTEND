@@ -64,12 +64,13 @@ export default function ExperienceCertificateList() {
     }
   };
 
+  // FIXED: Using emp_designation instead of emp_job_title
   const filteredCertificates = certificates.filter(certificate => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase().trim();
     return (
       certificate.emp_name?.toLowerCase().includes(query) ||
-      certificate.emp_job_title?.toLowerCase().includes(query) ||
+      certificate.emp_designation?.toLowerCase().includes(query) ||
       certificate.emp_address?.toLowerCase().includes(query)
     );
   });
@@ -131,7 +132,7 @@ export default function ExperienceCertificateList() {
               <th style={styles.tableHeader}>SL NO</th>
               <th style={styles.tableHeader}>NAME</th>
               <th style={styles.tableHeader}>EMAIL</th>
-              <th style={styles.tableHeader}>ADDRESS</th>
+              {/* <th style={styles.tableHeader}>ADDRESS</th> */}
               <th style={styles.tableHeader}>JOB TITLE</th>
               <th style={styles.tableHeader}>JOINING DATE</th>
               <th style={styles.tableHeader}>ISSUE DATE</th>
@@ -152,11 +153,15 @@ export default function ExperienceCertificateList() {
                   <td style={styles.tableCell}>{startIndex + index + 1}</td>
                   <td style={styles.tableCell}>{certificate.emp_name}</td>
                   <td style={styles.tableCell}>{certificate.emp_email || "N/A"}</td>
-                  <td style={styles.tableCell}>{certificate.emp_address || "N/A"}</td>
-                  <td style={styles.tableCell}>{certificate.emp_job_title}</td>
+                  {/* <td style={styles.tableCell}>{certificate.emp_address || "N/A"}</td> */}
+
+                  {/* FIXED: using emp_designation */}
+                  <td style={styles.tableCell}>{certificate.emp_designation}</td>
+
                   <td style={styles.tableCell}>{certificate.joining_date || "N/A"}</td>
                   <td style={styles.tableCell}>{certificate.issue_date || "N/A"}</td>
                   <td style={styles.tableCell}>{certificate.generated_by_name || "N/A"}</td>
+
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
                       <button onClick={() => handleGenerateClick(certificate)} style={styles.generateBtn}>Generate</button>
@@ -270,7 +275,9 @@ export default function ExperienceCertificateList() {
                     <p style={styles.paragraph}>
                       This is to certify that <strong style={styles.highlight}>{selectedCertificate.emp_name}</strong>, 
                       residing at <strong style={styles.highlight}>{selectedCertificate.emp_address || "Address"}</strong>, 
-                      was employed with our organization as <strong style={styles.highlight}>{selectedCertificate.emp_job_title}</strong>.
+                      
+                      {/* FIXED: using designation */}
+                      was employed with our organization as <strong style={styles.highlight}>{selectedCertificate.emp_designation}</strong>.
                     </p>
 
                     <p style={styles.paragraph}>
@@ -286,8 +293,7 @@ export default function ExperienceCertificateList() {
 
                     <p style={styles.paragraph}>
                       During the tenure with our organization, {selectedCertificate.emp_name} has shown dedication, 
-                      professionalism, and commitment to work. We found {selectedCertificate.emp_name.split(' ')[0]} to be 
-                      sincere, hardworking, and reliable.
+                      professionalism, and commitment to work.
                     </p>
 
                     <p style={styles.paragraph}>

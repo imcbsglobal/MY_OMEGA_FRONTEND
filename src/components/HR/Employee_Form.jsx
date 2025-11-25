@@ -444,7 +444,7 @@ export default function EmployeeForm() {
                 />
               </div>
 
-              <div style={styles.formGroup}>
+              {/* <div style={styles.formGroup}>
                 <label style={styles.label}>Address</label>
                 <textarea
                   name="address"
@@ -454,7 +454,7 @@ export default function EmployeeForm() {
                   rows="3"
                   placeholder="Full address..."
                 />
-              </div>
+              </div> */}
 
               <div style={styles.formGroup}>
                 <label style={styles.label}>
@@ -469,8 +469,55 @@ export default function EmployeeForm() {
                   required
                 />
               </div>
-
               <div style={styles.formGroup}>
+                <label style={styles.label}>
+                  District <span style={styles.required}>*</span>
+                </label>
+
+                <select
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                >
+                  <option value="">Select a District</option>
+                  
+                  {/* Kerala Districts */}
+                  <option value="Thiruvananthapuram">Thiruvananthapuram</option>
+                  <option value="Kollam">Kollam</option>
+                  <option value="Pathanamthitta">Pathanamthitta</option>
+                  <option value="Alappuzha">Alappuzha</option>
+                  <option value="Kottayam">Kottayam</option>
+                  <option value="Idukki">Idukki</option>
+                  <option value="Ernakulam">Ernakulam</option>
+                  <option value="Thrissur">Thrissur</option>
+                  <option value="Palakkad">Palakkad</option>
+                  <option value="Malappuram">Malappuram</option>
+                  <option value="Kozhikode">Kozhikode</option>
+                  <option value="Wayanad">Wayanad</option>
+                  <option value="Kannur">Kannur</option>
+                  <option value="Kasaragod">Kasaragod</option>
+
+                  {/* Manual entry option */}
+                  <option value="manual">Other (Manual Entry)</option>
+                </select>
+
+                {/* Conditional manual entry input */}
+                {formData.district === "manual" && (
+                  <input
+                    type="text"
+                    name="district_manual"
+                    placeholder="Enter district manually"
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, district: e.target.value }))
+                    }
+                    style={{ ...styles.input, marginTop: "10px" }}
+                  />
+                )}
+              </div>
+
+              {/* <div style={styles.formGroup}>
                 <label style={styles.label}>
                   District <span style={styles.required}>*</span>
                 </label>
@@ -486,7 +533,7 @@ export default function EmployeeForm() {
                   <option value="district2">District 2</option>
                   <option value="district3">District 3</option>
                 </select>
-              </div>
+              </div> */}
 
               <div style={styles.formGroup}>
                 <label style={styles.label}>Emergency Contact Name</label>

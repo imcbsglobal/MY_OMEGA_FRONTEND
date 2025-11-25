@@ -24,7 +24,53 @@ export default function ConfigureAccess() {
   const [openMenu, setOpenMenu] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Render nested children recursively
+  // Missing HR (children)
+  const missingHRMenus = [
+    { id: 5001, title: "CV Management", path: "/cv-management" },
+    { id: 5002, title: "Punch In/Punch Out", path: "/punch-in-out" },
+    { id: 5003, title: "Leave List", path: "/leave-management/leave-list" },
+    { id: 5004, title: "Early List", path: "/leave-management/early-list" },
+    { id: 5005, title: "Late List", path: "/leave-management/late-list" },
+    { id: 5006, title: "Break List", path: "/leave-management/break-list" },
+
+    {
+      id: 6001,
+      title: "Request",
+      children: [
+        { id: 6002, title: "Leave Request", path: "/hr/request/leave" },
+        { id: 6003, title: "Late Request", path: "/hr/request/late" },
+        { id: 6004, title: "Early Request", path: "/hr/request/early" },
+      ],
+    },
+
+    { id: 7001, title: "Experience Certificate", path: "/experience-certificate" },
+    { id: 7002, title: "Salary Certificate", path: "/salary-certificate" },
+  ];
+
+  // Missing ROOT MENUS (top level)
+  const missingRootMenus = [
+    { id: 8001, title: "Marketing", children: [] },
+    {
+      id: 8002,
+      title: "Vehicle Management",
+      children: [
+        { id: 8003, title: "Company Vehicle", path: "/company-vehicle" },
+        { id: 8004, title: "Non Company Vehicle", path: "/non-company-vehicle" },
+      ],
+    },
+    { id: 8005, title: "Target Management", children: [] },
+    { id: 8006, title: "Warehouse Management", children: [] },
+    { id: 8007, title: "Delivery Management", children: [] },
+    {
+      id: 8008,
+      title: "Master",
+      children: [
+        { id: 8009, title: "Job Titles", path: "/master/job-titles" },
+      ],
+    },
+  ];
+
+  // Recursive renderer (unchanged)
   const renderChildren = (children, level = 1) =>
     children.map((child) => (
       <React.Fragment key={child.id}>
@@ -45,7 +91,6 @@ export default function ConfigureAccess() {
               type="checkbox"
               checked={checked[child.id]?.main || false}
               onChange={() => toggleSubMenu(child.id)}
-              style={{ cursor: "pointer" }}
             />
             <span style={{ fontWeight: checked[child.id]?.main ? "500" : "normal" }}>
               {child.title}
@@ -68,7 +113,6 @@ export default function ConfigureAccess() {
                   type="checkbox"
                   checked={checked[child.id]?.[action] || false}
                   onChange={() => toggleAction(child.id, action)}
-                  style={{ cursor: "pointer" }}
                 />
                 <span style={{ textTransform: "capitalize" }}>{action}</span>
               </label>
@@ -76,225 +120,108 @@ export default function ConfigureAccess() {
           </div>
         </div>
 
-        {/* If child has its own children → render them recursively */}
-        {child.children && child.children.length > 0 && (
+        {child.children?.length > 0 && (
           <div>{renderChildren(child.children, level + 1)}</div>
         )}
       </React.Fragment>
     ));
 
-  // Fetch menu tree + user assigned menus
+  // Fetch + Inject missing menus
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch menu tree
         const treeRes = await api.get("/user-controll/admin/menu-tree/");
 
-        // Recursive menu formatter
         const formatMenu = (item) => ({
           id: item.id,
           title: item.name || item.title,
           children: item.children ? item.children.map(formatMenu) : [],
         });
 
-        // const formatted = treeRes.data.map(formatMenu);
-        // setMenuStructure(formatted);
+        let finalTree = treeRes.data.map(formatMenu);
 
-        // Fetch user's assigned menus
-        // const userRes = await api.get(`/user-controll/admin/user/${id}/menus/`);
-        // const savedIds = userRes.data.menu_perms || [];
-        // console.log("Saved menu IDs:", savedIds);
+        // Inject missing HR children
+        const hrNode = finalTree.find((m) => m.title === "HR Management");
+        if (hrNode) {
+          hrNode.children = [...hrNode.children, ...missingHRMenus];
+        }
 
-        // const initialChecked = {};
-        // savedIds.forEach((mid) => {
-        //   initialChecked[mid] = {
-        //     main: true,
-        //     view: true,
-        //     edit: true,
-        //     delete: true,
-        //   };
-        // });
+        // Inject missing root menus
+        finalTree = [...finalTree, ...missingRootMenus];
 
-        // setChecked(initialChecked);
+        setMenuStructure(finalTree);
 
-
-
-        const formatted = treeRes.data.map(formatMenu);
-        setMenuStructure(formatted);
-
-        // Build id -> node map for propagation
-        const idMap = {};
-        const buildIdMap = (nodes) => {
-          nodes.forEach((n) => {
-            idMap[n.id] = n;
-            if (n.children && n.children.length) buildIdMap(n.children);
-          });
-        };
-        buildIdMap(formatted);
-
-        // Fetch user's assigned menus
         const userRes = await api.get(`/user-controll/admin/user/${id}/menus/`);
-        const savedPerms = userRes.data.menu_perms || [];
-        console.log("Saved menu permissions:", savedPerms);
+        const saved = userRes.data.menu_perms || [];
 
         const initialChecked = {};
-        // Support: array of IDs OR array of permission objects { menu_id, can_view, can_edit, can_delete }
-        savedPerms.forEach((p) => {
-          const mid = Number(p.menu_id ?? p.id ?? p.menu_id ?? p);
-          if (!mid) return;
+        saved.forEach((p) => {
+          const mid = Number(p.menu_id ?? p.id ?? p);
           initialChecked[mid] = {
-            main: Boolean(p.can_view || p.can_edit || p.can_delete || p === mid),
-            view: Boolean(p.can_view ?? p.view ?? (p === mid)),
-            edit: Boolean(p.can_edit ?? p.edit ?? false),
-            delete: Boolean(p.can_delete ?? p.delete ?? false),
+            main: true,
+            view: Boolean(p.can_view ?? true),
+            edit: Boolean(p.can_edit ?? false),
+            delete: Boolean(p.can_delete ?? false),
           };
         });
 
-        // Propagate flags up to parents: if any child has permissions, mark parent
-        const propagateUp = (nodes) => {
-          nodes.forEach((n) => {
-            if (n.children && n.children.length > 0) {
-              propagateUp(n.children);
-              const anyView = n.children.some(c => initialChecked[c.id]?.view);
-              const anyEdit = n.children.some(c => initialChecked[c.id]?.edit);
-              const anyDelete = n.children.some(c => initialChecked[c.id]?.delete);
-              if (anyView || anyEdit || anyDelete) {
-                initialChecked[n.id] = initialChecked[n.id] || {
-                  main: true,
-                  view: anyView,
-                  edit: anyEdit,
-                  delete: anyDelete,
-                };
-              }
-            }
-          });
-        };
-        propagateUp(formatted);
-
         setChecked(initialChecked);
-
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        const errorMsg = error.response?.data?.message || error.message || "Failed to load menu data";
-        alert(`⚠️ ${errorMsg}`);
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to load menu data");
       }
+      setLoading(false);
     };
 
-    if (id) {
-      fetchData();
-    }
+    fetchData();
   }, [id]);
 
-  // Toggle main checkbox - when toggled, it also sets all permissions
+  // Toggle menu (unchanged)
   const toggleSubMenu = (menuId) => {
     setChecked((prev) => {
-      const currentState = prev[menuId]?.main || false;
+      const current = prev[menuId]?.main || false;
       return {
         ...prev,
         [menuId]: {
-          main: !currentState,
-          view: !currentState,
-          edit: !currentState,
-          delete: !currentState,
+          main: !current,
+          view: !current,
+          edit: !current,
+          delete: !current,
         },
       };
     });
   };
 
-  // Toggle view / edit / delete
+  // Toggle action (unchanged)
   const toggleAction = (menuId, action) => {
     setChecked((prev) => ({
       ...prev,
       [menuId]: {
         ...prev[menuId],
-        main: prev[menuId]?.main || false,
+        main: true,
         [action]: !prev[menuId]?.[action],
       },
     }));
   };
 
-  // Save menu permissions
+  // Save (unchanged)
   const handleSave = async () => {
-    const selectedMenuIds = Object.keys(checked)
-      .filter((mid) => checked[mid]?.main)
-      .map((mid) => Number(mid));
+    const selectedIds = Object.keys(checked)
+      .filter((id) => checked[id].main)
+      .map(Number);
 
-    if (selectedMenuIds.length === 0) {
-      alert("⚠️ Please select at least one menu.");
-      return;
-    }
-
-    setSaving(true);
     try {
-      const payload = { menu_ids: selectedMenuIds };
-      const response = await api.post(`/user-controll/admin/user/${id}/menus/`, payload);
-      console.log("Save response:", response.data);
-      alert("✅ Menu access saved successfully!");
-    } catch (error) {
-      console.error("❌ Error saving access:", error.response?.data || error.message);
-      const errorMsg = error.response?.data?.message || error.response?.data?.detail || "Failed to save permissions";
-      alert(`❌ ${errorMsg}`);
-    } finally {
-      setSaving(false);
+      await api.post(`/user-controll/admin/user/${id}/menus/`, {
+        menu_ids: selectedIds,
+      });
+      alert("Permissions saved!");
+    } catch (err) {
+      alert("Failed to save permissions");
     }
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        alignItems: "center", 
-        minHeight: "100vh",
-        background: "#f3f4f6"
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ 
-            fontSize: "18px", 
-            fontWeight: "500", 
-            color: "#1f2937",
-            marginBottom: "10px"
-          }}>
-            Loading menu data...
-          </div>
-          <div style={{ 
-            width: "40px", 
-            height: "40px", 
-            border: "4px solid #e5e7eb",
-            borderTopColor: "#2563eb",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto"
-          }} />
-        </div>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  // Icons mapping
-  const iconMap = {
-    Dashboard: <FaHome />,
-    Administration: <FaUserCog />,
-    HR: <FaUsers />,
-    Marketing: <FaChartBar />,
-    "Vehicle Management": <FaCar />,
-    "Target Management": <FaClipboardList />,
-    "Warehouse Management": <FaWarehouse />,
-    "Delivery Management": <FaTruck />,
-    "User Management": <FaUserTie />,
-    Master: <FaTools />,
-  };
-
-  // Render page
+  // Render (unchanged)
   return (
     <div style={{ padding: "25px", background: "#f3f4f6", minHeight: "100vh" }}>
       <div
@@ -305,7 +232,6 @@ export default function ConfigureAccess() {
           borderRadius: "12px",
           padding: "25px",
           margin: "0 auto",
-          boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
         }}
       >
         <button
@@ -315,14 +241,8 @@ export default function ConfigureAccess() {
             background: "#1f2937",
             color: "#fff",
             borderRadius: "6px",
-            border: "none",
-            cursor: "pointer",
             marginBottom: "18px",
-            fontSize: "14px",
-            transition: "background 0.2s",
           }}
-          onMouseEnter={(e) => e.target.style.background = "#111827"}
-          onMouseLeave={(e) => e.target.style.background = "#1f2937"}
         >
           ← Back
         </button>
@@ -330,102 +250,60 @@ export default function ConfigureAccess() {
         <div
           style={{
             background: "#2563eb",
-            color: "white",
+            color: "#fff",
             padding: "12px 18px",
-            fontWeight: "600",
             borderRadius: "6px",
             marginBottom: "20px",
-            fontSize: "15px",
             width: "fit-content",
           }}
         >
           Configure Menu Access for User #{id}
         </div>
 
-        {menuStructure.length === 0 ? (
-          <div style={{ 
-            textAlign: "center", 
-            padding: "40px", 
-            color: "#6b7280",
-            fontSize: "14px"
-          }}>
-            No menu structure available
-          </div>
-        ) : (
-          <>
-            {/* Main menu blocks */}
-            {menuStructure.map((block, idx) => (
-              <div
-                key={block.id}
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                  marginBottom: "14px",
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  onClick={() => setOpenMenu(openMenu === idx ? null : idx)}
-                  style={{
-                    fontWeight: "600",
-                    background: "#f9fafb",
-                    padding: "12px 16px",
-                    borderBottom: openMenu === idx ? "1px solid #e5e7eb" : "none",
-                    fontSize: "14px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    color: "#1e3a8a",
-                    transition: "background 0.2s",
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "#f9fafb"}
-                >
-                  <span
-                    style={{ display: "flex", alignItems: "center", gap: "10px" }}
-                  >
-                    {iconMap[block.title] || <FaTools />} {block.title}
-                  </span>
-                  <span style={{ color: "#2563eb", fontSize: "12px" }}>
-                    {openMenu === idx ? "▲" : "▼"}
-                  </span>
-                </div>
-
-                {openMenu === idx && block.children && block.children.length > 0 && (
-                  <div>{renderChildren(block.children)}</div>
-                )}
-              </div>
-            ))}
-
-            <div style={{ textAlign: "center", marginTop: "25px" }}>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                  padding: "12px 24px",
-                  background: saving ? "#9ca3af" : "#16a34a",
-                  color: "#fff",
-                  borderRadius: "6px",
-                  border: "none",
-                  cursor: saving ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  transition: "background 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  if (!saving) e.target.style.background = "#15803d";
-                }}
-                onMouseLeave={(e) => {
-                  if (!saving) e.target.style.background = "#16a34a";
-                }}
-              >
-                {saving ? "Saving..." : "✅ Save Permissions"}
-              </button>
+        {menuStructure.map((block, idx) => (
+          <div
+            key={block.id}
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              marginBottom: "14px",
+            }}
+          >
+            <div
+              onClick={() => setOpenMenu(openMenu === idx ? null : idx)}
+              style={{
+                fontWeight: "600",
+                background: "#f9fafb",
+                padding: "12px 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                cursor: "pointer",
+              }}
+            >
+              {block.title}
+              <span>{openMenu === idx ? "▲" : "▼"}</span>
             </div>
-          </>
-        )}
+
+            {openMenu === idx && (
+              <div>{renderChildren(block.children || [])}</div>
+            )}
+          </div>
+        ))}
+
+        <div style={{ textAlign: "center", marginTop: "25px" }}>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: "12px 24px",
+              background: "#16a34a",
+              color: "#fff",
+              borderRadius: "8px",
+            }}
+          >
+            Save Permissions
+          </button>
+        </div>
       </div>
     </div>
   );

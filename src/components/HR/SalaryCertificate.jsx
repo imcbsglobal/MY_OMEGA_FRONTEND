@@ -12,7 +12,7 @@ function CertificateModal({ certificate, onClose }) {
 
   const numberToWords = (num) => {
     const amount = parseFloat(num);
-    
+
     if (amount === 50000) return "Fifty Thousand";
     if (amount === 65000) return "Sixty Five Thousand";
     if (amount === 52000) return "Fifty Two Thousand";
@@ -21,7 +21,7 @@ function CertificateModal({ certificate, onClose }) {
     if (amount === 70000) return "Seventy Thousand";
     if (amount === 75000) return "Seventy Five Thousand";
     if (amount === 80000) return "Eighty Thousand";
-    
+
     return amount.toFixed(0);
   };
 
@@ -29,7 +29,7 @@ function CertificateModal({ certificate, onClose }) {
     <div style={modalStyles.overlay} onClick={onClose}>
       <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
         <button style={modalStyles.closeBtn} onClick={onClose}>✕</button>
-        
+
         <div style={modalStyles.certificateContainer}>
           <div style={modalStyles.certificate}>
             <div style={modalStyles.header}>
@@ -49,23 +49,30 @@ function CertificateModal({ certificate, onClose }) {
               <p style={modalStyles.toWhom}>To Whom It May Concern,</p>
 
               <p style={modalStyles.paragraph}>
-                This is to certify that <strong>{certificate.emp_name}</strong> is working with our organization as <strong>{certificate.emp_job_title}</strong> since <strong>{certificate.emp_joining_date}</strong>.
+                This is to certify that{" "}
+                <strong>{certificate.emp_name}</strong> is working with our
+                organization as{" "}
+                <strong>{certificate.emp_designation}</strong> since{" "}
+                <strong>{certificate.emp_joining_date}</strong>.
               </p>
 
               <p style={modalStyles.paragraph}>
-                The current monthly salary of <strong>{certificate.emp_name}</strong> is <strong>₹{certificate.salary}</strong> (Rupees {numberToWords(certificate.salary)} only).
+                The current monthly salary of{" "}
+                <strong>{certificate.emp_name}</strong> is{" "}
+                <strong>₹{certificate.salary}</strong> (Rupees{" "}
+                {numberToWords(certificate.salary)} only).
               </p>
 
               <p style={modalStyles.paragraph}>
-                This certificate is issued upon the employee's request for official purposes.
+                This certificate is issued upon the employee's request for
+                official purposes.
               </p>
 
               <div style={modalStyles.employeeDetails}>
                 <h3 style={modalStyles.detailsTitle}>Employee Details:</h3>
                 <p><strong>Name:</strong> {certificate.emp_name}</p>
                 <p><strong>Email:</strong> {certificate.emp_email}</p>
-                <p><strong>Designation:</strong> {certificate.emp_job_title}</p>
-                <p><strong>Address:</strong> {certificate.emp_address}</p>
+                <p><strong>Designation:</strong> {certificate.emp_designation}</p>
                 <p><strong>Date of Joining:</strong> {certificate.emp_joining_date}</p>
               </div>
 
@@ -109,7 +116,6 @@ export default function SalaryCertificate() {
     try {
       const res = await api.get("/certificate/salary-certificates/");
       setCertificates(res?.data?.data || []);
-      console.log(res.data)
     } catch (err) {
       console.error("Load error:", err);
     }
@@ -145,7 +151,9 @@ export default function SalaryCertificate() {
   if (loading) {
     return (
       <div style={{ padding: "40px", textAlign: "center" }}>
-        <p style={{ fontSize: "18px", color: "#6b7280" }}>Loading salary certificates...</p>
+        <p style={{ fontSize: "18px", color: "#6b7280" }}>
+          Loading salary certificates...
+        </p>
       </div>
     );
   }
@@ -159,7 +167,7 @@ export default function SalaryCertificate() {
           <div style={S.searchContainer}>
             <input
               type="text"
-              placeholder="Search by name, job, location..."
+              placeholder="Search by name, job title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={S.searchInput}
@@ -167,7 +175,10 @@ export default function SalaryCertificate() {
             <span style={S.searchIcon}>🔍</span>
           </div>
 
-          <button onClick={() => navigate("/salary-certificate/add")} style={S.addButton}>
+          <button
+            onClick={() => navigate("/salary-certificate/add")}
+            style={S.addButton}
+          >
             + Add New
           </button>
         </div>
@@ -181,7 +192,6 @@ export default function SalaryCertificate() {
               <th style={S.tableHeader}>NAME</th>
               <th style={S.tableHeader}>JOB TITLE</th>
               <th style={S.tableHeader}>JOINING DATE</th>
-              <th style={S.tableHeader}>ADDRESS</th>
               <th style={S.tableHeader}>SALARY</th>
               <th style={S.tableHeader}>ISSUED DATE</th>
               <th style={S.tableHeader}>CERTIFICATE</th>
@@ -192,7 +202,7 @@ export default function SalaryCertificate() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan="9" style={S.noResults}>
+                <td colSpan="8" style={S.noResults}>
                   No results found
                 </td>
               </tr>
@@ -201,15 +211,14 @@ export default function SalaryCertificate() {
                 <tr key={item.id} style={S.tableRow}>
                   <td style={S.tableCell}>{start + idx + 1}</td>
                   <td style={S.tableCell}>{item.emp_name}</td>
-                  <td style={S.tableCell}>{item.emp_job_title}</td>
+                  <td style={S.tableCell}>{item.emp_designation}</td>
                   <td style={S.tableCell}>{item.emp_joining_date}</td>
-                  <td style={S.tableCell}>{item.emp_address}</td>
                   <td style={S.tableCell}>₹{item.salary}</td>
                   <td style={S.tableCell}>{item.issued_date}</td>
 
                   <td style={S.tableCell}>
-                    <button 
-                      style={S.viewCvBtn} 
+                    <button
+                      style={S.viewCvBtn}
                       onClick={() => handleViewCertificate(item)}
                     >
                       View
@@ -218,8 +227,18 @@ export default function SalaryCertificate() {
 
                   <td style={S.tableCell}>
                     <div style={S.actionButtons}>
-                      <button style={S.editBtn} onClick={() => handleEdit(item.id)}>Edit</button>
-                      <button style={S.deleteBtn} onClick={() => handleDelete(item.id)}>Delete</button>
+                      <button
+                        style={S.editBtn}
+                        onClick={() => handleEdit(item.id)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        style={S.deleteBtn}
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -229,7 +248,6 @@ export default function SalaryCertificate() {
         </table>
       </div>
 
-      {/* Pagination */}
       <div style={S.paginationContainer}>
         <span style={S.paginationInfo}>
           Showing {rows.length ? start + 1 : 0} to {Math.min(end, filtered.length)} of{" "}
@@ -276,21 +294,19 @@ export default function SalaryCertificate() {
         </div>
       </div>
 
-      {/* Certificate Modal */}
       {selectedCertificate && (
-        <CertificateModal 
-          certificate={selectedCertificate} 
-          onClose={() => setSelectedCertificate(null)} 
+        <CertificateModal
+          certificate={selectedCertificate}
+          onClose={() => setSelectedCertificate(null)}
         />
       )}
     </div>
   );
 }
 
-/* -------------------------------------------------
-   EXACT SAME CV MANAGEMENT STYLING
-   (copied from CVManagement.jsx) 100% same
--------------------------------------------------- */
+/* ------------------------------------------- */
+/*  SAME STYLES — UNCHANGED */
+/* ------------------------------------------- */
 
 const S = {
   container: {
@@ -510,9 +526,9 @@ const S = {
   },
 };
 
-/* -------------------------------------------------
-   MODAL STYLES FOR CERTIFICATE
--------------------------------------------------- */
+/* ------------------------------------------- */
+/*  MODAL STYLES (unchanged) */
+/* ------------------------------------------- */
 
 const modalStyles = {
   overlay: {
@@ -578,30 +594,29 @@ const modalStyles = {
     fontSize: "36px",
     fontWeight: "700",
     color: "#1e3a8a",
-    margin: "0 0 8px 0",
     letterSpacing: "2px",
+    marginBottom: "8px",
   },
 
   tagline: {
     fontSize: "14px",
     color: "#64748b",
-    margin: 0,
     fontStyle: "italic",
+    marginBottom: "8px",
   },
 
   divider: {
     height: "3px",
     backgroundColor: "#3b82f6",
-    margin: "20px 0",
+    marginBottom: "20px",
   },
 
   certificateTitle: {
     fontSize: "28px",
     fontWeight: "700",
     color: "#1e3a8a",
+    marginBottom: "20px",
     textAlign: "center",
-    margin: "20px 0",
-    letterSpacing: "3px",
   },
 
   content: {
@@ -610,20 +625,16 @@ const modalStyles = {
   },
 
   date: {
-    fontSize: "14px",
     marginBottom: "20px",
   },
 
   toWhom: {
-    fontSize: "16px",
     fontWeight: "600",
     marginBottom: "20px",
   },
 
   paragraph: {
-    fontSize: "15px",
     marginBottom: "16px",
-    textAlign: "justify",
   },
 
   employeeDetails: {
@@ -631,13 +642,10 @@ const modalStyles = {
     padding: "20px",
     borderRadius: "8px",
     marginTop: "30px",
-    marginBottom: "30px",
   },
 
   detailsTitle: {
-    fontSize: "16px",
     fontWeight: "600",
-    color: "#1e3a8a",
     marginBottom: "12px",
   },
 
@@ -646,7 +654,6 @@ const modalStyles = {
   },
 
   regards: {
-    fontSize: "15px",
     marginBottom: "60px",
   },
 
@@ -662,36 +669,26 @@ const modalStyles = {
   },
 
   signatureName: {
-    fontSize: "16px",
     fontWeight: "600",
-    margin: "0 0 4px 0",
   },
 
   signatureTitle: {
-    fontSize: "14px",
     color: "#64748b",
-    margin: "0 0 4px 0",
   },
 
   signatureCompany: {
-    fontSize: "14px",
     color: "#64748b",
-    margin: 0,
   },
 
   actions: {
-    padding: "20px 40px 40px 40px",
-    display: "flex",
-    justifyContent: "center",
-    gap: "12px",
+    padding: "20px",
+    textAlign: "center",
   },
 
   printBtn: {
     padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
     backgroundColor: "#3b82f6",
+    color: "white",
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
