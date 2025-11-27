@@ -85,6 +85,7 @@ export default function AddUser() {
           <thead>
             <tr>
               <th style={styles.tableHeader}>No</th>
+              <th style={styles.tableHeader}>Picture</th>
               <th style={styles.tableHeader}>Name</th>
               <th style={styles.tableHeader}>Email</th>
               <th style={styles.tableHeader}>Branch</th>
@@ -95,12 +96,29 @@ export default function AddUser() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan="8" style={styles.noResults}>No users found</td></tr>
-            ) : (
-              filtered.map((u, i) => (
-                <tr key={u.id} style={styles.tableRow}>
-                  <td style={styles.tableCell}>{i + 1}</td>
+  {filtered.length === 0 ? (
+    <tr>
+      <td colSpan="9" style={styles.noResults}>No users found</td>
+    </tr>
+  ) : (
+    filtered.map((u, i) => (
+      <tr key={u.id} style={styles.tableRow}>
+        <td style={styles.tableCell}>{i + 1}</td>
+
+        <td style={styles.tableCell}>
+          {u.photo_url ? (
+            <img
+              src={u.photo_url}
+              alt={u.name}
+              style={styles.profilePicture}
+            />
+          ) : (
+            <div style={styles.avatarPlaceholder}>
+              {u.name ? u.name.charAt(0).toUpperCase() : "?"}
+            </div>
+          )}
+        </td>
+
                   <td style={styles.tableCell}>{u.name}</td>
                   <td style={styles.tableCell}>{u.email}</td>
                   <td style={styles.tableCell}>{u.branch}</td>
@@ -176,7 +194,26 @@ const styles = {
     backgroundColor: "#f3f4f6",
   },
   tableRow: { borderBottom: "1px solid #e5e7eb" },
-  tableCell: { padding: "12px", fontSize: "14px" },
+  tableCell: { padding: "12px", fontSize: "14px", verticalAlign: "middle" },
+  profilePicture: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "8px",
+    objectFit: "cover",
+    border: "2px solid #e5e7eb"
+  },
+  avatarPlaceholder: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "8px",
+    background: "#e5e7eb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "16px",
+    fontWeight: "700",
+    color: "#6b7280"
+  },
   statusActive: {
     padding: "4px 12px",
     background: "#16a34a",

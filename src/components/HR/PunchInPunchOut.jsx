@@ -2,20 +2,6 @@ import React, { useState, useEffect } from "react";
 import api from "../../api/client";
 
 const PunchinPunchout = () => {
-
-  const toIST12 = (utc) => {
-    if (!utc) return null;
-    const d = new Date(utc);
-    if (isNaN(d.getTime())) return null;
-    return d.toLocaleTimeString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  };
-
   const [todayStatus, setTodayStatus] = useState({
     punchIn: null,
     punchInLocation: null,
@@ -43,9 +29,19 @@ const PunchinPunchout = () => {
 
   const [selectedMonth, setSelectedMonth] = useState("2025-11");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [isPunching, setIsPunching] = useState(false);
   const [isBreakProcessing, setIsBreakProcessing] = useState(false);
+
+  // ✅ Attendance types with star icons and colors (same as AttendanceManagement)
+  const ATTENDANCE_TYPES = {
+    FULL_DAY: { label: "Full Day", color: "#10b981", icon: "full", status: "full" },
+    VERIFIED: { label: "Verified", color: "#3b82f6", icon: "full", status: "full", verified: true },
+    HALF_DAY: { label: "Half Day", color: "#f59e0b", icon: "half", status: "half" },
+    VERIFIED_HALF: { label: "Verified Half Day", color: "#f43f5e", icon: "half", status: "half", verified: true },
+    LEAVE: { label: "Leave", color: "#ef4444", icon: "full", status: "leave" },
+    HOLIDAY: { label: "Holiday", color: "#eab308", icon: "full", status: "holiday" },
+    NOT_MARKED: { label: "Not Marked", color: "#9ca3af", icon: "full" }
+  };
 
   // ✅ Load today's status
   const loadTodayStatus = async () => {
@@ -62,12 +58,11 @@ const PunchinPunchout = () => {
     }
   };
 
-  // ✅ Load today's breaks with better error handling
+  // ✅ Load today's breaks
   const loadTodayBreaks = async () => {
     try {
       const { data } = await api.get("/hr/attendance/today_breaks/");
       
-      // Handle multiple response formats
       let breaksArray = [];
       if (Array.isArray(data)) {
         breaksArray = data;
@@ -77,7 +72,6 @@ const PunchinPunchout = () => {
         breaksArray = data.data;
       }
 
-      // Transform to consistent format
       const breaks = breaksArray.map(b => ({
         id: b.id,
         start: formatToIST12(b.break_in || b.start_time || b.break_start),
@@ -86,7 +80,6 @@ const PunchinPunchout = () => {
           : null,
       }));
 
-      // Check if there's an ongoing break
       const ongoingBreak = breaks.find(b => !b.end);
       
       setBreakStatus({
@@ -96,7 +89,6 @@ const PunchinPunchout = () => {
       });
     } catch (err) {
       console.error("❌ Failed to load today's breaks:", err);
-      // Reset to safe state if API fails
       setBreakStatus({
         breaks: [],
         isOnBreak: false,
@@ -105,23 +97,32 @@ const PunchinPunchout = () => {
     }
   };
 
-  // ✅ Load monthly attendance summary
-  const loadMonthlySummary = async () => {
+  // ✅ Load user's own monthly attendance records
+  const loadMyAttendanceRecords = async () => {
     try {
-      setLoading(true);
       const [year, month] = selectedMonth.split("-");
       const { data } = await api.get(
         `/hr/attendance/my_records/?month=${parseInt(month)}&year=${year}`
       );
-      setAttendanceRecords(data.records || data || []);
+      
+      // Handle different response formats
+      let records = [];
+      if (Array.isArray(data)) {
+        records = data;
+      } else if (data.records && Array.isArray(data.records)) {
+        records = data.records;
+      } else if (data.data && Array.isArray(data.data)) {
+        records = data.data;
+      }
+      
+      setAttendanceRecords(records);
     } catch (err) {
-      console.error("❌ Failed to load attendance summary:", err);
-    } finally {
-      setLoading(false);
+      console.error("❌ Failed to load attendance records:", err);
+      setAttendanceRecords([]);
     }
   };
 
-  // ✅ Reverse-geocode to get human-readable address
+  // ✅ Reverse-geocode to get address
   const getAddressFromLocation = async (lat, lon) => {
     try {
       const { data } = await api.post("/hr/reverse-geocode-bigdata/", {
@@ -144,32 +145,15 @@ const PunchinPunchout = () => {
         async (pos) => {
           const { latitude, longitude } = pos.coords;
           const locationName = await getAddressFromLocation(latitude, longitude);
-          console.log("📍 Punch-In location:", locationName);
 
-          const resp = await api.post("/hr/attendance/punch_in/", {
+          await api.post("/hr/attendance/punch_in/", {
             latitude,
             longitude,
             location: locationName,
           });
 
-          console.log("✅ Punch In Response:", resp.data);
-
-          setTodayStatus((prev) => ({
-            ...prev,
-            punchIn:
-              resp.data.punch_in_time ||
-              new Date().toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              }),
-            punchInLocation:
-              resp.data.punch_in_location || locationName || "Unknown",
-          }));
-
-          await loadMonthlySummary();
+          await loadTodayStatus();
+          await loadMyAttendanceRecords();
         },
         (err) => {
           console.error("⚠️ Location error:", err);
@@ -195,30 +179,15 @@ const PunchinPunchout = () => {
         async (pos) => {
           const { latitude, longitude } = pos.coords;
           const locationName = await getAddressFromLocation(latitude, longitude);
-          console.log("📍 Punch-Out location:", locationName);
           
-          const resp = await api.post("/hr/attendance/punch_out/", {
+          await api.post("/hr/attendance/punch_out/", {
             latitude,
             longitude,
             location: locationName,
           });
 
-          console.log("✅ Punch Out Response:", resp.data);
-
-          setTodayStatus((prev) => ({
-            ...prev,
-            punchOut:
-              resp.data.punch_out_time ||
-              new Date().toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-            punchOutLocation:
-              resp.data.punch_out_location || locationName || "Unknown",
-          }));
-
-          await loadMonthlySummary();
+          await loadTodayStatus();
+          await loadMyAttendanceRecords();
         },
         (err) => {
           console.error("⚠️ Location error:", err);
@@ -234,7 +203,7 @@ const PunchinPunchout = () => {
     }
   };
 
-  // ✅ Handle Break Start - Improved error handling
+  // ✅ Handle Break Start
   const handleBreakStart = async () => {
     if (isBreakProcessing || breakStatus.isOnBreak) return;
     if (todayStatus.punchIn === null || todayStatus.punchOut !== null) {
@@ -244,27 +213,19 @@ const PunchinPunchout = () => {
 
     setIsBreakProcessing(true);
     try {
-      const resp = await api.post("/hr/attendance/start_break/");
-      console.log("✅ Break Start Response:", resp.data);
-
-      // Reload breaks immediately
+      await api.post("/hr/attendance/start_break/");
       await loadTodayBreaks();
-      
-      // Show success message
       alert("Break started successfully!");
     } catch (err) {
       console.error("❌ Break start failed:", err);
-      const errorMsg = err?.response?.data?.detail 
-        || err?.response?.data?.error 
-        || err?.response?.data?.message
-        || err.message;
+      const errorMsg = err?.response?.data?.detail || err.message;
       alert("Break start failed: " + errorMsg);
     } finally {
       setIsBreakProcessing(false);
     }
   };
 
-  // ✅ Handle Break End - Improved error handling
+  // ✅ Handle Break End
   const handleBreakEnd = async () => {
     if (isBreakProcessing || !breakStatus.isOnBreak) {
       alert("No active break to end.");
@@ -273,26 +234,13 @@ const PunchinPunchout = () => {
 
     setIsBreakProcessing(true);
     try {
-      const resp = await api.post("/hr/attendance/end_break/");
-      console.log("✅ Break End Response:", resp.data);
-
-      // Reload breaks immediately
+      await api.post("/hr/attendance/end_break/");
       await loadTodayBreaks();
-      
-      // Show success message
       alert("Break ended successfully!");
     } catch (err) {
       console.error("❌ Break end failed:", err);
-      
-      // Better error message extraction
-      const errorMsg = err?.response?.data?.detail 
-        || err?.response?.data?.error 
-        || err?.response?.data?.message
-        || err.message;
-      
+      const errorMsg = err?.response?.data?.detail || err.message;
       alert("Break end failed: " + errorMsg);
-      
-      // Reload break status to sync with server
       await loadTodayBreaks();
     } finally {
       setIsBreakProcessing(false);
@@ -303,56 +251,157 @@ const PunchinPunchout = () => {
   useEffect(() => {
     loadTodayStatus();
     loadTodayBreaks();
-    loadMonthlySummary();
+    loadMyAttendanceRecords();
   }, [selectedMonth]);
 
-  const getStatusStyle = (status) => {
-    const statusStyles = {
-      "Verified Full Day": { backgroundColor: "#d1fae5", color: "#065f46" },
-      "Full Day": { backgroundColor: "#d1fae5", color: "#065f46" },
-      "Verified Half Day": { backgroundColor: "#fef3c7", color: "#92400e" },
-      "Half Day": { backgroundColor: "#fef3c7", color: "#92400e" },
-      Leave: { backgroundColor: "#fee2e2", color: "#991b1b" },
-      Holiday: { backgroundColor: "#dbeafe", color: "#1e40af" },
-      "Not Marked": { backgroundColor: "#f3f4f6", color: "#374151" },
+  // ✅ Calculate summary statistics
+  const calculateSummary = () => {
+    const totalDays = attendanceRecords.length;
+    const presentDays = attendanceRecords.filter(record => 
+      record.status === 'Full Day' || record.status === 'Verified Full Day'
+    ).length;
+    const halfDays = attendanceRecords.filter(record => 
+      record.status === 'Half Day' || record.status === 'Verified Half Day'
+    ).length;
+    const leaveDays = attendanceRecords.filter(record => 
+      record.status === 'Leave'
+    ).length;
+    
+    return { totalDays, presentDays, halfDays, leaveDays };
+  };
+
+  const summary = calculateSummary();
+
+  // ✅ Get day name for a specific date
+  const getDayName = (dateString) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const date = new Date(dateString);
+    return days[date.getDay()];
+  };
+
+  // ✅ Get days in month for calendar view
+  const getDaysInMonth = (yearMonth) => {
+    const [year, month] = yearMonth.split('-').map(Number);
+    return new Date(year, month, 0).getDate();
+  };
+
+  const daysInMonth = getDaysInMonth(selectedMonth);
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  // ✅ Get attendance status for calendar view
+  const getAttendanceForDay = (day) => {
+    const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`;
+    const record = attendanceRecords.find(r => r.date === dateStr);
+    return record || null;
+  };
+
+  // ✅ Determine status type based on record
+  const determineStatus = (date, record) => {
+    const isSunday = getDayName(date) === 'Sun';
+    if (isSunday) return "HOLIDAY";
+    if (!record) return "NOT_MARKED";
+
+    const backendStatus = (record.status || "").toString().toLowerCase();
+    const verified = (record.verification_status || "").toString().toLowerCase() === "verified";
+
+    const mapBackend = (bs) => {
+      if (!bs) return null;
+      if (bs === "full") return verified ? "VERIFIED" : "FULL_DAY";
+      if (bs === "half") return verified ? "VERIFIED_HALF" : "HALF_DAY";
+      if (bs === "leave") return "LEAVE";
+      if (bs === "wfh") return verified ? "VERIFIED" : "FULL_DAY";
+      return null;
     };
-    return statusStyles[status] || {
-      backgroundColor: "#f3f4f6",
-      color: "#374151",
-    };
+
+    const mapped = mapBackend(backendStatus);
+    if (mapped) return mapped;
+
+    return "NOT_MARKED";
+  };
+
+  // ✅ Star Icon Component (same as AttendanceManagement)
+  const StarIcon = ({ color, type, size = 20 }) => {
+    if (type === "half") {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24">
+          <defs>
+            <clipPath id={`half-clip-${color}-${Date.now()}`}>
+              <rect x="0" y="0" width="12" height="24" />
+            </clipPath>
+          </defs>
+          <path
+            d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
+            fill={color}
+            clipPath={`url(#half-clip-${color}-${Date.now()})`}
+          />
+          <path
+            d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
+            fill="none"
+            stroke={color}
+            strokeWidth="1"
+          />
+        </svg>
+      );
+    }
+
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+        <path d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z" />
+      </svg>
+    );
   };
 
   const handleRefresh = () => {
     loadTodayStatus();
     loadTodayBreaks();
-    loadMonthlySummary();
+    loadMyAttendanceRecords();
   };
 
   // ✅ UI
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.title}>Punch In/Punch Out</h2>
+        <h2 style={styles.title}>My Attendance</h2>
         <div style={styles.headerActions}>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            style={styles.monthInput}
-          />
+          <div style={styles.monthSelector}>
+            <select 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={styles.monthSelect}
+            >
+              <option value="2025-11">November, 2025</option>
+              <option value="2025-10">October, 2025</option>
+              <option value="2025-09">September, 2025</option>
+            </select>
+          </div>
+          <div style={styles.searchContainer}>
+            <input
+              type="text"
+              placeholder="Search by name..."
+              style={styles.searchInput}
+            />
+            <span style={styles.searchIcon}>🔍</span>
+          </div>
           <button onClick={handleRefresh} style={styles.refreshButton}>
             ↻ Refresh
           </button>
         </div>
       </div>
 
-      {/* Daily Attendance */}
+      {/* Legend */}
+      <div style={styles.legendContainer}>
+        {Object.entries(ATTENDANCE_TYPES).map(([key, value]) => (
+          <div key={key} style={styles.legendItem}>
+            <StarIcon color={value.color} type={value.icon} size={18} />
+            <span style={styles.legendText}>{value.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Daily Attendance Actions */}
       <div style={styles.card}>
         <h3 style={styles.cardTitle}>Daily Attendance</h3>
         <div style={styles.statusCard}>
-          <div style={styles.statusHeader}>
-            <span style={styles.statusLabel}>Today's Status</span>
-          </div>
           <div style={styles.statusDetails}>
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch In:</span>
@@ -363,7 +412,7 @@ const PunchinPunchout = () => {
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch In Location:</span>
               <span style={styles.statusValue}>
-                {todayStatus.punchInLocation || "Not punched in yet"}
+                {todayStatus.punchInLocation || "Not available"}
               </span>
             </div>
             <div style={styles.statusRow}>
@@ -375,7 +424,7 @@ const PunchinPunchout = () => {
             <div style={styles.statusRow}>
               <span style={styles.statusLabel}>Punch Out Location:</span>
               <span style={styles.statusValue}>
-                {todayStatus.punchOutLocation || "Not punched out yet"}
+                {todayStatus.punchOutLocation || "Not available"}
               </span>
             </div>
           </div>
@@ -468,85 +517,167 @@ const PunchinPunchout = () => {
         </div>
       </div>
 
-      {/* Attendance Records */}
+      {/* Monthly Calendar View */}
       <div style={styles.card}>
-        <h3 style={styles.cardTitle}>My Attendance Records</h3>
+        <h3 style={styles.cardTitle}>My Attendance Calendar - {selectedMonth}</h3>
+        
+        {/* Summary Statistics */}
+        <div style={styles.summaryContainer}>
+          <div style={styles.summaryItem}>
+            <span style={styles.summaryLabel}>Total Days</span>
+            <span style={styles.summaryValue}>{summary.totalDays}</span>
+          </div>
+          <div style={styles.summaryItem}>
+            <span style={styles.summaryLabel}>Present</span>
+            <span style={styles.summaryValue}>{summary.presentDays}</span>
+          </div>
+          <div style={styles.summaryItem}>
+            <span style={styles.summaryLabel}>Half Days</span>
+            <span style={styles.summaryValue}>{summary.halfDays}</span>
+          </div>
+          <div style={styles.summaryItem}>
+            <span style={styles.summaryLabel}>Leaves</span>
+            <span style={styles.summaryValue}>{summary.leaveDays}</span>
+          </div>
+        </div>
+
+        {/* Calendar Table */}
         <div style={styles.tableContainer}>
-          {loading ? (
-            <div style={styles.noResults}>Loading...</div>
-          ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.tableHeaderRow}>
-                  <th style={styles.tableHeader}>Date</th>
-                  <th style={styles.tableHeader}>Day</th>
-                  <th style={styles.tableHeader}>Status</th>
-                  <th style={styles.tableHeader}>Punch In</th>
-                  <th style={styles.tableHeader}>Punch Out</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceRecords.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" style={styles.noResults}>
-                      No attendance records found
+          <table style={styles.calendarTable}>
+            <thead>
+              <tr style={styles.tableHeaderRow}>
+                <th style={{...styles.tableHeader, ...styles.stickyNameColumn}}>
+                  NAME
+                </th>
+                <th style={styles.tableHeader}>DUTY START</th>
+                <th style={styles.tableHeader}>DUTY END</th>
+                <th style={styles.tableHeader}>SUMMARY</th>
+                {days.map(day => {
+                  const dayName = getDayName(`${selectedMonth}-${String(day).padStart(2, '0')}`);
+                  const isSunday = dayName === 'Sun';
+                  return (
+                    <th
+                      key={day}
+                      style={{
+                        ...styles.tableHeader,
+                        ...styles.dayHeader,
+                        backgroundColor: isSunday ? '#fef3c7' : '#f3f4f6',
+                      }}
+                    >
+                      <div style={styles.dayNumber}>{day}</div>
+                      <div style={styles.dayName}>{dayName}</div>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={styles.tableRow}>
+                <td style={{...styles.tableCell, ...styles.stickyNameColumn, fontWeight: '600'}}>
+                  My Attendance
+                </td>
+                <td style={styles.tableCell}>09:30</td>
+                <td style={styles.tableCell}>17:30</td>
+                <td style={styles.tableCell}>
+                  <button style={styles.summaryBtn}>📊</button>
+                </td>
+                {days.map(day => {
+                  const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`;
+                  const record = getAttendanceForDay(day);
+                  const statusType = determineStatus(dateStr, record);
+                  const statusConfig = ATTENDANCE_TYPES[statusType] || ATTENDANCE_TYPES.NOT_MARKED;
+                  const dayName = getDayName(dateStr);
+                  const isSunday = dayName === 'Sun';
+                  
+                  return (
+                    <td key={day} style={{
+                      ...styles.calendarCell,
+                      backgroundColor: isSunday ? '#fef3c7' : 'white'
+                    }}>
+                      <div style={styles.attendanceIcon} title={statusConfig.label}>
+                        <StarIcon 
+                          color={statusConfig.color} 
+                          type={statusConfig.icon} 
+                          size={20}
+                        />
+                      </div>
+                      <div style={styles.timeDisplay}>
+                        <div style={styles.punchTime}>
+                          {record?.punch_in_time ? formatToIST12(record.punch_in_time) : "–"}
+                        </div>
+                        <div style={styles.punchTime}>
+                          {record?.punch_out_time ? formatToIST12(record.punch_out_time) : "–"}
+                        </div>
+                      </div>
                     </td>
-                  </tr>
-                ) : (
-                  attendanceRecords.map((record, index) => (
-                    <tr key={index} style={styles.tableRow}>
-                      <td style={styles.tableCell}>{record.date}</td>
-                      <td style={styles.tableCell}>{record.day}</td>
-                      <td style={styles.tableCell}>
-                        <span
-                          style={{
-                            ...styles.statusBadge,
-                            ...getStatusStyle(record.status),
-                          }}
-                        >
-                          {record.status}
-                        </span>
-                      </td>
-                      <td style={styles.tableCell}>
-                        {formatToIST12(record.punch_in || record.punch_in_time)}
-                      </td>
-                      <td style={styles.tableCell}>
-                        {formatToIST12(record.punch_out || record.punch_out_time)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 };
 
-// ✅ Styles
+// ✅ Updated Styles
 const styles = {
   container: {
-    padding: "20px",
+    padding: "24px",
     backgroundColor: "#f9fafb",
     minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
   },
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    width: "100%",
-    maxWidth: "1000px",
-    marginBottom: "20px",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+    gap: "16px",
   },
   headerActions: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
+    flexWrap: "wrap",
+  },
+  monthSelector: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  monthSelect: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+    outline: "none",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+  },
+  searchContainer: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  searchInput: {
+    padding: "12px 40px 12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+    outline: "none",
+    width: "280px",
+    fontWeight: "500",
+    color: "#374151",
+  },
+  searchIcon: {
+    position: "absolute",
+    right: "14px",
+    fontSize: "18px",
+    pointerEvents: "none",
+    color: "#9ca3af",
   },
   title: {
     fontSize: "28px",
@@ -554,19 +685,8 @@ const styles = {
     color: "#111827",
     margin: 0,
   },
-  monthInput: {
-    padding: "10px 12px",
-    fontSize: "14px",
-    border: "2px solid #e5e7eb",
-    borderRadius: "8px",
-    outline: "none",
-    width: "160px",
-    fontWeight: "500",
-    color: "#374151",
-    backgroundColor: "white",
-  },
   refreshButton: {
-    padding: "10px 16px",
+    padding: "12px 24px",
     fontSize: "14px",
     fontWeight: "600",
     color: "white",
@@ -575,14 +695,32 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
   },
+  legendContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "16px",
+    marginBottom: "24px",
+    padding: "16px",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  legendItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  legendText: {
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#374151",
+  },
   card: {
     backgroundColor: "white",
     borderRadius: "12px",
     padding: "24px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     marginBottom: "20px",
-    width: "100%",
-    maxWidth: "1000px",
   },
   cardTitle: {
     fontSize: "20px",
@@ -690,37 +828,108 @@ const styles = {
     cursor: "pointer",
   },
   buttonDisabled: { opacity: 0.5, cursor: "not-allowed" },
-  tableContainer: {
+  summaryContainer: {
+    display: "flex",
+    gap: "16px",
+    marginBottom: "20px",
+    padding: "16px",
+    backgroundColor: "#f8fafc",
     borderRadius: "8px",
-    overflow: "hidden",
+  },
+  summaryItem: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "4px",
+  },
+  summaryLabel: {
+    fontSize: "12px",
+    fontWeight: "500",
+    color: "#6b7280",
+    textTransform: "uppercase",
+  },
+  summaryValue: {
+    fontSize: "24px",
+    fontWeight: "700",
+    color: "#111827",
+  },
+  tableContainer: {
+    backgroundColor: "white",
+    borderRadius: "8px",
+    overflow: "auto",
+    maxHeight: "600px",
     border: "1px solid #e5e7eb",
   },
-  table: { width: "100%", borderCollapse: "collapse" },
-  tableHeaderRow: { backgroundColor: "#f3f4f6" },
+  calendarTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    position: "relative",
+  },
+  tableHeaderRow: { backgroundColor: "#f3f4f6", position: "sticky", top: 0, zIndex: 10 },
   tableHeader: {
-    padding: "12px 16px",
+    padding: "12px 8px",
     textAlign: "left",
     fontSize: "12px",
     fontWeight: "600",
     color: "#6b7280",
     textTransform: "uppercase",
     borderBottom: "2px solid #e5e7eb",
+    whiteSpace: "nowrap",
   },
-  tableRow: { borderBottom: "1px solid #e5e7eb" },
-  tableCell: { padding: "12px 16px", fontSize: "14px", color: "#374151" },
-  statusBadge: {
-    padding: "4px 12px",
-    borderRadius: "12px",
+  dayHeader: {
+    textAlign: "center",
+    minWidth: "60px",
+  },
+  dayNumber: {
     fontSize: "12px",
     fontWeight: "600",
-    display: "inline-block",
   },
-  noResults: {
-    padding: "40px",
-    textAlign: "center",
-    color: "#6b7280",
-    fontSize: "16px",
+  dayName: {
+    fontSize: "10px",
     fontWeight: "500",
+    marginTop: "2px",
+  },
+  stickyNameColumn: {
+    position: "sticky",
+    left: 0,
+    backgroundColor: "white",
+    zIndex: 5,
+    width: "200px",
+  },
+  tableRow: {
+    borderBottom: "1px solid #e5e7eb",
+  },
+  tableCell: {
+    padding: "12px 8px",
+    fontSize: "14px",
+    color: "#374151",
+    whiteSpace: "nowrap",
+  },
+  calendarCell: {
+    padding: "8px",
+    textAlign: "center",
+    minWidth: "60px",
+    borderRight: "1px solid #e5e7eb",
+  },
+  attendanceIcon: {
+    marginBottom: "4px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  timeDisplay: {
+    fontSize: "10px",
+    color: "#6b7280",
+  },
+  punchTime: {
+    lineHeight: "1.2",
+  },
+  summaryBtn: {
+    fontSize: "20px",
+    border: "none",
+    background: "none",
+    cursor: "pointer",
+    padding: "4px",
   },
 };
 

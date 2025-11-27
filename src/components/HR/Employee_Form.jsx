@@ -130,6 +130,7 @@ export default function EmployeeForm() {
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
     
+    
     // Auto-fill employee ID when user is selected
     if (name === 'user' && value) {
       const selectedUser = users.find(u => u.id === parseInt(value));
@@ -151,78 +152,46 @@ export default function EmployeeForm() {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Validate required fields
-    if (!formData.user && !isEdit) {
-      alert('Please select a user');
-      return;
-    }
+  const fd = new FormData();
 
-    if (!formData.employee_id) {
-      alert('Employee ID is required');
-      return;
-    }
-
-    if (!formData.full_name) {
-      alert('Full Name is required');
-      return;
-    }
-
-    // Prepare payload exactly as backend expects
-    const payload = {
-      user: formData.user,
-      employee_id: formData.employee_id,
-      employment_status: formData.employment_status,
-      employment_type: formData.employment_type,
-      department: formData.department,
-      designation: formData.designation,
-      location: formData.location,
-      duty_time: formData.duty_time,
-      reporting_manager: formData.reporting_manager,
-      date_of_joining: formData.date_of_joining || null,
-      date_of_leaving: formData.date_of_leaving || null,
-      probation_end_date: formData.probation_end_date || null,
-      confirmation_date: formData.confirmation_date || null,
-      basic_salary: formData.basic_salary || null,
-      allowances: formData.allowances || null,
-      gross_salary: formData.gross_salary || null,
-      pf_number: formData.pf_number,
-      esi_number: formData.esi_number,
-      pan_number: formData.pan_number,
-      aadhar_number: formData.aadhar_number,
-      account_holder_name: formData.account_holder_name,
-      salary_account_number: formData.salary_account_number,
-      salary_bank_name: formData.salary_bank_name,
-      salary_ifsc_code: formData.salary_ifsc_code,
-      salary_branch: formData.salary_branch,
-      emergency_contact_name: formData.emergency_contact_name,
-      emergency_contact_phone: formData.emergency_contact_phone,
-      emergency_contact_relation: formData.emergency_contact_relation,
-      blood_group: formData.blood_group,
-      marital_status: formData.marital_status,
-      notes: formData.notes,
-      is_active: formData.is_active,
-      full_name: formData.full_name,
-      personal_phone: formData.personal_phone,
-      residential_phone: formData.residential_phone
-    };
-
-    try {
-      if (isEdit) {
-        await api.patch(`/employee-management/employees/${id}/`, payload);
-        alert("Employee updated successfully");
-      } else {
-        await api.post("/employee-management/employees/", payload);
-        alert("Employee created successfully");
-      }
-      navigate("/employee-management");
-    } catch (err) {
-      console.error("submit:", err);
-      const msg = err?.response?.data ? JSON.stringify(err.response.data) : String(err);
-      alert("Failed to save: " + msg);
+// append all NON-file fields
+Object.keys(formData).forEach((key) => {
+  if (key !== "avatar" && key !== "avatar_preview") {
+    if (formData[key] !== null && formData[key] !== undefined) {
+      fd.append(key, formData[key]);
     }
   }
+});
+
+// append avatar file
+if (formData.avatar && typeof formData.avatar !== "string") {
+  fd.append("avatar", formData.avatar);
+}
+
+
+  try {
+    if (isEdit) {
+      await api.patch(`/employee-management/employees/${id}/`, fd, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      alert("Employee updated successfully");
+    } else {
+      await api.post("/employee-management/employees/", fd, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      alert("Employee created successfully");
+    }
+
+    navigate("/employee-management");
+
+  } catch (err) {
+    console.error("submit error:", err);
+    alert("Failed to save employee");
+  }
+}
+
 
   return (
     <div style={styles.page}>
@@ -329,6 +298,67 @@ export default function EmployeeForm() {
               </div>
             </div>
           </div>
+                 {/* Employee Photo Upload */}
+<div style={styles.section}>
+  <h3 style={styles.sectionTitle}>Employee Photo</h3>
+
+  <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+    
+    {/* Preview Box */}
+    <div
+      style={{
+        width: 120,
+        height: 120,
+        borderRadius: 10,
+        border: "1px solid #e5e7eb",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f9fafb"
+      }}
+    >
+     {formData.avatar_preview ||
+ (formData.avatar && typeof formData.avatar === "string") ? (
+  <img
+    src={formData.avatar_preview || formData.avatar}
+    alt="preview"
+    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+  />
+) : (
+  <span style={{ color: "#9ca3af" }}>No Photo</span>
+)}
+    </div>
+
+    {/* Upload Button */}
+    <div>
+      <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+        Upload Photo
+      </label>
+
+      <input
+        type="file"
+        accept="image/*"
+        style={{
+          padding: "10px 0",
+          fontSize: 14,
+        }}
+     onChange={(e) => {
+  const file = e.target.files[0];
+  if (file) {
+    setFormData((prev) => ({
+      ...prev,
+      avatar: file,
+      avatar_preview: URL.createObjectURL(file),
+    }));
+  }
+}}
+
+      />
+    </div>
+  </div>
+</div>
+
 
           {/* Personal Information */}
           <div style={styles.section}>
@@ -634,17 +664,6 @@ export default function EmployeeForm() {
                   onChange={handleChange}
                   style={styles.input}
                   placeholder="e.g., 9:00 AM - 6:00 PM"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Reporting Manager</label>
-                <input
-                  type="text"
-                  name="reporting_manager"
-                  value={formData.reporting_manager}
-                  onChange={handleChange}
-                  style={styles.input}
                 />
               </div>
 
