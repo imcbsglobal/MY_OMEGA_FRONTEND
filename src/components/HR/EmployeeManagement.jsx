@@ -1,5 +1,5 @@
 // EmployeeManagement.jsx
-// Updated to match exact backend field structure
+// Updated with profile picture display
 
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -39,14 +39,11 @@ export default function EmployeeManagement() {
       
       // Process employees with exact backend field names
       const processedEmployees = employeeData.map((emp, index) => {
-        // Use exact backend field names
         const id = emp.id || emp.employee_id || index;
         
-        // Map to display fields while keeping all original data
         return {
-          ...emp, // Keep all original backend fields
+          ...emp,
           id,
-          // Display fields
           name: emp.full_name || `Employee ${index + 1}`,
           email: emp.user_email || "",
           job_title: emp.designation || emp.job_info?.designation || "",
@@ -56,7 +53,9 @@ export default function EmployeeManagement() {
           duty_time: emp.duty_time || emp.job_info?.duty_time || "",
           department: emp.department || emp.job_info?.department || "",
           employment_status: emp.employment_status || emp.job_info?.employment_status || "",
-          is_active: emp.is_active !== undefined ? emp.is_active : true
+          is_active: emp.is_active !== undefined ? emp.is_active : true,
+         profile_picture: emp.avatar_url || emp.profile_picture || ""
+
         };
       });
 
@@ -165,9 +164,17 @@ export default function EmployeeManagement() {
                   }
                 >
                   <div style={S.leftRow}>
-                    <div style={S.avatar}>
-                      {emp.name ? emp.name.charAt(0).toUpperCase() : "?"}
-                    </div>
+                    {emp.profile_picture ? (
+                     <img 
+  src={emp.profile_picture || emp.avatar_url || ""} 
+  alt={emp.name} 
+  style={S.profilePicture} 
+/>
+                    ) : (
+                      <div style={S.avatar}>
+                        {emp.name ? emp.name.charAt(0).toUpperCase() : "?"}
+                      </div>
+                    )}
                     <div style={{ flex: 1 }}>
                       <div style={S.leftName}>{emp.name || "Unknown"}</div>
                       <div style={S.leftJob}>{emp.job_title || "No Title"}</div>
@@ -226,7 +233,16 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
     <div style={S.detailCard}>
       <div style={S.detailHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={S.detailAvatar}>{firstLetter}</div>
+           {/* ✅ UPDATED IMAGE LOGIC */}
+          {employee.avatar_url || employee.profile_picture ? (
+            <img
+              src={employee.avatar_url || employee.profile_picture}
+              alt={employee.name}
+              style={S.detailProfilePicture}
+            />
+          ) : (
+            <div style={S.detailAvatar}>{firstLetter}</div>
+          )}
           <div>
             <div style={S.detailName}>{employee.name || "Unknown"}</div>
             <div style={S.detailEmail}>{employee.email || "No email"}</div>
@@ -345,6 +361,7 @@ const S = {
   leftItemActive: { background: "#eef2ff" },
   leftRow: { display: "flex", alignItems: "center", gap: 10 },
   avatar: { width: 42, height: 42, background: "#e0e7ff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#4338ca", flexShrink: 0 },
+  profilePicture: { width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "2px solid #e5e7eb", flexShrink: 0 },
   leftName: { fontWeight: 700, fontSize: 14, color: "#111827" },
   leftJob: { fontSize: 12, color: "#6b7280", marginTop: 2 },
   leftId: { fontSize: 11, color: "#9ca3af", marginTop: 2 },
@@ -357,6 +374,7 @@ const S = {
   detailCard: { display: "flex", flexDirection: "column", gap: 20 },
   detailHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 },
   detailAvatar: { width: 70, height: 70, background: "#eef2ff", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: "#4c1d95" },
+  detailProfilePicture: { width: 70, height: 70, borderRadius: 8, objectFit: "cover", border: "2px solid #e5e7eb" },
   detailName: { fontSize: 20, fontWeight: 700, color: "#111827" },
   detailEmail: { color: "#6b7280", marginTop: 2, fontSize: 14 },
   detailId: { color: "#6b7280", marginTop: 2, fontSize: 12 },

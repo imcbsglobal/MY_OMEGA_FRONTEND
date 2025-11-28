@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import api from "../../api/client";
 
 export default function AddUserForm({ onCancel, onSave, editData }) {
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState(null);
+  
   const [formData, setFormData] = useState({
     fullName: "",
     userId: "",
@@ -23,6 +26,11 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
         phoneNumber: editData.phone_number,
         status: editData.is_active ? "Active" : "Inactive",
       });
+
+      // Set profile picture preview if exists
+      if (editData.profile_picture) {
+        setProfilePicturePreview(editData.profile_picture);
+      }
     }
   }, [editData]);
 
@@ -31,45 +39,91 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
     setFormData((p) => ({ ...p, [name]: value }));
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
+  // Handle profile picture file selection
+  const handlePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
 
-  // base payload (no password)
-  const payload = {
-    name: formData.fullName,
-    email: formData.userId,
-    branch: formData.branch,
-    user_level: formData.userLevel,
-    phone_number: formData.phoneNumber,
-    is_active: formData.status === "Active",
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      setProfilePicture(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  // 🔥 Only include password if user typed something
-  if (formData.password && formData.password.trim().length > 0) {
-    payload.password = formData.password;
-    payload.confirm_password = formData.password;
-  }
+  // Remove profile picture
+  const handleRemovePicture = () => {
+    setProfilePicture(null);
+    setProfilePicturePreview(null);
+  };
 
-  try {
-    if (editData) {
-      await api.patch(`/users/${editData.id}/`, payload);
-      alert("User updated!");
-    } else {
-      // 🔥 Backend requires password for new users
-      payload.password = formData.password;
-      payload.confirm_password = formData.password;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-      await api.post(`/users/`, payload);
-      alert("User created!");
+    // Prepare FormData for file upload
+    const formDataToSend = new FormData();
+    
+    formDataToSend.append('name', formData.fullName);
+    formDataToSend.append('email', formData.userId);
+    formDataToSend.append('branch', formData.branch);
+    formDataToSend.append('user_level', formData.userLevel);
+    formDataToSend.append('phone_number', formData.phoneNumber);
+    formDataToSend.append('is_active', formData.status === "Active");
+
+    // Add password if provided
+    if (formData.password && formData.password.trim().length > 0) {
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('confirm_password', formData.password);
     }
 
-    onSave();
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    alert("Save failed: " + JSON.stringify(err.response?.data));
-  }
-};
+    // Add profile picture if selected
+    if (profilePicture) {
+      formDataToSend.append('profile_picture', profilePicture);
+    }
 
+    try {
+      if (editData) {
+        await api.patch(`/users/${editData.id}/`, formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        alert("User updated!");
+      } else {
+        // Backend requires password for new users
+        if (!formData.password) {
+          alert("Password is required for new users");
+          return;
+        }
+        await api.post(`/users/`, formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        alert("User created!");
+      }
+
+      onSave();
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+      alert("Save failed: " + JSON.stringify(err.response?.data));
+    }
+  };
 
   return (
     <div style={styles.container}>
@@ -82,6 +136,50 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
+          {/* Profile Picture Section */}
+          <div style={styles.pictureSection}>
+            <label style={styles.sectionLabel}>Profile Picture</label>
+            <div style={styles.pictureContainer}>
+              <div style={styles.picturePreview}>
+                {profilePicturePreview ? (
+                  <img 
+                    src={profilePicturePreview} 
+                    alt="Profile" 
+                    style={styles.previewImage}
+                  />
+                ) : (
+                  <div style={styles.placeholderAvatar}>
+                    {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : '?'}
+                  </div>
+                )}
+              </div>
+              <div style={styles.pictureActions}>
+                <input
+                  type="file"
+                  id="userProfilePicture"
+                  accept="image/*"
+                  onChange={handlePictureChange}
+                  style={styles.fileInput}
+                />
+                <label htmlFor="userProfilePicture" style={styles.uploadButton}>
+                  📷 Choose Picture
+                </label>
+                {profilePicturePreview && (
+                  <button 
+                    type="button" 
+                    onClick={handleRemovePicture}
+                    style={styles.removeButton}
+                  >
+                    🗑️ Remove
+                  </button>
+                )}
+                <div style={styles.helperText}>
+                  Max 5MB (JPG, PNG,)
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style={styles.grid}>
             <div style={styles.field}>
               <label style={styles.label}>Full Name</label>
@@ -220,6 +318,86 @@ const styles = {
   },
   form: {
     padding: "20px",
+  },
+  pictureSection: {
+    marginBottom: "24px",
+    padding: "20px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    background: "#fbfdff"
+  },
+  sectionLabel: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: "16px",
+    display: "block"
+  },
+  pictureContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '24px'
+  },
+  picturePreview: {
+    width: '100px',
+    height: '100px',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    border: '2px solid #e5e7eb',
+    background: '#f9fafb',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  placeholderAvatar: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '40px',
+    fontWeight: '700',
+    color: '#9ca3af',
+    background: '#e5e7eb'
+  },
+  pictureActions: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  fileInput: {
+    display: 'none'
+  },
+  uploadButton: {
+    padding: '10px 16px',
+    border: '1px solid #3b82f6',
+    borderRadius: '6px',
+    background: '#eff6ff',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#3b82f6',
+    textAlign: 'center'
+  },
+  removeButton: {
+    padding: '10px 16px',
+    border: '1px solid #ef4444',
+    borderRadius: '6px',
+    background: '#fef2f2',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#ef4444'
+  },
+  helperText: {
+    fontSize: '12px',
+    color: '#6b7280',
+    fontStyle: 'italic'
   },
   grid: {
     display: "grid",
