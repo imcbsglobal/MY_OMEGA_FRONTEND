@@ -1,8 +1,4 @@
-// src/components/HR/AttendanceManagement.jsx
-// Admin view - Shows all employees' attendance with DB persistence
-
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 
 // API client
 const api = {
@@ -10,8 +6,8 @@ const api = {
     const token = localStorage.getItem("accessToken");
     const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
       headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${token}`, 
+        'Content-Type': 'application/json' 
       }
     });
     if (!response.ok) {
@@ -24,8 +20,8 @@ const api = {
     const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
       method: 'POST',
       headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${token}`, 
+        'Content-Type': 'application/json' 
       },
       body: JSON.stringify(data)
     });
@@ -39,8 +35,8 @@ const api = {
     const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
       method: 'PATCH',
       headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${token}`, 
+        'Content-Type': 'application/json' 
       },
       body: JSON.stringify(data)
     });
@@ -54,8 +50,8 @@ const api = {
     const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
       method: 'DELETE',
       headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${token}`, 
+        'Content-Type': 'application/json' 
       }
     });
     if (!response.ok) {
@@ -126,7 +122,11 @@ function minutesToDisplay(mins) {
   const mm = Math.floor(mins % 60);
   const date = new Date();
   date.setHours(hh, mm, 0, 0);
-  return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
 }
 
 // Attendance Cell Component
@@ -156,51 +156,37 @@ function AttendanceCell({ attendance, date, onAttendanceChange, punchIn, punchOu
   const StarIcon = ({ color, type }) => {
     if (type === "half") {
       return (
-        <svg width="20" height="20" viewBox="0 0 24 24">
-          <defs>
-            <clipPath id={`half-${date}-${color}`}>
-              <rect x="0" y="0" width="12" height="24" />
-            </clipPath>
-          </defs>
-          <path
-            d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
-            fill={color}
-            clipPath={`url(#half-${date}-${color})`}
-          />
-          <path
-            d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
-            fill="none"
-            stroke={color}
-          />
+        <svg width="24" height="24" viewBox="0 0 24 24">
+          <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
+                fill={color} stroke={color} strokeWidth="2" clipPath="polygon(0 0, 50% 0, 50% 100%, 0 100%)" />
         </svg>
       );
     }
-
     return (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill={color}>
-        <path d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z" />
+      <svg width="24" height="24" viewBox="0 0 24 24">
+        <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
+              fill={color} stroke={color} strokeWidth="2" />
       </svg>
     );
   };
 
   return (
-    <td style={styles.attendanceCell}>
+    <div style={styles.attendanceCell}>
       <div style={styles.attendanceCellContent}>
         <button
-          style={{...styles.attendanceBtn, opacity: saving ? 0.5 : 1}}
           onClick={() => setShowMenu(!showMenu)}
           disabled={saving}
+          style={styles.attendanceBtn}
         >
           <StarIcon color={iconColor} type={iconType} />
         </button>
-
         {showMenu && (
           <div style={styles.attendanceMenu}>
             {Object.keys(ATTENDANCE_TYPES).map((key) => (
               <button
                 key={key}
-                style={styles.attendanceMenuItem}
                 onClick={() => handleAttendanceClick(key)}
+                style={styles.attendanceMenuItem}
               >
                 {ATTENDANCE_TYPES[key].label}
               </button>
@@ -208,17 +194,14 @@ function AttendanceCell({ attendance, date, onAttendanceChange, punchIn, punchOu
           </div>
         )}
       </div>
-      
-      <div style={{ marginTop: 6, textAlign: "center", fontSize: 12 }}>
-        <div style={{ color: "#111827", fontWeight: 600 }}>
-          {punchIn ? minutesToDisplay(parseTimeToMinutes(punchIn)) : "–"}
-        </div>
-        <div style={{ color: "#6b7280" }}>
-          {punchOut ? minutesToDisplay(parseTimeToMinutes(punchOut)) : "–"}
-        </div>
+      <div style={styles.timeDisplay}>
+        {punchIn ? minutesToDisplay(parseTimeToMinutes(punchIn)) : "–"}
+      </div>
+      <div style={styles.timeDisplay}>
+        {punchOut ? minutesToDisplay(parseTimeToMinutes(punchOut)) : "–"}
       </div>
       {saving && <div style={styles.savingIndicator}>💾</div>}
-    </td>
+    </div>
   );
 }
 
@@ -229,11 +212,7 @@ function SummaryButton({ employee, selectedMonth, onSummaryClick }) {
   };
 
   return (
-    <button 
-      style={styles.summaryBtn}
-      onClick={handleClick}
-      title={`View ${employee.name}'s attendance summary`}
-    >
+    <button onClick={handleClick} style={styles.summaryBtn}>
       📊
     </button>
   );
@@ -246,7 +225,6 @@ export default function AttendanceManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingCells, setSavingCells] = useState({});
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAttendance();
@@ -258,12 +236,14 @@ export default function AttendanceManagement() {
       const [year, month] = selectedMonth.split("-");
       
       // Fetch employees
-      const employeesData = await api.get("/employee-management/employees/");
-      const employeesList = Array.isArray(employeesData) ? employeesData : (employeesData.results || employeesData.data || []);
-      
+     const employeesData = await api.get("/users/");
+      const employeesList = Array.isArray(employeesData) ? employeesData : 
+        (employeesData.results || employeesData.data || []);
+
       // Fetch attendance data
       const attendanceData = await api.get(`/hr/attendance/?month=${Number(month)}&year=${year}`);
-      const attendanceList = Array.isArray(attendanceData) ? attendanceData : (attendanceData.results || attendanceData.data || []);
+      const attendanceList = Array.isArray(attendanceData) ? attendanceData : 
+        (attendanceData.results || attendanceData.data || []);
 
       const empMap = new Map();
 
@@ -281,11 +261,10 @@ export default function AttendanceManagement() {
 
       // Process attendance records
       attendanceList.forEach((record) => {
-        const empId = record.employee_id || record.user_id || record.user?.id || record.employee?.id;
+        const empId = record.user || record.employee_id || record.user_id || record.user?.id || record.employee?.id;
         if (empId && empMap.has(empId)) {
           const emp = empMap.get(empId);
           const date = record.date || record.attendance_date;
-          
           if (date) {
             const formattedDate = typeof date === "string" ? date.slice(0, 10) : date;
             emp.records[formattedDate] = {
@@ -304,6 +283,7 @@ export default function AttendanceManagement() {
       const sortedEmployees = Array.from(empMap.values()).sort((a, b) => 
         (a.name || "").localeCompare(b.name || "")
       );
+
       setEmployees(sortedEmployees);
     } catch (err) {
       console.error("Failed to fetch attendance:", err);
@@ -333,12 +313,8 @@ export default function AttendanceManagement() {
 
   // Handle summary button click
   const handleSummaryClick = (employee, month) => {
-    navigate('/attendance-summary', { 
-      state: { 
-        employee,
-        selectedMonth: month
-      }
-    });
+    console.log("Summary clicked for:", employee.name, month);
+    // You can navigate to summary page or show modal here
   };
 
   // Handle attendance change
@@ -368,7 +344,6 @@ export default function AttendanceManagement() {
           status: typeConfig.status,
           admin_note: `Status changed to ${typeConfig.label} by admin on ${new Date().toLocaleString()}`
         };
-
         await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, updateData);
 
         // If marking as verified, call verify endpoint
@@ -382,35 +357,27 @@ export default function AttendanceManagement() {
         const createData = {
           user: employeeId,
           date: date,
-          status: typeConfig.status || 'full',
-          verification_status: typeConfig.verified ? 'verified' : 'unverified',
-          admin_note: `Created as ${typeConfig.label} by admin on ${new Date().toLocaleString()}`,
-          punch_in_time: null,
-          punch_out_time: null,
-          working_hours: 0
+          status: typeConfig.status || "full",
+          admin_note: `Created as ${typeConfig.label} by admin`,
         };
-
-        const response = await api.post('/hr/attendance/', createData);
+        const response = await api.post("/hr/attendance/", createData);
 
         // Verify if needed
         if (typeConfig.verified && response.id) {
           await api.post(`/hr/attendance/${response.id}/verify/`, {
-            admin_note: `Verified as ${typeConfig.label} on ${new Date().toLocaleString()}`
+            admin_note: `Verified as ${typeConfig.label}`,
           });
         }
       }
 
       // Refresh data
       await fetchAttendance();
-      
     } catch (error) {
       console.error('Failed to save attendance:', error);
       let errorMessage = 'Failed to save attendance';
-      
       if (error.message.includes('API error')) {
         errorMessage = `Server error: ${error.message}`;
       }
-      
       alert(errorMessage);
     } finally {
       setSavingCells(prev => {
@@ -456,7 +423,7 @@ export default function AttendanceManagement() {
 
     return (
       <AttendanceCell
-        key={key}
+        key={date}
         attendance={status}
         date={date}
         onAttendanceChange={(d, type) => handleAttendanceChange(emp.id, d, type)}
@@ -477,7 +444,7 @@ export default function AttendanceManagement() {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.title}>Attendance Management - Admin View</h2>
+        <h1 style={styles.title}>Attendance Management - Admin View</h1>
         <div style={styles.headerActions}>
           <div style={styles.filterGroup}>
             <label style={styles.filterLabel}>Select Month</label>
@@ -491,7 +458,7 @@ export default function AttendanceManagement() {
           <div style={styles.searchContainer}>
             <input
               type="text"
-              placeholder="Search by name..."
+              placeholder="Search employees..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
@@ -509,30 +476,16 @@ export default function AttendanceManagement() {
           const StarIcon = ({ color, type }) => {
             if (type === "half") {
               return (
-                <svg width="18" height="18" viewBox="0 0 24 24">
-                  <defs>
-                    <clipPath id={`half-clip-legend-${key}`}>
-                      <rect x="0" y="0" width="12" height="24" />
-                    </clipPath>
-                  </defs>
-                  <path
-                    d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
-                    fill={color}
-                    clipPath={`url(#half-clip-legend-${key})`}
-                  />
-                  <path
-                    d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="1"
-                  />
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                  <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
+                        fill={color} stroke={color} strokeWidth="2" clipPath="polygon(0 0, 50% 0, 50% 100%, 0 100%)" />
                 </svg>
               );
             }
-
             return (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill={color}>
-                <path d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z" />
+              <svg width="16" height="16" viewBox="0 0 24 24">
+                <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
+                      fill={color} stroke={color} strokeWidth="2" />
               </svg>
             );
           };
@@ -550,25 +503,15 @@ export default function AttendanceManagement() {
         <table style={styles.table}>
           <thead>
             <tr style={styles.tableHeaderRow}>
-              <th style={{...styles.tableHeader, ...styles.stickyNameColumn, padding: '12px 8px'}}>
-                NAME
-              </th>
+              <th style={{...styles.tableHeader, ...styles.stickyNameColumn}}>NAME</th>
               <th style={styles.tableHeader}>DUTY START</th>
               <th style={styles.tableHeader}>DUTY END</th>
               <th style={styles.tableHeader}>SUMMARY</th>
-
               {days.map(day => {
                 const dayName = getDayName(selectedMonth, day);
                 const isSunday = getDayOfWeek(selectedMonth, day) === 0;
                 return (
-                  <th
-                    key={day}
-                    style={{
-                      ...styles.tableHeader,
-                      ...styles.dayHeader,
-                      backgroundColor: isSunday ? '#fef3c7' : '#f3f4f6',
-                    }}
-                  >
+                  <th key={day} style={{...styles.tableHeader, ...styles.dayHeader, color: isSunday ? '#ef4444' : '#6b7280'}}>
                     <div>{day}</div>
                     <div style={styles.dayName}>{dayName}</div>
                   </th>
@@ -576,7 +519,6 @@ export default function AttendanceManagement() {
               })}
             </tr>
           </thead>
-
           <tbody>
             {loading ? (
               <tr>
@@ -593,9 +535,7 @@ export default function AttendanceManagement() {
             ) : (
               filteredEmployees.map((employee) => (
                 <tr key={employee.id} style={styles.tableRow}>
-                  <td style={{...styles.tableCell, ...styles.stickyNameColumn, fontWeight: '600', padding: '12px 8px'}}>
-                    {employee.name}
-                  </td>
+                  <td style={{...styles.tableCell, ...styles.stickyNameColumn}}>{employee.name}</td>
                   <td style={styles.tableCell}>{employee.dutyStart}</td>
                   <td style={styles.tableCell}>{employee.dutyEnd}</td>
                   <td style={styles.tableCell}>
@@ -607,7 +547,11 @@ export default function AttendanceManagement() {
                   </td>
                   {days.map((day) => {
                     const date = `${selectedMonth}-${String(day).padStart(2, '0')}`;
-                    return renderAttendanceCell(employee, date);
+                    return (
+                      <td key={day} style={styles.attendanceCell}>
+                        {renderAttendanceCell(employee, date)}
+                      </td>
+                    );
                   })}
                 </tr>
               ))
@@ -836,5 +780,10 @@ const styles = {
     top: 2,
     right: 2,
     fontSize: "10px",
+  },
+  timeDisplay: {
+    fontSize: "11px",
+    color: "#6b7280",
+    marginTop: "2px",
   }
 };

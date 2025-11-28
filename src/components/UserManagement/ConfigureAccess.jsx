@@ -26,48 +26,48 @@ export default function ConfigureAccess() {
 
   // Missing HR (children)
   const missingHRMenus = [
-    { id: 5001, title: "CV Management", path: "/cv-management" },
-    { id: 5002, title: "Punch In/Punch Out", path: "/punch-in-out" },
-    { id: 5003, title: "Leave List", path: "/leave-management/leave-list" },
-    { id: 5004, title: "Early List", path: "/leave-management/early-list" },
-    { id: 5005, title: "Late List", path: "/leave-management/late-list" },
-    { id: 5006, title: "Break List", path: "/leave-management/break-list" },
+    // { id: 5001, title: "CV Management", path: "/cv-management" },
+    // { id: 5002, title: "Punch In/Punch Out", path: "/punch-in-out" },
+    // { id: 5003, title: "Leave List", path: "/leave-management/leave-list" },
+    // { id: 5004, title: "Early List", path: "/leave-management/early-list" },
+    // { id: 5005, title: "Late List", path: "/leave-management/late-list" },
+    // { id: 5006, title: "Break List", path: "/leave-management/break-list" },
 
-    {
-      id: 6001,
-      title: "Request",
-      children: [
-        { id: 6002, title: "Leave Request", path: "/hr/request/leave" },
-        { id: 6003, title: "Late Request", path: "/hr/request/late" },
-        { id: 6004, title: "Early Request", path: "/hr/request/early" },
-      ],
-    },
+    // {
+    //   id: 6001,
+    //   title: "Request",
+    //   children: [
+    //     { id: 6002, title: "Leave Request", path: "/hr/request/leave" },
+    //     { id: 6003, title: "Late Request", path: "/hr/request/late" },
+    //     { id: 6004, title: "Early Request", path: "/hr/request/early" },
+    //   ],
+    // },
 
-    { id: 7001, title: "Experience Certificate", path: "/experience-certificate" },
-    { id: 7002, title: "Salary Certificate", path: "/salary-certificate" },
+    // { id: 7001, title: "Experience Certificate", path: "/experience-certificate" },
+    // { id: 7002, title: "Salary Certificate", path: "/salary-certificate" },
   ];
 
   // Missing ROOT MENUS (top level)
   const missingRootMenus = [
-    { id: 8001, title: "Marketing", children: [] },
-    {
-      id: 8002,
-      title: "Vehicle Management",
-      children: [
-        { id: 8003, title: "Company Vehicle", path: "/company-vehicle" },
-        { id: 8004, title: "Non Company Vehicle", path: "/non-company-vehicle" },
-      ],
-    },
-    { id: 8005, title: "Target Management", children: [] },
-    { id: 8006, title: "Warehouse Management", children: [] },
-    { id: 8007, title: "Delivery Management", children: [] },
-    {
-      id: 8008,
-      title: "Master",
-      children: [
-        { id: 8009, title: "Job Titles", path: "/master/job-titles" },
-      ],
-    },
+    // { id: 8001, title: "Marketing", children: [] },
+    // {
+    //   id: 8002,
+    //   title: "Vehicle Management",
+    //   children: [
+    //     { id: 8003, title: "Company Vehicle", path: "/company-vehicle" },
+    //     { id: 8004, title: "Non Company Vehicle", path: "/non-company-vehicle" },
+    //   ],
+    // },
+    // { id: 8005, title: "Target Management", children: [] },
+    // { id: 8006, title: "Warehouse Management", children: [] },
+    // { id: 8007, title: "Delivery Management", children: [] },
+    // {
+    //   id: 8008,
+    //   title: "Master",
+    //   children: [
+    //     { id: 8009, title: "Job Titles", path: "/master/job-titles" },
+    //   ],
+    // },
   ];
 
   // Recursive renderer (unchanged)
