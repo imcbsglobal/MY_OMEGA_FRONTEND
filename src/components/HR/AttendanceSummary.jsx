@@ -1,23 +1,7 @@
 // src/components/HR/AttendanceSummary.jsx
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-
-// API client
-const api = {
-  get: async (url) => {
-    const token = localStorage.getItem("accessToken");
-    const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    return await response.json();
-  },
-};
+import api from "../../api/client";
 
 const ATTENDANCE_TYPES = {
   FULL_DAY: { label: "Full Day", color: "#10b981" },
@@ -58,16 +42,21 @@ export default function AttendanceSummary() {
     try {
       const [year, month] = selectedMonth.split("-");
       
-      // Fetch employee's attendance records for the selected month
-      // Using the my_records endpoint with user_id parameter
+      // Fetch employee's attendance records for the selected month using centralized API client
       const response = await api.get(`/hr/attendance/my_records/?month=${Number(month)}&year=${year}&user_id=${employee.id}`);
-      const data = Array.isArray(response) ? response : (response.results || response.data || []);
+      const data = Array.isArray(response.data) ? response.data : (response.data.results || response.data.data || []);
       
       setAttendanceData(data);
       calculateSummaryStats(data);
     } catch (error) {
       console.error("Failed to fetch attendance summary:", error);
-      alert("Failed to load attendance summary. Please try again.");
+      let errorMessage = 'Failed to load attendance summary';
+      if (error.response) {
+        errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -156,32 +145,31 @@ export default function AttendanceSummary() {
   };
 
   const formatTime = (timeValue) => {
-  if (!timeValue) return "-";
+    if (!timeValue) return "-";
 
-  try {
-    let date;
+    try {
+      let date;
 
-    // ✅ If backend sends full ISO datetime
-    if (typeof timeValue === "string" && timeValue.includes("T")) {
-      date = new Date(timeValue);
-    } 
-    // ✅ If backend sends only HH:mm or HH:mm:ss
-    else {
-      date = new Date(`2000-01-01T${timeValue}`);
+      // If backend sends full ISO datetime
+      if (typeof timeValue === "string" && timeValue.includes("T")) {
+        date = new Date(timeValue);
+      } 
+      // If backend sends only HH:mm or HH:mm:ss
+      else {
+        date = new Date(`2000-01-01T${timeValue}`);
+      }
+
+      // Final time display format
+      return date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch (e) {
+      console.error("Time parse error:", timeValue);
+      return "-";
     }
-
-    // ✅ Final time display format
-    return date.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch (e) {
-    console.error("Time parse error:", timeValue);
-    return "-";
-  }
-};
-
+  };
 
   if (!employee) {
     return (
@@ -299,11 +287,11 @@ export default function AttendanceSummary() {
                         {getStatusLabel(record.status, record.verification_status)}
                       </span>
                     </td>
-                 <td style={styles.tableCell}>
-                    {formatTime(record.punch_in_time || record.punch_in || record.in_time)}
+                    <td style={styles.tableCell}>
+                      {formatTime(record.punch_in_time || record.punch_in || record.in_time)}
                     </td>
-                   <td style={styles.tableCell}>
-                    {formatTime(record.punch_out_time || record.punch_out || record.out_time)}
+                    <td style={styles.tableCell}>
+                      {formatTime(record.punch_out_time || record.punch_out || record.out_time)}
                     </td>
                     <td style={styles.tableCell}>{record.working_hours || "-"}</td>
                     <td style={styles.tableCell}>{record.punch_in_location || "-"}</td>

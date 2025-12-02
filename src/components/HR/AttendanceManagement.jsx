@@ -1,65 +1,6 @@
 import React, { useState, useEffect } from "react";
-
-// API client
-const api = {
-  get: async (url) => {
-    const token = localStorage.getItem("accessToken");
-    const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
-      headers: { 
-        Authorization: `Bearer ${token}`, 
-        'Content-Type': 'application/json' 
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    return await response.json();
-  },
-  post: async (url, data) => {
-    const token = localStorage.getItem("accessToken");
-    const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
-      method: 'POST',
-      headers: { 
-        Authorization: `Bearer ${token}`, 
-        'Content-Type': 'application/json' 
-      },
-      body: JSON.stringify(data)
-    });
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    return await response.json();
-  },
-  patch: async (url, data) => {
-    const token = localStorage.getItem("accessToken");
-    const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
-      method: 'PATCH',
-      headers: { 
-        Authorization: `Bearer ${token}`, 
-        'Content-Type': 'application/json' 
-      },
-      body: JSON.stringify(data)
-    });
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    return await response.json();
-  },
-  delete: async (url) => {
-    const token = localStorage.getItem("accessToken");
-    const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
-      method: 'DELETE',
-      headers: { 
-        Authorization: `Bearer ${token}`, 
-        'Content-Type': 'application/json' 
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    return await response.json();
-  }
-};
+import { useNavigate } from "react-router-dom";
+import api from "../../api/client";
 
 const ATTENDANCE_TYPES = {
   FULL_DAY: { label: "Full Day", color: "#10b981", icon: "full", status: "full" },
@@ -207,12 +148,18 @@ function AttendanceCell({ attendance, date, onAttendanceChange, punchIn, punchOu
 
 // Summary Button Component
 function SummaryButton({ employee, selectedMonth, onSummaryClick }) {
-  const handleClick = () => {
+  const handleClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     onSummaryClick(employee, selectedMonth);
   };
 
   return (
-    <button onClick={handleClick} style={styles.summaryBtn}>
+    <button 
+      onClick={handleClick} 
+      style={styles.summaryBtn}
+      type="button"
+    >
       📊
     </button>
   );
@@ -220,6 +167,7 @@ function SummaryButton({ employee, selectedMonth, onSummaryClick }) {
 
 // Main Component
 export default function AttendanceManagement() {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(defaultMonthISO());
   const [searchQuery, setSearchQuery] = useState("");
@@ -235,15 +183,15 @@ export default function AttendanceManagement() {
     try {
       const [year, month] = selectedMonth.split("-");
       
-      // Fetch employees
-     const employeesData = await api.get("/users/");
-      const employeesList = Array.isArray(employeesData) ? employeesData : 
-        (employeesData.results || employeesData.data || []);
+      // Fetch employees using centralized API client
+      const employeesResponse = await api.get("/users/");
+      const employeesList = Array.isArray(employeesResponse.data) ? employeesResponse.data : 
+        (employeesResponse.data.results || employeesResponse.data.data || []);
 
-      // Fetch attendance data
-      const attendanceData = await api.get(`/hr/attendance/?month=${Number(month)}&year=${year}`);
-      const attendanceList = Array.isArray(attendanceData) ? attendanceData : 
-        (attendanceData.results || attendanceData.data || []);
+      // Fetch attendance data using centralized API client
+      const attendanceResponse = await api.get(`/hr/attendance/?month=${Number(month)}&year=${year}`);
+      const attendanceList = Array.isArray(attendanceResponse.data) ? attendanceResponse.data : 
+        (attendanceResponse.data.results || attendanceResponse.data.data || []);
 
       const empMap = new Map();
 
@@ -314,7 +262,13 @@ export default function AttendanceManagement() {
   // Handle summary button click
   const handleSummaryClick = (employee, month) => {
     console.log("Summary clicked for:", employee.name, month);
-    // You can navigate to summary page or show modal here
+    // Navigate to summary page with employee data
+    navigate('/attendance-summary', { 
+      state: { 
+        employee: employee, 
+        selectedMonth: month 
+      } 
+    });
   };
 
   // Handle attendance change
@@ -332,14 +286,14 @@ export default function AttendanceManagement() {
       const existingRecord = employee.records[date];
 
       if (type === 'LEAVE') {
-        // Mark as leave
+        // Mark as leave using centralized API client
         await api.post('/hr/attendance/mark_leave/', {
           user_id: employeeId,
           date: date,
           admin_note: `Marked as leave by admin on ${new Date().toLocaleString()}`
         });
       } else if (existingRecord && existingRecord.attendanceId) {
-        // Update existing attendance
+        // Update existing attendance using centralized API client
         const updateData = {
           status: typeConfig.status,
           admin_note: `Status changed to ${typeConfig.label} by admin on ${new Date().toLocaleString()}`
@@ -353,7 +307,7 @@ export default function AttendanceManagement() {
           });
         }
       } else {
-        // Create new attendance record
+        // Create new attendance record using centralized API client
         const createData = {
           user: employeeId,
           date: date,
@@ -363,8 +317,8 @@ export default function AttendanceManagement() {
         const response = await api.post("/hr/attendance/", createData);
 
         // Verify if needed
-        if (typeConfig.verified && response.id) {
-          await api.post(`/hr/attendance/${response.id}/verify/`, {
+        if (typeConfig.verified && response.data.id) {
+          await api.post(`/hr/attendance/${response.data.id}/verify/`, {
             admin_note: `Verified as ${typeConfig.label}`,
           });
         }
@@ -375,8 +329,10 @@ export default function AttendanceManagement() {
     } catch (error) {
       console.error('Failed to save attendance:', error);
       let errorMessage = 'Failed to save attendance';
-      if (error.message.includes('API error')) {
-        errorMessage = `Server error: ${error.message}`;
+      if (error.response) {
+        errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`;
       }
       alert(errorMessage);
     } finally {
