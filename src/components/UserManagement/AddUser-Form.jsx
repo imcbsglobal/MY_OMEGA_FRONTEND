@@ -36,7 +36,13 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((p) => ({ ...p, [name]: value }));
+    
+    // Convert fullName to uppercase
+    if (name === "fullName") {
+      setFormData((p) => ({ ...p, [name]: value.toUpperCase() }));
+    } else {
+      setFormData((p) => ({ ...p, [name]: value }));
+    }
   };
 
   // Handle profile picture file selection
@@ -182,10 +188,10 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
 
           <div style={styles.grid}>
             <div style={styles.field}>
-              <label style={styles.label}>Full Name</label>
+              <label style={styles.label}>Full Name (UPPERCASE ONLY)</label>
               <input
                 name="fullName"
-                placeholder="Full Name"
+                placeholder="FULL NAME"
                 value={formData.fullName}
                 onChange={handleChange}
                 style={styles.input}

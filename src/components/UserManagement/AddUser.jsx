@@ -7,6 +7,7 @@ export default function AddUser() {
   const [editingUser, setEditingUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
+  const [deletingId, setDeletingId] = useState(null); // ADDED THIS LINE
 
   useEffect(() => { 
     fetchUsers(); 
@@ -27,16 +28,18 @@ export default function AddUser() {
     setShowForm(false);
   };
 
-  const deleteUser = async (id) => {
-    if (!window.confirm("Delete this user?")) return;
-    try {
-      await api.delete(`/users/${id}/`);
-      await fetchUsers();
-      alert("User deleted!");
-    } catch (e) {
-      console.error("Delete failed:", e.response?.data || e.message);
-    }
-  };
+  // FIXED: Changed from softDeleteUser to deleteUser to match button onClick
+ const deleteUser = async (id, userName) => {
+  if (!window.confirm(`Deactivate user "${userName}"?`)) return;
+
+  try {
+    await api.patch(`/users/${id}/`, { is_active: false });
+    await fetchUsers();
+    alert("User deactivated successfully");
+  } catch (error) {
+    alert("Deactivate failed");
+  }
+};
 
   const filtered = users.filter((u) => {
     const q = searchQuery.toLowerCase();
@@ -96,28 +99,28 @@ export default function AddUser() {
             </tr>
           </thead>
           <tbody>
-  {filtered.length === 0 ? (
-    <tr>
-      <td colSpan="9" style={styles.noResults}>No users found</td>
-    </tr>
-  ) : (
-    filtered.map((u, i) => (
-      <tr key={u.id} style={styles.tableRow}>
-        <td style={styles.tableCell}>{i + 1}</td>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan="9" style={styles.noResults}>No users found</td>
+              </tr>
+            ) : (
+              filtered.map((u, i) => (
+                <tr key={u.id} style={styles.tableRow}>
+                  <td style={styles.tableCell}>{i + 1}</td>
 
-        <td style={styles.tableCell}>
-          {u.photo_url ? (
-            <img
-              src={u.photo_url}
-              alt={u.name}
-              style={styles.profilePicture}
-            />
-          ) : (
-            <div style={styles.avatarPlaceholder}>
-              {u.name ? u.name.charAt(0).toUpperCase() : "?"}
-            </div>
-          )}
-        </td>
+                  <td style={styles.tableCell}>
+                    {u.photo_url ? (
+                      <img
+                        src={u.photo_url}
+                        alt={u.name}
+                        style={styles.profilePicture}
+                      />
+                    ) : (
+                      <div style={styles.avatarPlaceholder}>
+                        {u.name ? u.name.charAt(0).toUpperCase() : "?"}
+                      </div>
+                    )}
+                  </td>
 
                   <td style={styles.tableCell}>{u.name}</td>
                   <td style={styles.tableCell}>{u.email}</td>
@@ -138,10 +141,11 @@ export default function AddUser() {
                         Edit
                       </button>
                       <button 
-                        onClick={() => deleteUser(u.id)}
+                        onClick={() => deleteUser(u.id, u.name || u.email)}
                         style={styles.deleteBtn}
+                        disabled={deletingId === u.id}
                       >
-                        Delete
+                        {deletingId === u.id ? "Deleting..." : "Delete"}
                       </button>
                     </div>
                   </td>

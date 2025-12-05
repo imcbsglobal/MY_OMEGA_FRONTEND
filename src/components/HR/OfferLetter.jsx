@@ -116,7 +116,7 @@ export default function OfferLetter() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>#</th>
+              <th style={styles.th}>SL NO</th>
               <th style={styles.th}>Name</th>
               <th style={styles.th}>Position</th>
               <th style={styles.th}>Department</th>
@@ -204,100 +204,161 @@ export default function OfferLetter() {
     </div>
   );
 }
-
 const styles = {
   page: {
-    padding: "30px 40px",
-    background: "#f3f4f6",
+    padding: "24px",
+    backgroundColor: "#f9fafb",
     minHeight: "100vh",
   },
+
   header: {
     display: "flex",
     justifyContent: "space-between",
-    marginBottom: 24,
     alignItems: "center",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+    gap: "16px",
   },
-  title: { fontSize: 26, fontWeight: 700 },
-  headerRight: { display: "flex", gap: 12 },
+
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
+  },
+
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+
   search: {
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: "1px solid #d1d5db",
+    padding: "12px 40px 12px 16px",
+    fontSize: "14px",
+    border: "2px solid #e5e7eb",
+    borderRadius: "8px",
+    outline: "none",
+    width: "320px",
+    transition: "all 0.3s",
+    fontWeight: "500",
+    color: "#374151",
   },
+
   addButton: {
-    padding: "10px 18px",
-    borderRadius: 8,
-    background: "#2563eb",
-    color: "#fff",
+    padding: "12px 24px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
     border: "none",
+    borderRadius: "8px",
     cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   },
+
   tableCard: {
-    background: "#ffffff",
-    borderRadius: 10,
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     overflow: "hidden",
-    border: "1px solid #e5e7eb",
   },
-  table: { width: "100%", borderCollapse: "collapse" },
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+
   th: {
-    background: "#f9fafb",
+    backgroundColor: "#f3f4f6",
     padding: "12px 16px",
-    borderBottom: "1px solid #e5e7eb",
     textAlign: "left",
-    fontWeight: 600,
-    fontSize: 13,
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    borderBottom: "2px solid #e5e7eb",
   },
+
   td: {
     padding: "12px 16px",
-    borderBottom: "1px solid #f1f5f9",
-    fontSize: 14,
+    fontSize: "14px",
+    color: "#374151",
+    borderBottom: "1px solid #e5e7eb",
   },
-  noData: { padding: 30, textAlign: "center", color: "#777" },
+
+  noData: {
+    padding: "40px",
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: "16px",
+    fontWeight: "500",
+  },
+
   cvBtn: {
-    padding: "6px 10px",
-    background: "#eef2ff",
-    borderRadius: 6,
-    border: "1px solid #c7d2fe",
+    padding: "6px 12px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
     cursor: "pointer",
-    color: "#1d4ed8",
   },
+
   generateBtn: {
     padding: "6px 12px",
-    background: "#dbeafe",
-    borderRadius: 6,
-    border: "1px solid #bfdbfe",
-    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "500",
     color: "#2563eb",
-    fontWeight: 600,
+    backgroundColor: "#dbeafe",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
   },
-  actionRow: { display: "flex", gap: 8 },
+
+  actionRow: {
+    display: "flex",
+    gap: "6px",
+  },
+
   viewBtn: {
     padding: "6px 12px",
-    background: "#d1fae5",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#059669",
+    backgroundColor: "#d1fae5",
     border: "1px solid #a7f3d0",
-    color: "#047857",
-    borderRadius: 6,
+    borderRadius: "6px",
     cursor: "pointer",
   },
+
   editBtn: {
     padding: "6px 12px",
-    background: "#e0e7ff",
-    border: "1px solid #c7d2fe",
-    color: "#1d4ed8",
-    borderRadius: 6,
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#3b82f6",
+    backgroundColor: "#dbeafe",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
     cursor: "pointer",
   },
+
   deleteBtn: {
     padding: "6px 12px",
-    background: "#fee2e2",
-    border: "1px solid #fecaca",
+    fontSize: "13px",
+    fontWeight: "500",
     color: "#dc2626",
-    borderRadius: 6,
+    backgroundColor: "#fee2e2",
+    border: "1px solid #fecaca",
+    borderRadius: "6px",
     cursor: "pointer",
   },
+
   footerText: {
-    marginTop: 12,
-    fontSize: 13,
+    marginTop: "24px",
+    fontSize: "14px",
     color: "#6b7280",
   },
 };

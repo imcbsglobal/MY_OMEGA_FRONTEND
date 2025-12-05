@@ -44,6 +44,7 @@ import Login from "./pages/Login";
 import LeaveList from './components/HR/LeaveList';
 import EarlyList from './components/HR/EarlyList';
 import LateList from './components/HR/LateList';
+import UnderConstruction from './components/HR/UnderConstruction';
 
 // ✅ NEW — Break List
 import BreakList from "./components/HR/BreakList";
@@ -154,6 +155,8 @@ function App() {
 
           {/* ✅ NEW — Break List Route */}
           <Route path="/leave-management/break-list" element={<BreakList />} />
+
+          <Route path="*" element={<UnderConstruction />} />
 
         </Route>
       </Routes>

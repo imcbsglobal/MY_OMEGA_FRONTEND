@@ -1,4 +1,4 @@
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/client";
 
@@ -12,27 +12,31 @@ export default function JobTitleForm() {
   const [saving, setSaving] = useState(false);
 
   // ✅ Fetch existing job title if editing
- useEffect(() => {
-  if (!isEdit) return;
-  const fetchJobTitle = async () => {
-    try {
-     
-      const res = await api.get(`/cv-management/job-titles/${id}/`);
-      const jobData = res.data;
-  
-      if (!jobData) throw new Error("No job data found");
+  useEffect(() => {
+    if (!isEdit) return;
+    const fetchJobTitle = async () => {
+      try {
+        const res = await api.get(`/cv-management/job-titles/${id}/`);
+        const jobData = res.data;
 
-      setTitle(jobData.title || "");
-    } catch (error) {
-      console.error("Failed to load job title:", error.response || error);
-      alert("Could not fetch job title details.");
-    } finally {
-      setLoading(false);
-    }
+        if (!jobData) throw new Error("No job data found");
+
+        // Convert existing title to uppercase when editing
+        setTitle(jobData.title ? jobData.title.toUpperCase() : "");
+      } catch (error) {
+        console.error("Failed to load job title:", error.response || error);
+        alert("Could not fetch job title details.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobTitle();
+  }, [id, isEdit]);
+
+  // ✅ Handle title change - convert to uppercase
+  const handleTitleChange = (e) => {
+    setTitle(e.target.value.toUpperCase());
   };
-  fetchJobTitle();
-}, [id, isEdit]);
-
 
   // ✅ Save or update job title
   const handleSubmit = async (e) => {
@@ -84,7 +88,7 @@ export default function JobTitleForm() {
         display: "flex",
         justifyContent: "center",
         alignItems: "flex-start",
-        paddingTop: "120px", // ✅ sits nicely below navbar
+        paddingTop: "120px",
         paddingBottom: "40px",
       }}
     >
@@ -140,14 +144,14 @@ export default function JobTitleForm() {
                 color: "#374151",
               }}
             >
-              Job Title
+              Job Title (UPPERCASE ONLY)
             </label>
             <input
               id="jobTitle"
               type="text"
-              placeholder="Enter job title (e.g., Sales Executive)"
+              placeholder="ENTER JOB TITLE (E.G., SALES EXECUTIVE)"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={handleTitleChange}
               style={{
                 width: "100%",
                 padding: "12px 14px",
@@ -157,6 +161,7 @@ export default function JobTitleForm() {
                 fontSize: "14.5px",
                 color: "#111827",
                 transition: "border-color 0.2s ease",
+                textTransform: "uppercase", // Visual feedback for uppercase
               }}
               onFocus={(e) => (e.target.style.borderColor = "#2563eb")}
               onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}

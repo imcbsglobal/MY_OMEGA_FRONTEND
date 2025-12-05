@@ -57,44 +57,33 @@ export default function Interview_List() {
 
   // --- Update status (PATCH to /{id}/update-status/)
   const updateStatus = async (id, newStatus) => {
-    if (!id) return;
-    const confirmMsg = `Change status to "${newStatus}"?`;
-    if (!window.confirm(confirmMsg)) return;
+  if (!id) return;
+  if (!window.confirm(`Change status to "${newStatus}"?`)) return;
 
-    // mark updating
-    setUpdatingIds((s) => new Set([...s, id]));
+  setUpdatingIds((s) => new Set([...s, id]));
 
-    try {
-      const payload = { status: newStatus };
-      const res = await api.patch(`/interview-management/${id}/update-status/`, payload);
+  try {
+    await api.patch(`/interview-management/${id}/update-status/`, { status: newStatus });
 
-      // backend might return the updated interview in res.data.data or res.data
-      const updated = res?.data?.data || res?.data || null;
+    // ✅ FORCE LOCAL STATE UPDATE (NO REFRESH NEEDED)
+    setInterviews((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, status: newStatus, interview_status: newStatus } : it
+      )
+    );
 
-      if (updated) {
-        // If API returned the updated interview object, replace it in state
-        setInterviews((prev) => prev.map((it) => (it.id === id ? updated : it)));
-      } else {
-        // Otherwise, just update the status field locally
-        setInterviews((prev) =>
-          prev.map((it) => (it.id === id ? { ...it, status: newStatus, cv_status: newStatus } : it))
-        );
-      }
+    alert(`Status updated to "${newStatus}"`);
+  } catch (err) {
+    alert("Failed to update status");
+  } finally {
+    setUpdatingIds((s) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+  }
+};
 
-      alert(`Status updated to "${newStatus}"`);
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      // attempt to surface backend message
-      const msg = err?.response?.data?.message || err?.response?.data?.detail || "Failed to update status";
-      alert(msg);
-    } finally {
-      setUpdatingIds((s) => {
-        const next = new Set(s);
-        next.delete(id);
-        return next;
-      });
-    }
-  };
 
   const filteredInterviews = interviews.filter((i) => {
     const query = searchQuery.toLowerCase().trim();

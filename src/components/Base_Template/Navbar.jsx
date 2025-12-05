@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronDown, Menu, X } from "lucide-react";
+import { 
+  ChevronRight, Menu, X, LogOut, LayoutDashboard, Users, Megaphone, 
+  Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
+  FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
+  ClipboardList, UserPlus, Shield
+} from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import api from "../../api/client";
 
@@ -11,105 +16,130 @@ export default function Navbar() {
 
   const [menuTree, setMenuTree] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Dropdown states
   const [openDropdowns, setOpenDropdowns] = useState({});
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const location = useLocation();
-  const navRef = useRef(null);
-  const profileRef = useRef(null);
+  const sidebarRef = useRef(null);
 
-  // ---------------- HANDLE RESIZE ----------------
+  // Handle resize
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setMobileMenuOpen(false);
+      }
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // ---------------- OUTSIDE CLICK CLOSE ----------------
+  // Outside click close for mobile
   useEffect(() => {
     const onDocumentClick = (e) => {
-      if (navRef.current && !navRef.current.contains(e.target)) {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target) && isMobile) {
         setMobileMenuOpen(false);
-        setOpenDropdowns({});
-      }
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setProfileDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", onDocumentClick);
     return () => document.removeEventListener("mousedown", onDocumentClick);
-  }, []);
+  }, [isMobile]);
 
-  // ---------------- FORMAT MENU FROM BACKEND ----------------
-function formatMenuItem(item) {
-  if (!item) return null;
+  // Icon mapping for user menu items based on name
+  const getIconForMenuItem = (name) => {
+    const iconMap = {
+      'dashboard': LayoutDashboard,
+      'hr': Users,
+      'administration': Shield,
+      'marketing': Megaphone,
+      'services': Wrench,
+      'projects': Target,
+      'vehicle management': Car,
+      'vehicle': Car,
+      'imc connect': Briefcase,
+      'planet': Target,
+      'imc drive': FileText,
+      'public folder': FileText,
+      'sysmac': Settings,
+      'social media': Megaphone,
+      'accounts': DollarSign,
+      'user management': UserCog,
+      'master': Settings,
+      'cv management': FileText,
+      'interview management': Briefcase,
+      'offer letter': FileText,
+      'employee management': Users,
+      'attendance': Calendar,
+      'salary certificate': DollarSign,
+      'experience certificate': Award,
+      'duties and responsibility': ClipboardList,
+    };
 
-  const name = item.name || item.title || "menu";
-  const key = item.key || item.id || name;
-
-  return {
-    id: item.id,
-    key: key,
-    name: name,
-    title: name,
-    path:
-      item.path ||
-      `/${key.toString().toLowerCase().replace(/\s+/g, "-")}`,
-
-    children: (item.children || []).map((child) => formatMenuItem(child)),
-
-    allowed_actions: item.allowed_actions || {
-      can_view: item.can_view ?? true,
-      can_edit: item.can_edit ?? false,
-      can_delete: item.can_delete ?? false,
-    },
-  };
-}
-
-
-
-
-  // ---------------- FETCH MENU TREE ----------------
-useEffect(() => {
-  const fetchMenus = async () => {
-    setLoading(true);
-    try {
-      if (!isAdmin) {
-        // Normal User → Fetch assigned menus
-        const response = await api.get("/user-controll/my-menu/");
-        console.log("User Menu Response:", response.data);
-
-        const menuArr = response.data?.menu || [];   // ✅ FIX 1: Extract actual menu array
-
-        const formatted = menuArr.map((item) => formatMenuItem(item));  // ✅ FIX 2: Format correctly
-        console.log("Formatted Menu:", formatted);
-
-        setMenuTree(formatted);
-        localStorage.setItem("menuTree", JSON.stringify(formatted));
-      } else {
-        setMenuTree([]);
+    const lowerName = name.toLowerCase();
+    for (const [key, icon] of Object.entries(iconMap)) {
+      if (lowerName.includes(key)) {
+        return icon;
       }
-    } catch (error) {
-      console.error("❌ Failed to load user menu:", error);
-
-      const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
-      if (cached.length > 0) {
-        setMenuTree(cached);
-        console.log("Using cached menu");
-      }
-    } finally {
-      setLoading(false);
     }
+    return FileText; // Default icon
   };
 
-  fetchMenus();
-}, [isAdmin]);
+  // Format menu item
+  function formatMenuItem(item) {
+    if (!item) return null;
 
-  // ---------------- TOGGLE DROPDOWN ----------------
+    const name = item.name || item.title || "menu";
+    const key = item.key || item.id || name;
+
+    return {
+      id: item.id,
+      key: key,
+      name: name,
+      title: name,
+      path: item.path || `/${key.toString().toLowerCase().replace(/\s+/g, "-")}`,
+      icon: getIconForMenuItem(name),
+      children: (item.children || []).map((child) => formatMenuItem(child)),
+      allowed_actions: item.allowed_actions || {
+        can_view: item.can_view ?? true,
+        can_edit: item.can_edit ?? false,
+        can_delete: item.can_delete ?? false,
+      },
+    };
+  }
+
+  // Fetch menu tree
+  useEffect(() => {
+    const fetchMenus = async () => {
+      setLoading(true);
+      try {
+        if (!isAdmin) {
+          const response = await api.get("/user-controll/my-menu/");
+          console.log("User Menu Response:", response.data);
+          const menuArr = response.data?.menu || [];
+          const formatted = menuArr.map((item) => formatMenuItem(item));
+          console.log("Formatted Menu:", formatted);
+          setMenuTree(formatted);
+          localStorage.setItem("menuTree", JSON.stringify(formatted));
+        } else {
+          setMenuTree([]);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load user menu:", error);
+        const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
+        if (cached.length > 0) {
+          setMenuTree(cached);
+          console.log("Using cached menu");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMenus();
+  }, [isAdmin]);
+
+  // Toggle dropdown
   const toggleDropdown = (menuName) => {
     setOpenDropdowns(prev => ({
       ...prev,
@@ -117,115 +147,144 @@ useEffect(() => {
     }));
   };
 
-  const closeAllDropdowns = () => {
-    setOpenDropdowns({});
-    setMobileMenuOpen(false);
+  // Close mobile menu
+  const closeMobileMenu = () => {
+    if (isMobile) {
+      setMobileMenuOpen(false);
+    }
   };
 
-  // ---------------- ADMIN MENU (STATIC) ----------------
+  // Admin menu items
   const adminNavItems = [
-    { name: "Dashboard", path: "/" },
+    { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { 
       name: "HR Management", 
+      icon: Users,
       hasDropdown: true,
       children: [
-        { name: "CV Management", path: "/cv-management" },
-        { name: "Interview Management", path: "/interview-management" },
-        { name: "Offer Letter", path: "/offer-letter" },
-        { name: "Employee Management", path: "/employee-management" },
-        { name: "Attendance Management", path: "/attendance-management" },
-        { name: "Punch In/Punch Out", path: "/punch-in-out" },
+        { name: "CV Management", path: "/cv-management", icon: FileText },
+        { name: "Interview Management", path: "/interview-management", icon: Briefcase },
+        { name: "Offer Letter", path: "/offer-letter", icon: FileText },
+        { name: "Employee Management", path: "/employee-management", icon: Users },
+        { name: "Attendance Management", path: "/attendance-management", icon: Calendar },
+        { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
         {
           name: "Leave Management",
+          icon: ClipboardList,
           children: [
-            { name: "Leave List", path: "/leave-management/leave-list" },
-            { name: "Early List", path: "/leave-management/early-list" },
-            { name: "Late List", path: "/leave-management/late-list" },
-            { name: "Break List", path: "/leave-management/break-list" },
-
+            { name: "Leave List", path: "/leave-management/leave-list", icon: FileText },
+            { name: "Early List", path: "/leave-management/early-list", icon: Clock },
+            { name: "Late List", path: "/leave-management/late-list", icon: Clock },
+            { name: "Break List", path: "/leave-management/break-list", icon: Clock },
           ],
         },
         {
           name: "Request",
+          icon: ClipboardList,
           children: [
-            { name: "Leave Request", path: "/hr/request/leave" },
-            { name: "Late Request", path: "/hr/request/late" },
-            { name: "Early Request", path: "/hr/request/early" },
+            { name: "Leave Request", path: "/hr/request/leave", icon: FileText },
+            { name: "Late Request", path: "/hr/request/late", icon: Clock },
+            { name: "Early Request", path: "/hr/request/early", icon: Clock },
           ],
         },
-        { name: "Experience Certificate", path: "/experience-certificate" },
-        { name: "Salary Certificate", path: "/salary-certificate" },
+        { name: "Experience Certificate", path: "/experience-certificate", icon: Award },
+        { name: "Salary Certificate", path: "/salary-certificate", icon: DollarSign },
       ]
     },
-    { name: "Marketing", path: "/marketing" },
-    { 
-      name: "Vehicle Management", 
-      hasDropdown: true,
-      children: [
-        { name: "Company Vehicle", path: "/company-vehicle" },
-        { name: "Non Company Vehicle", path: "/non-company-vehicle" },
-      ]
-    },
-    { name: "Target Management", path: "/target-management" },
-    { name: "Warehouse Management", path: "/warehouse-management" },
-    { name: "Delivery Management", path: "/delivery-management" },
+   {
+  name: "Marketing",
+  path: "/under-construction",
+  icon: Megaphone
+},
+
+{
+  name: "Vehicle Management",
+  path: "/under-construction",
+  icon: Car
+},
+
+{
+  name: "Target Management",
+  path: "/under-construction",
+  icon: Target
+},
+
+{
+  name: "Warehouse Management",
+  path: "/under-construction",
+  icon: Warehouse
+},
+
+{
+  name: "Delivery Management",
+  path: "/under-construction",
+  icon: Truck
+},
+
     { 
       name: "User Management", 
+      icon: UserCog,
       hasDropdown: true,
       children: [
-        { name: "Add User", path: "/add-user" },
-        { name: "User Control", path: "/user-control" },
+        { name: "Add User", path: "/add-user", icon: UserPlus },
+        { name: "User Control", path: "/user-control", icon: Shield },
       ]
     },
     { 
       name: "Master", 
+      icon: Settings,
       hasDropdown: true,
       children: [
-        { name: "Job Titles", path: "/master/job-titles" },
-        { name: "List", path: "/master/job-titles/list" },
+        { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
+        { name: "List", path: "/master/job-titles/list", icon: FileText },
       ]
     },
   ];
 
-  // Use admin menu or user menu based on role
   const navItems = isAdmin ? adminNavItems : menuTree;
 
-  // ---------------- RENDER DROPDOWN ITEMS ----------------
-  const renderDropdownItems = (items, parentKey = "") => {
+  // Render menu items recursively
+  const renderMenuItems = (items, parentKey = "", level = 0) => {
     return items.map((item, index) => {
       const itemKey = `${parentKey}-${item.name}-${index}`;
-      
-      if (item.children && item.children.length > 0) {
+      const hasChildren = item.children && item.children.length > 0;
+      const isOpen = openDropdowns[itemKey];
+      const isActive = location.pathname === item.path;
+      const IconComponent = item.icon;
+
+      if (hasChildren) {
         return (
-          <div
-            key={itemKey}
-            style={{ position: "relative" }}
-            onMouseEnter={() => !isMobile && toggleDropdown(itemKey)}
-            onMouseLeave={() => !isMobile && toggleDropdown(itemKey)}
-          >
+          <div key={itemKey}>
             <div
+              onClick={() => toggleDropdown(itemKey)}
               style={{
-                ...styles.dropdownItem,
+                ...styles.menuItem,
+                paddingLeft: `${16 + level * 16}px`,
                 cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
               }}
-              onClick={() => isMobile && toggleDropdown(itemKey)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f8fafc";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
             >
-              {item.name}
-              <ChevronDown
-                size={14}
+              {IconComponent && <IconComponent size={18} style={{ marginRight: "12px", color: "#64748b" }} />}
+              <span style={{ flex: 1, fontSize: "14px", fontWeight: "500" }}>
+                {item.name}
+              </span>
+              <ChevronRight
+                size={16}
                 style={{
-                  transform: openDropdowns[itemKey] ? "rotate(-90deg)" : "rotate(0deg)",
-                  transition: "0.3s",
+                  transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s",
+                  color: "#94a3b8"
                 }}
               />
             </div>
-
-            {openDropdowns[itemKey] && (
-              <div style={styles.requestSubMenu}>
-                {renderDropdownItems(item.children, itemKey)}
+            {isOpen && (
+              <div style={{ overflow: "hidden" }}>
+                {renderMenuItems(item.children, itemKey, level + 1)}
               </div>
             )}
           </div>
@@ -235,281 +294,247 @@ useEffect(() => {
       return (
         <NavLink
           key={itemKey}
-          to={item.path}
-          onClick={closeAllDropdowns}
+          to={item.path || `/${item.name.toLowerCase().replace(/\s+/g, "-")}`}
           style={({ isActive }) => ({
-            ...styles.dropdownItem,
+            ...styles.menuItem,
+            paddingLeft: `${16 + level * 16}px`,
+            textDecoration: "none",
+            display: "flex",
             backgroundColor: isActive ? "#fee2e2" : "transparent",
-            color: isActive ? "#dc2626" : "#64748b",
+            color: isActive ? "#dc2626" : "#475569",
+            borderLeft: isActive ? "3px solid #dc2626" : "3px solid transparent",
           })}
+          onClick={closeMobileMenu}
+          onMouseEnter={(e) => {
+            if (!e.currentTarget.classList.contains('active')) {
+              e.currentTarget.style.backgroundColor = "#f8fafc";
+            }
+          }}
+          onMouseLeave={(e) => {
+            const isLinkActive = location.pathname === item.path;
+            if (!isLinkActive) {
+              e.currentTarget.style.backgroundColor = "transparent";
+            }
+          }}
         >
-          {item.name}
+          {IconComponent && <IconComponent size={18} style={{ marginRight: "12px", color: isActive ? "#dc2626" : "#64748b" }} />}
+          <span style={{ fontSize: "14px", fontWeight: "500" }}>{item.name}</span>
         </NavLink>
       );
     });
   };
 
-  // ---------------- STYLES ----------------
   const styles = {
-    navbarContainer: {
-      backgroundColor: "#fff",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    sidebar: {
+      width: isMobile ? (mobileMenuOpen ? "280px" : "0") : "280px",
+      backgroundColor: "#ffffff",
+      boxShadow: "2px 0 12px rgba(0,0,0,0.08)",
+      display: "flex",
+      flexDirection: "column",
+      position: isMobile ? "fixed" : "fixed",
+      left: 0,
+      top: 0,
+      height: "100vh",
+      zIndex: 1000,
+      transition: "all 0.3s ease",
+      overflow: "hidden",
+    },
+    header: {
+      padding: "20px 16px",
+      borderBottom: "1px solid #f1f5f9",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: "#ffffff",
+    },
+    logo: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+    },
+    menuContainer: {
+  flex: 1,
+  overflowY: "auto",
+  overflowX: "hidden",
+  padding: "12px 0",
+
+  // ✅ Hide scrollbar (all browsers)
+  scrollbarWidth: "none",     // Firefox
+  msOverflowStyle: "none",    // IE / Edge
+},
+
+    menuItem: {
+      display: "flex",
+      alignItems: "center",
+      padding: "12px 16px",
+      transition: "all 0.2s ease",
+      borderLeft: "3px solid transparent",
+      color: "#475569",
+    },
+    userSection: {
+      padding: "16px",
+      borderTop: "1px solid #f1f5f9",
+      backgroundColor: "#fafafa",
+    },
+    userInfo: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      marginBottom: "12px",
+    },
+    logoutButton: {
+      width: "100%",
+      padding: "10px",
+      backgroundColor: "#dc2626",
+      color: "#ffffff",
+      border: "none",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: "600",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "8px",
+      transition: "background-color 0.2s",
+    },
+    mobileToggle: {
+      position: "fixed",
+      top: "20px",
+      left: "20px",
+      zIndex: 1001,
+      backgroundColor: "#ffffff",
+      border: "1px solid #e5e7eb",
+      borderRadius: "8px",
+      padding: "10px",
+      cursor: "pointer",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+      display: isMobile ? "flex" : "none",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    overlay: {
       position: "fixed",
       top: 0,
       left: 0,
       right: 0,
-      zIndex: 1000,
-    },
-    topNavbar: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "12px 20px",
-      borderBottom: "1px solid #e5e7eb",
-    },
-    bottomNavbar: {
-      display: isMobile ? (mobileMenuOpen ? "block" : "none") : "flex",
-      justifyContent: "center",
-      flexDirection: isMobile ? "column" : "row",
-      padding: "10px 20px",
-      background: "linear-gradient(to right, #f8fafc, #f1f5f9)",
-      borderBottom: "1px solid #e2e8f0",
-    },
-    navLink: {
-      display: "flex",
-      alignItems: "center",
-      gap: "4px",
-      padding: "10px 14px",
-      textDecoration: "none",
-      color: "#475569",
-      fontSize: "14.5px",
-      fontWeight: "600",
-      transition: "all 0.25s ease",
-      borderBottom: "2px solid transparent",
-    },
-    dropdownMenu: {
-      position: "absolute",
-      top: "100%",
-      left: 0,
-      backgroundColor: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: "10px",
-      boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-      minWidth: "220px",
-      zIndex: 2000,
-      padding: "6px",
-      marginTop: "2px",
-    },
-    dropdownItem: {
-      display: "block",
-      padding: "10px 16px",
-      textDecoration: "none",
-      color: "#64748b",
-      fontSize: "13.5px",
-      fontWeight: "500",
-      borderRadius: "7px",
-      marginBottom: "3px",
-    },
-    requestSubMenu: {
-      position: "absolute",
-      top: 0,
-      left: "100%",
-      backgroundColor: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: "8px",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-      minWidth: "200px",
-      padding: "6px",
-      zIndex: 2500,
-      marginLeft: "2px",
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      zIndex: 999,
+      display: isMobile && mobileMenuOpen ? "block" : "none",
     },
   };
 
-  // Show loading state
-  if (loading && !isAdmin) {
-    return (
-      <header style={styles.navbarContainer}>
-        <div style={styles.topNavbar}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          if (loading && !isAdmin) {
+            return (
+              <>
+                <div style={styles.mobileToggle} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                  <Menu size={24} color="#1e293b" />
+                </div>
+                <aside style={styles.sidebar} ref={sidebarRef}>
+                <div style={styles.header}>
+          <div style={styles.logo}>
             <img
-              src="/assets/omega-logo.png"
+              src="/assets/omega-logo.png"   // ← change file name if needed
               alt="Omega"
-              style={{ width: 48, height: 48, objectFit: "contain" }}
+              style={{ height: "32px", objectFit: "contain" }}
             />
-            <h1
-              style={{
-                fontSize: "28px",
-                color: "#dc2626",
-                fontWeight: "700",
-                fontStyle: "italic",
-              }}
-            >
-              Omega
-            </h1>
           </div>
-          <div style={{ fontSize: "14px", color: "#6b7280" }}>Loading menu...</div>
         </div>
-      </header>
+
+          <div style={{ padding: "16px", textAlign: "center", color: "#6b7280" }}>
+            Loading menu...
+          </div>
+        </aside>
+      </>
     );
   }
 
   return (
-    <header style={styles.navbarContainer} ref={navRef}>
-      {/* ---------------- TOP NAVBAR ---------------- */}
-      <div style={styles.topNavbar}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <img
-            src="/assets/omega-logo.png"
-            alt="Omega"
-            style={{ width: 48, height: 48, objectFit: "contain" }}
-          />
-          <h1
-            style={{
-              fontSize: "28px",
-              color: "#dc2626",
-              fontWeight: "700",
-              fontStyle: "italic",
-            }}
-          >
-            Omega
-          </h1>
-        </div>
+    <>
+      {/* Mobile Toggle Button */}
+      <div 
+        style={styles.mobileToggle}
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+      >
+        {mobileMenuOpen ? <X size={24} color="#1e293b" /> : <Menu size={24} color="#1e293b" />}
+      </div>
 
-        {/* ---------------- MOBILE MENU ICON ---------------- */}
-        <div style={{ display: isMobile ? "block" : "none", cursor: "pointer" }}>
-          {mobileMenuOpen ? (
-            <X size={30} onClick={() => setMobileMenuOpen(false)} />
+      {/* Overlay for mobile */}
+      <div 
+        style={styles.overlay}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Sidebar */}
+      <aside style={styles.sidebar} ref={sidebarRef}>
+        {/* Header */}
+        <div style={styles.header}>
+  <div style={styles.logo}>
+    <img
+      src="/assets/omega-logo.png"   // ← same path here
+      alt="Omega"
+      style={{ height: "32px", objectFit: "contain" }}
+    />
+  </div>
+</div>
+
+
+        {/* Menu Items */}
+        <div style={styles.menuContainer}>
+          {navItems.length === 0 && !isAdmin && !loading ? (
+            <div style={{ padding: "16px", color: "#94a3b8", fontSize: "14px", textAlign: "center" }}>
+              No menus assigned. Please contact administrator.
+            </div>
           ) : (
-            <Menu size={30} onClick={() => setMobileMenuOpen(true)} />
+            renderMenuItems(navItems)
           )}
         </div>
 
-        {/* ---------------- PROFILE DROPDOWN ---------------- */}
-        {!isMobile && (
-          <div style={{ position: "relative" }} ref={profileRef}>
+        {/* User Section */}
+        <div style={styles.userSection}>
+          <div style={styles.userInfo}>
             <img
-              src={
-                user?.photo ||
-                "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40"
-              }
+              src={user?.photo || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40"}
               alt="User"
-              style={{ width: 42, height: 42, borderRadius: "50%", cursor: "pointer" }}
-              onClick={() => setProfileDropdownOpen((s) => !s)}
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: "2px solid #fee2e2",
+              }}
             />
-
-            {profileDropdownOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "70px",
-                  backgroundColor: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "10px",
-                  boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-                  padding: "12px",
-                  width: "220px",
-                  zIndex: 3000,
-                }}
-              >
-                <p style={{ fontWeight: "600" }}>Hello, {username}</p>
-                <p style={{ fontSize: "13px", color: "#6b7280" }}>{userLevel}</p>
-
-                <button
-                  onClick={() => {
-                    localStorage.clear();
-                    window.location.href = "/login";
-                  }}
-                  style={{
-                    width: "100%",
-                    marginTop: "10px",
-                    backgroundColor: "#dc2626",
-                    color: "#fff",
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  Logout
-                </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ 
+                fontSize: "14px", 
+                fontWeight: "600", 
+                color: "#1e293b",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
+              }}>
+                {username}
               </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ---------------- BOTTOM NAVBAR ---------------- */}
-      <nav style={styles.bottomNavbar}>
-        {navItems.length === 0 && !isAdmin && !loading ? (
-          <div style={{ padding: "10px", color: "#6b7280", fontSize: "14px" }}>
-            No menus assigned. Please contact administrator.
-          </div>
-        ) : (
-          navItems.map((item, index) => {
-            const itemKey = `nav-${item.name}-${index}`;
-            const hasDropdown = item.hasDropdown || (item.children && item.children.length > 0);
-
-            return (
-              <div
-                key={itemKey}
-                onMouseEnter={() => !isMobile && hasDropdown && toggleDropdown(itemKey)}
-                onMouseLeave={() => !isMobile && hasDropdown && toggleDropdown(itemKey)}
-                style={{ position: "relative" }}
-              >
-                {hasDropdown ? (
-                  <>
-                    <div
-                      style={{
-                        ...styles.navLink,
-                        cursor: "pointer",
-                        color: location.pathname.startsWith(item.path || `/${item.name.toLowerCase()}`) 
-                          ? "#dc2626" 
-                          : "#475569",
-                        borderBottomColor: location.pathname.startsWith(item.path || `/${item.name.toLowerCase()}`)
-                          ? "#dc2626"
-                          : "transparent",
-                      }}
-                      onClick={() => {
-                        if (isMobile) {
-                          toggleDropdown(itemKey);
-                        }
-                      }}
-                    >
-                      {item.name}
-                      <ChevronDown
-                        size={16}
-                        style={{
-                          transform: openDropdowns[itemKey] ? "rotate(180deg)" : "rotate(0deg)",
-                          transition: "0.3s",
-                        }}
-                      />
-                    </div>
-
-                    {openDropdowns[itemKey] && (
-                      <div style={styles.dropdownMenu}>
-                        {renderDropdownItems(item.children || [], itemKey)}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <NavLink
-                    to={item.path || `/${item.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    style={({ isActive }) => ({
-                      ...styles.navLink,
-                      color: isActive ? "#dc2626" : styles.navLink.color,
-                      borderBottomColor: isActive ? "#dc2626" : "transparent",
-                    })}
-                    onClick={closeAllDropdowns}
-                  >
-                    {item.name}
-                  </NavLink>
-                )}
+              <div style={{ fontSize: "12px", color: "#64748b" }}>
+                {userLevel}
               </div>
-            );
-          })
-        )}
-      </nav>
-    </header>
+            </div>
+          </div>
+          <button
+            style={styles.logoutButton}
+            onClick={() => {
+              localStorage.clear();
+              window.location.href = "/login";
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = "#b91c1c"}
+            onMouseOut={(e) => e.target.style.backgroundColor = "#dc2626"}
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

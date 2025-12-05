@@ -63,12 +63,20 @@ export default function CVForm() {
   };
 
   const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadedFile(file);
-      setCvData((prev) => ({ ...prev, cvFileName: file.name }));
-    }
-  };
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const maxSize = 2 * 1024 * 1024; // ✅ 2MB
+
+  if (file.size > maxSize) {
+    alert("❌ File too large. Please reduce the size (Max 2MB).");
+    e.target.value = "";
+    return;
+  }
+
+  setUploadedFile(file);
+  setCvData((prev) => ({ ...prev, cvFileName: file.name }));
+};
 
   const handleRemoveFile = () => {
     setUploadedFile(null);
@@ -119,10 +127,11 @@ export default function CVForm() {
         alert("CV updated successfully!");
       } else {
         const form = toApiPayload(updatedData, uploadedFile);
-        await CV.create(form);
-        alert("CV added successfully!");
+      await CV.create(form);
+alert("CV added successfully!");
       }
 
+      window.dispatchEvent(new Event("cv-updated"));  // ✅ FORCE SYNC
       navigate("/cv-management");
     } catch (error) {
       console.error("Error saving CV:", error);
@@ -439,17 +448,24 @@ export default function CVForm() {
             {/* Interview Status */}
             <div style={styles.formGroup}>
               <label style={styles.label}>Interview Status</label>
-              <select
-                style={styles.input}
-                name="interviewStatus"
-                value={cvData.interviewStatus}
-                onChange={handleInputChange}
-              >
-                <option>Pending</option>
-                <option>Ongoing</option>
-                <option>Selected</option>
-                <option>Rejected</option>
-              </select>
+             <select
+  style={styles.input}
+  name="interviewStatus"
+  value={cvData.interviewStatus}
+  onChange={(e) =>
+    setCvData((prev) => ({
+      ...prev,
+      interviewStatus: e.target.value.toLowerCase(),
+    }))
+  }
+>
+  <option value="pending">Pending</option>
+  <option value="ongoing">Ongoing</option>
+  <option value="selected">Selected</option>
+  <option value="rejected">Rejected</option>
+</select>
+
+
             </div>
           </div>
 
