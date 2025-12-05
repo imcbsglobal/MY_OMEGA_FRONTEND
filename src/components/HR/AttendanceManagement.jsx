@@ -1,171 +1,20 @@
 import React, { useState, useEffect } from "react";
+import { Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
 const ATTENDANCE_TYPES = {
-  FULL_DAY: { label: "Full Day", color: "#10b981", icon: "full", status: "full" },
-  VERIFIED: { label: "Verified", color: "#3b82f6", icon: "full", status: "full", verified: true },
-  HALF_DAY: { label: "Half Day", color: "#f59e0b", icon: "half", status: "half" },
-  VERIFIED_HALF: { label: "Verified Half Day", color: "#f43f5e", icon: "half", status: "half", verified: true },
-  LEAVE: { label: "Leave", color: "#ef4444", icon: "full", status: "leave" },
-  HOLIDAY: { label: "Holiday", color: "#eab308", icon: "full", status: "holiday" },
-  NOT_MARKED: { label: "Not Marked", color: "#9ca3af", icon: "full" }
+  FULL_DAY: { label: "Full Day", color: "#10b981", icon: "★" },
+  HALF_DAY: { label: "Half Day", color: "#10b981", icon: "★" },
+  VERIFIED_HALF: { label: "Verified Half Day", color: "#9333ea", icon: "★" },
+  LEAVE: { label: "Leave", color: "#ef4444", icon: "★" },
+  HOLIDAY: { label: "Holiday", color: "#fbbf24", icon: "★" },
+  VERIFIED: { label: "Verified", color: "#3b82f6", icon: "★" },
+  NOT_MARKED: { label: "Not Marked", color: "#9ca3af", icon: "★" }
 };
 
-// Helper functions
 const defaultMonthISO = () => new Date().toISOString().slice(0, 7);
 
-function parseTimeToMinutes(value) {
-  if (!value && value !== 0) return null;
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const str = value.trim();
-    const tIndex = str.indexOf("T");
-    if (tIndex !== -1) {
-      const timePart = str.slice(tIndex + 1).split("+")[0].split("Z")[0];
-      return parseHmsToMinutes(timePart);
-    }
-    const ampmMatch = str.match(/(\d{1,2}:\d{2}(?::\d{2})?)\s*(am|pm|AM|PM)/);
-    if (ampmMatch) {
-      return parseHmsToMinutes(ampmMatch[1] + " " + ampmMatch[2]);
-    }
-    return parseHmsToMinutes(str);
-  }
-  return null;
-}
-
-function parseHmsToMinutes(s) {
-  if (!s) return null;
-  const raw = s.trim();
-  const ampm = /([0-9:]+)\s*(am|pm|AM|PM)/.exec(raw);
-  if (ampm) {
-    let [_, hm, ap] = ampm;
-    const parts = hm.split(":").map(p => parseInt(p, 10) || 0);
-    let hh = parts[0];
-    const mm = parts[1] || 0;
-    const apLower = ap.toLowerCase();
-    if (apLower === "pm" && hh < 12) hh += 12;
-    if (apLower === "am" && hh === 12) hh = 0;
-    return hh * 60 + mm;
-  }
-  const parts = raw.split(":").map(p => parseInt(p, 10));
-  if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-    const hh = parts[0];
-    const mm = parts[1];
-    if (hh >= 0 && hh < 24 && mm >= 0 && mm < 60) return hh * 60 + mm;
-  }
-  return null;
-}
-
-function minutesToDisplay(mins) {
-  if (mins == null) return "-";
-  const hh = Math.floor(mins / 60) % 24;
-  const mm = Math.floor(mins % 60);
-  const date = new Date();
-  date.setHours(hh, mm, 0, 0);
-  return date.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true
-  });
-}
-
-// Attendance Cell Component
-function AttendanceCell({ attendance, date, onAttendanceChange, punchIn, punchOut, saving }) {
-  const [showMenu, setShowMenu] = useState(false);
-
-  const handleAttendanceClick = async (type) => {
-    setShowMenu(false);
-    await onAttendanceChange(date, type);
-  };
-
-  const getAttendanceColor = () => {
-    if (!attendance) return "#9ca3af";
-    const type = ATTENDANCE_TYPES[attendance];
-    return type?.color || "#9ca3af";
-  };
-
-  const getAttendanceIcon = () => {
-    if (!attendance) return "full";
-    const type = ATTENDANCE_TYPES[attendance];
-    return type?.icon || "full";
-  };
-
-  const iconColor = getAttendanceColor();
-  const iconType = getAttendanceIcon();
-
-  const StarIcon = ({ color, type }) => {
-    if (type === "half") {
-      return (
-        <svg width="24" height="24" viewBox="0 0 24 24">
-          <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
-                fill={color} stroke={color} strokeWidth="2" clipPath="polygon(0 0, 50% 0, 50% 100%, 0 100%)" />
-        </svg>
-      );
-    }
-    return (
-      <svg width="24" height="24" viewBox="0 0 24 24">
-        <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
-              fill={color} stroke={color} strokeWidth="2" />
-      </svg>
-    );
-  };
-
-  return (
-    <div style={styles.attendanceCell}>
-      <div style={styles.attendanceCellContent}>
-        <button
-          onClick={() => setShowMenu(!showMenu)}
-          disabled={saving}
-          style={styles.attendanceBtn}
-        >
-          <StarIcon color={iconColor} type={iconType} />
-        </button>
-        {showMenu && (
-          <div style={styles.attendanceMenu}>
-            {Object.keys(ATTENDANCE_TYPES).map((key) => (
-              <button
-                key={key}
-                onClick={() => handleAttendanceClick(key)}
-                style={styles.attendanceMenuItem}
-              >
-                {ATTENDANCE_TYPES[key].label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <div style={styles.timeDisplay}>
-        {punchIn ? minutesToDisplay(parseTimeToMinutes(punchIn)) : "–"}
-      </div>
-      <div style={styles.timeDisplay}>
-        {punchOut ? minutesToDisplay(parseTimeToMinutes(punchOut)) : "–"}
-      </div>
-      {saving && <div style={styles.savingIndicator}>💾</div>}
-    </div>
-  );
-}
-
-// Summary Button Component
-function SummaryButton({ employee, selectedMonth, onSummaryClick }) {
-  const handleClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onSummaryClick(employee, selectedMonth);
-  };
-
-  return (
-    <button 
-      onClick={handleClick} 
-      style={styles.summaryBtn}
-      type="button"
-    >
-      📊
-    </button>
-  );
-}
-
-// Main Component
 export default function AttendanceManagement() {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
@@ -173,6 +22,7 @@ export default function AttendanceManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingCells, setSavingCells] = useState({});
+  const [userStatus, setUserStatus] = useState("Active Users");
 
   useEffect(() => {
     fetchAttendance();
@@ -183,19 +33,16 @@ export default function AttendanceManagement() {
     try {
       const [year, month] = selectedMonth.split("-");
       
-      // Fetch employees using centralized API client
       const employeesResponse = await api.get("/users/");
       const employeesList = Array.isArray(employeesResponse.data) ? employeesResponse.data : 
         (employeesResponse.data.results || employeesResponse.data.data || []);
 
-      // Fetch attendance data using centralized API client
       const attendanceResponse = await api.get(`/hr/attendance/?month=${Number(month)}&year=${year}`);
       const attendanceList = Array.isArray(attendanceResponse.data) ? attendanceResponse.data : 
         (attendanceResponse.data.results || attendanceResponse.data.data || []);
 
       const empMap = new Map();
 
-      // Process employees
       employeesList.forEach(emp => {
         empMap.set(emp.id, {
           id: emp.id,
@@ -207,7 +54,6 @@ export default function AttendanceManagement() {
         });
       });
 
-      // Process attendance records
       attendanceList.forEach((record) => {
         const empId = record.user || record.employee_id || record.user_id || record.user?.id || record.employee?.id;
         if (empId && empMap.has(empId)) {
@@ -252,26 +98,23 @@ export default function AttendanceManagement() {
   };
 
   const getDayName = (yearMonth, day) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days[getDayOfWeek(yearMonth, day)];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayIndex = getDayOfWeek(yearMonth, day);
+    return days[dayIndex === 0 ? 6 : dayIndex - 1];
   };
 
   const daysInMonth = getDaysInMonth(selectedMonth);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Handle summary button click
-  const handleSummaryClick = (employee, month) => {
-    console.log("Summary clicked for:", employee.name, month);
-    // Navigate to summary page with employee data
-    navigate('/attendance-summary', { 
-      state: { 
-        employee: employee, 
-        selectedMonth: month 
-      } 
+  const handleSummaryClick = (employee) => {
+    navigate('/attendance-summary', {
+      state: {
+        employee: employee,
+        selectedMonth: selectedMonth
+      }
     });
   };
 
-  // Handle attendance change
   const handleAttendanceChange = async (employeeId, date, type) => {
     const key = `${employeeId}-${date}`;
     setSavingCells(prev => ({...prev, [key]: true}));
@@ -286,28 +129,24 @@ export default function AttendanceManagement() {
       const existingRecord = employee.records[date];
 
       if (type === 'LEAVE') {
-        // Mark as leave using centralized API client
         await api.post('/hr/attendance/mark_leave/', {
           user_id: employeeId,
           date: date,
           admin_note: `Marked as leave by admin on ${new Date().toLocaleString()}`
         });
       } else if (existingRecord && existingRecord.attendanceId) {
-        // Update existing attendance using centralized API client
         const updateData = {
-          status: typeConfig.status,
+          status: typeConfig.status || "full",
           admin_note: `Status changed to ${typeConfig.label} by admin on ${new Date().toLocaleString()}`
         };
         await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, updateData);
 
-        // If marking as verified, call verify endpoint
         if (typeConfig.verified) {
           await api.post(`/hr/attendance/${existingRecord.attendanceId}/verify/`, {
             admin_note: `Verified as ${typeConfig.label} on ${new Date().toLocaleString()}`
           });
         }
       } else {
-        // Create new attendance record using centralized API client
         const createData = {
           user: employeeId,
           date: date,
@@ -316,7 +155,6 @@ export default function AttendanceManagement() {
         };
         const response = await api.post("/hr/attendance/", createData);
 
-        // Verify if needed
         if (typeConfig.verified && response.data.id) {
           await api.post(`/hr/attendance/${response.data.id}/verify/`, {
             admin_note: `Verified as ${typeConfig.label}`,
@@ -324,7 +162,6 @@ export default function AttendanceManagement() {
         }
       }
 
-      // Refresh data
       await fetchAttendance();
     } catch (error) {
       console.error('Failed to save attendance:', error);
@@ -359,7 +196,7 @@ export default function AttendanceManagement() {
       if (bs === "full") return verified ? "VERIFIED" : "FULL_DAY";
       if (bs === "half") return verified ? "VERIFIED_HALF" : "HALF_DAY";
       if (bs === "leave") return "LEAVE";
-      if (bs === "wfh") return verified ? "VERIFIED" : "FULL_DAY";
+      if (bs === "wfh") return verified ? "WFH" : "FULL_DAY";
       return null;
     };
 
@@ -369,24 +206,91 @@ export default function AttendanceManagement() {
     return "NOT_MARKED";
   };
 
-  const renderAttendanceCell = (emp, date) => {
-    const key = `${emp.id}-${date}`;
-    const status = determineStatus(date, emp);
-    const rec = emp.records[date] || {};
-    const punchIn = rec.punch_in;
-    const punchOut = rec.punch_out;
-    const saving = savingCells[key];
+  const formatTime = (timeValue) => {
+    if (!timeValue) return "-";
+
+    try {
+      let date;
+
+      if (typeof timeValue === "string" && timeValue.includes("T")) {
+        date = new Date(timeValue);
+      } else {
+        date = new Date(`2000-01-01T${timeValue}`);
+      }
+
+      return date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch (e) {
+      console.error("Time parse error:", timeValue);
+      return "-";
+    }
+  };
+
+  const AttendanceStar = ({ employee, date, status, saving }) => {
+    const [showMenu, setShowMenu] = useState(false);
+    const [showTooltip, setShowTooltip] = useState(false);
+    const record = employee.records[date];
+    
+    const handleClick = async (type) => {
+      setShowMenu(false);
+      await handleAttendanceChange(employee.id, date, type);
+    };
+
+    const config = ATTENDANCE_TYPES[status] || ATTENDANCE_TYPES.NOT_MARKED;
+
+    const tooltipContent = record ? (
+      <div style={styles.tooltipContent}>
+        <div><strong>Punch In:</strong> {formatTime(record.punch_in)}</div>
+        <div><strong>Punch Out:</strong> {formatTime(record.punch_out)}</div>
+      </div>
+    ) : (
+      <div style={styles.tooltipContent}>
+        <div>No attendance data</div>
+      </div>
+    );
 
     return (
-      <AttendanceCell
-        key={date}
-        attendance={status}
-        date={date}
-        onAttendanceChange={(d, type) => handleAttendanceChange(emp.id, d, type)}
-        punchIn={punchIn}
-        punchOut={punchOut}
-        saving={saving}
-      />
+      <div style={{ position: "relative", display: "inline-block" }}>
+        <button
+          onClick={() => setShowMenu(!showMenu)}
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+          disabled={saving}
+          style={{
+            ...styles.starButton,
+            color: config.color,
+            opacity: saving ? 0.5 : 1,
+          }}
+        >
+          {config.icon}
+        </button>
+        
+        {showTooltip && (
+          <div style={styles.tooltip}>
+            {tooltipContent}
+          </div>
+        )}
+        
+        {showMenu && (
+          <div style={styles.dropdown}>
+            {Object.keys(ATTENDANCE_TYPES).map((key) => (
+              <button
+                key={key}
+                onClick={() => handleClick(key)}
+                style={styles.dropdownItem}
+              >
+                <span style={{ color: ATTENDANCE_TYPES[key].color, marginRight: 8, fontSize: 16 }}>
+                  {ATTENDANCE_TYPES[key].icon}
+                </span>
+                {ATTENDANCE_TYPES[key].label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -399,9 +303,14 @@ export default function AttendanceManagement() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Attendance Management - Admin View</h1>
-        <div style={styles.headerActions}>
+      {/* Header */}
+      <div style={styles.pageHeader}>
+        <h1 style={styles.pageTitle}>Attendance Management</h1>
+      </div>
+
+      {/* Filter Section */}
+      <div style={styles.filterSection}>
+        <div style={styles.filterRow}>
           <div style={styles.filterGroup}>
             <label style={styles.filterLabel}>Select Month</label>
             <input
@@ -411,286 +320,369 @@ export default function AttendanceManagement() {
               style={styles.monthInput}
             />
           </div>
-          <div style={styles.searchContainer}>
+
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Search by Name</label>
             <input
               type="text"
-              placeholder="Search employees..."
+              placeholder="Enter name"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
             />
-            <span style={styles.searchIcon}>🔍</span>
           </div>
-          <button onClick={fetchAttendance} style={styles.refreshButton}>
-            ↻ Refresh
-          </button>
+
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Filter by User Status</label>
+            <select
+              value={userStatus}
+              onChange={(e) => setUserStatus(e.target.value)}
+              style={styles.selectInput}
+            >
+              <option>Active Users</option>
+              <option>Inactive Users</option>
+              <option>All Users</option>
+            </select>
+          </div>
         </div>
       </div>
 
+      {/* Legend */}
       <div style={styles.legendContainer}>
-        {Object.entries(ATTENDANCE_TYPES).map(([key, value]) => {
-          const StarIcon = ({ color, type }) => {
-            if (type === "half") {
-              return (
-                <svg width="16" height="16" viewBox="0 0 24 24">
-                  <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
-                        fill={color} stroke={color} strokeWidth="2" clipPath="polygon(0 0, 50% 0, 50% 100%, 0 100%)" />
-                </svg>
-              );
-            }
-            return (
-              <svg width="16" height="16" viewBox="0 0 24 24">
-                <path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 L12 2 Z" 
-                      fill={color} stroke={color} strokeWidth="2" />
-              </svg>
-            );
-          };
-
-          return (
-            <div key={key} style={styles.legendItem}>
-              <StarIcon color={value.color} type={value.icon} />
-              <span style={styles.legendText}>{value.label}</span>
-            </div>
-          );
-        })}
+        {Object.entries(ATTENDANCE_TYPES).map(([key, value]) => (
+          <div key={key} style={styles.legendItem}>
+            <span style={{ color: value.color, fontSize: 18, marginRight: 6 }}>{value.icon}</span>
+            <span style={styles.legendText}>{value.label}</span>
+          </div>
+        ))}
       </div>
 
+      {/* Table */}
       <div style={styles.tableContainer}>
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.tableHeaderRow}>
-              <th style={{...styles.tableHeader, ...styles.stickyNameColumn}}>NAME</th>
-              <th style={styles.tableHeader}>DUTY START</th>
-              <th style={styles.tableHeader}>DUTY END</th>
-              <th style={styles.tableHeader}>SUMMARY</th>
-              {days.map(day => {
-                const dayName = getDayName(selectedMonth, day);
-                const isSunday = getDayOfWeek(selectedMonth, day) === 0;
-                return (
-                  <th key={day} style={{...styles.tableHeader, ...styles.dayHeader, color: isSunday ? '#ef4444' : '#6b7280'}}>
-                    <div>{day}</div>
-                    <div style={styles.dayName}>{dayName}</div>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={days.length + 4} style={styles.noResults}>
-                  Loading employees and attendance data...
-                </td>
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.tableHeaderRow}>
+                <th style={styles.stickyHeader}>No</th>
+                <th style={styles.stickyHeader}>Name</th>
+                <th style={styles.tableHeader}>Duty Start</th>
+                <th style={styles.tableHeader}>Duty End</th>
+                <th style={styles.tableHeader}>Summary</th>
+                <th colSpan={daysInMonth} style={{...styles.tableHeader, borderRight: 'none', textAlign: 'center'}}>
+                  Days Of Month
+                </th>
               </tr>
-            ) : filteredEmployees.length === 0 ? (
-              <tr>
-                <td colSpan={days.length + 4} style={styles.noResults}>
-                  {searchQuery ? `No employees found for "${searchQuery}"` : "No employees available"}
-                </td>
+              <tr style={styles.tableHeaderRow}>
+                <th style={styles.stickyEmptyHeader}></th>
+                <th style={styles.stickyEmptyHeader}></th>
+                <th style={styles.emptyHeader}></th>
+                <th style={styles.emptyHeader}></th>
+                <th style={styles.emptyHeader}></th>
+                {days.map(day => {
+                  const dayOfWeek = getDayOfWeek(selectedMonth, day);
+                  const isSunday = dayOfWeek === 0;
+                  return (
+                    <th key={day} style={styles.dayHeader}>
+                      <div style={styles.dayNumber}>{day}</div>
+                      <div style={{...styles.dayName, color: isSunday ? '#ef4444' : '#6b7280'}}>
+                        {getDayName(selectedMonth, day)}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
-            ) : (
-              filteredEmployees.map((employee) => (
-                <tr key={employee.id} style={styles.tableRow}>
-                  <td style={{...styles.tableCell, ...styles.stickyNameColumn}}>{employee.name}</td>
-                  <td style={styles.tableCell}>{employee.dutyStart}</td>
-                  <td style={styles.tableCell}>{employee.dutyEnd}</td>
-                  <td style={styles.tableCell}>
-                    <SummaryButton 
-                      employee={employee} 
-                      selectedMonth={selectedMonth}
-                      onSummaryClick={handleSummaryClick}
-                    />
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={days.length + 5} style={styles.noResults}>
+                    Loading attendance data...
                   </td>
-                  {days.map((day) => {
-                    const date = `${selectedMonth}-${String(day).padStart(2, '0')}`;
-                    return (
-                      <td key={day} style={styles.attendanceCell}>
-                        {renderAttendanceCell(employee, date)}
-                      </td>
-                    );
-                  })}
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : filteredEmployees.length === 0 ? (
+                <tr>
+                  <td colSpan={days.length + 5} style={styles.noResults}>
+                    {searchQuery ? `No results for "${searchQuery}"` : "No employees found"}
+                  </td>
+                </tr>
+              ) : (
+                filteredEmployees.map((employee, index) => (
+                  <tr key={employee.id} style={styles.tableRow}>
+                    <td style={styles.stickyCell}>{index + 1}</td>
+                    <td style={{...styles.stickyCell, textAlign: 'left', fontWeight: 500}}>{employee.name}</td>
+                    <td style={styles.tableCell}>{employee.dutyStart}</td>
+                    <td style={styles.tableCell}>{employee.dutyEnd}</td>
+                    <td style={styles.tableCell}>
+                      <button 
+                        onClick={() => handleSummaryClick(employee)}
+                        style={styles.eyeButton}
+                        title="View Detailed Summary"
+                      >
+                        <Eye size={18} color="#3b82f6" />
+                      </button>
+                    </td>
+                    {days.map((day) => {
+                      const date = `${selectedMonth}-${String(day).padStart(2, '0')}`;
+                      const status = determineStatus(date, employee);
+                      const key = `${employee.id}-${date}`;
+                      const saving = savingCells[key];
+                      return (
+                        <td key={day} style={styles.tableCell}>
+                          <AttendanceStar 
+                            employee={employee}
+                            date={date}
+                            status={status}
+                            saving={saving}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
-// Styles
 const styles = {
   container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
+    padding: "20px",
+    backgroundColor: "#ffffff",
     minHeight: "100vh",
+    width: "100%",
   },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+  pageHeader: {
     marginBottom: "24px",
-    flexWrap: "wrap",
-    gap: "16px",
+    borderBottom: "2px solid #e5e7eb",
+    paddingBottom: "12px",
   },
-  headerActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    flexWrap: "wrap",
+  pageTitle: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#000000",
+    margin: 0,
+    textAlign: "center",
+  },
+  filterSection: {
+    backgroundColor: "#ffffff",
+    padding: "20px",
+    marginBottom: "20px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "4px",
+  },
+  filterRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "20px",
+    marginBottom: "20px",
   },
   filterGroup: {
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
   },
   filterLabel: {
-    fontSize: "12px",
+    fontSize: "14px",
     fontWeight: "600",
-    color: "#6b7280",
-    textTransform: "uppercase",
+    color: "#374151",
+    marginBottom: "8px",
   },
   monthInput: {
-    padding: "12px 16px",
+    padding: "10px 12px",
     fontSize: "14px",
-    border: "2px solid #e5e7eb",
-    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
     outline: "none",
-    fontWeight: "500",
-    color: "#374151",
-  },
-  searchContainer: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
+    backgroundColor: "#ffffff",
   },
   searchInput: {
-    padding: "12px 40px 12px 16px",
+    padding: "10px 12px",
     fontSize: "14px",
-    border: "2px solid #e5e7eb",
-    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
     outline: "none",
-    width: "280px",
-    fontWeight: "500",
-    color: "#374151",
+    backgroundColor: "#ffffff",
   },
-  searchIcon: {
-    position: "absolute",
-    right: "14px",
-    fontSize: "18px",
-    pointerEvents: "none",
-    color: "#9ca3af",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
-  refreshButton: {
-    padding: "12px 24px",
+  selectInput: {
+    padding: "10px 12px",
     fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    outline: "none",
+    backgroundColor: "#ffffff",
     cursor: "pointer",
   },
   legendContainer: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "16px",
-    marginBottom: "24px",
+    gap: "24px",
+    alignItems: "center",
+    marginBottom: "20px",
     padding: "16px",
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    backgroundColor: "#ffffff",
+    border: "1px solid #e5e7eb",
+    borderRadius: "4px",
   },
   legendItem: {
     display: "flex",
     alignItems: "center",
-    gap: "6px",
+    fontSize: "14px",
   },
   legendText: {
-    fontSize: "13px",
-    fontWeight: "500",
     color: "#374151",
+    fontWeight: 500,
+  },
+  cancelButtonContainer: {
+    marginBottom: "20px",
+  },
+  cancelButton: {
+    padding: "10px 24px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#000000",
+    backgroundColor: "#fbbf24",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    transition: "all 0.2s",
   },
   tableContainer: {
     backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    overflow: "auto",
-    maxHeight: "calc(100vh - 350px)",
+    border: "1px solid #e5e7eb",
+    borderRadius: "4px",
+    overflow: "visible",
+    marginBottom: "24px",
+  },
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+    overflowY: "visible",
   },
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    position: "relative",
+    tableLayout: "auto",
   },
   tableHeaderRow: {
-    backgroundColor: "#f3f4f6",
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
+    backgroundColor: "#f9fafb",
   },
   tableHeader: {
-    padding: "12px 8px",
-    textAlign: "left",
-    fontSize: "12px",
+    padding: "10px 4px",
+    textAlign: "center",
+    fontSize: "11px",
     fontWeight: "600",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    borderBottom: "2px solid #e5e7eb",
+    color: "#000000",
+    borderBottom: "1px solid #e5e7eb",
+    borderRight: "1px solid #e5e7eb",
     whiteSpace: "nowrap",
+    width: "auto",
+    backgroundColor: "#f9fafb",
+  },
+  stickyHeader: {
+    padding: "10px 4px",
+    textAlign: "center",
+    fontSize: "11px",
+    fontWeight: "600",
+    color: "#000000",
+    borderBottom: "1px solid #e5e7eb",
+    borderRight: "1px solid #e5e7eb",
+    whiteSpace: "nowrap",
+    backgroundColor: "#f9fafb",
+    position: "sticky",
+    left: 0,
+    zIndex: 20,
+  },
+  emptyHeader: {
+    padding: "10px 4px",
+    backgroundColor: "#f9fafb",
+    borderBottom: "1px solid #e5e7eb",
+    borderRight: "1px solid #e5e7eb",
+    width: "auto",
+  },
+  stickyEmptyHeader: {
+    padding: "10px 4px",
+    backgroundColor: "#f9fafb",
+    borderBottom: "1px solid #e5e7eb",
+    borderRight: "1px solid #e5e7eb",
+    position: "sticky",
+    left: 0,
+    zIndex: 20,
   },
   dayHeader: {
+    padding: "8px 2px",
     textAlign: "center",
-    minWidth: "50px",
+    fontSize: "11px",
+    fontWeight: "600",
+    color: "#6b7280",
+    borderBottom: "1px solid #e5e7eb",
+    borderRight: "1px solid #e5e7eb",
+    width: "2.5%",
+    backgroundColor: "#f9fafb",
+  },
+  dayNumber: {
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#374151",
   },
   dayName: {
     fontSize: "10px",
     fontWeight: "500",
     marginTop: "2px",
   },
-  stickyNameColumn: {
-    position: "sticky",
-    left: "5px",
-    backgroundColor: "white",
-    zIndex: 5,
-    width: "200px",
-  },
   tableRow: {
     borderBottom: "1px solid #e5e7eb",
+    transition: "background-color 0.2s",
   },
   tableCell: {
-    padding: "12px 8px",
-    fontSize: "14px",
+    padding: "8px 2px",
+    fontSize: "12px",
     color: "#374151",
-    whiteSpace: "nowrap",
-  },
-  attendanceCell: {
-    padding: "8px",
     textAlign: "center",
+    borderRight: "1px solid #e5e7eb",
+    whiteSpace: "nowrap",
+    overflow: "visible",
     position: "relative",
-    minWidth: "50px",
   },
-  attendanceCellContent: {
+  stickyCell: {
+    padding: "10px 6px",
+    fontSize: "13px",
+    color: "#374151",
+    textAlign: "center",
+    borderRight: "1px solid #e5e7eb",
+    whiteSpace: "nowrap",
+    backgroundColor: "#ffffff",
+    position: "sticky",
+    left: 0,
+    zIndex: 10,
+  },
+  starButton: {
+    background: "none",
+    border: "none",
+    fontSize: "18px",
+    cursor: "pointer",
+    padding: "0px",
     position: "relative",
     display: "flex",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
-  attendanceBtn: {
-    fontSize: "20px",
-    border: "none",
+  eyeButton: {
     background: "none",
+    border: "none",
     cursor: "pointer",
     padding: "4px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "transform 0.2s",
+    margin: "0 auto",
   },
-  attendanceMenu: {
+  dropdown: {
     position: "absolute",
     top: "100%",
     left: "50%",
@@ -698,14 +690,15 @@ const styles = {
     backgroundColor: "white",
     border: "1px solid #e5e7eb",
     borderRadius: "8px",
-    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
     padding: "8px",
-    zIndex: 1000,
+    zIndex: 9999,
     minWidth: "180px",
     marginTop: "4px",
   },
-  attendanceMenuItem: {
-    display: "block",
+  dropdownItem: {
+    display: "flex",
+    alignItems: "center",
     width: "100%",
     padding: "8px 12px",
     fontSize: "13px",
@@ -714,15 +707,29 @@ const styles = {
     background: "none",
     cursor: "pointer",
     textAlign: "left",
-    borderRadius: "6px",
+    borderRadius: "4px",
+    transition: "background-color 0.2s",
   },
-  summaryBtn: {
-    fontSize: "20px",
-    border: "none",
-    background: "none",
-    cursor: "pointer",
-    padding: "4px",
-    transition: "transform 0.2s",
+  tooltip: {
+    position: "absolute",
+    bottom: "100%",
+    left: "50%",
+    transform: "translateX(-50%)",
+    backgroundColor: "#1f2937",
+    color: "white",
+    padding: "8px 12px",
+    borderRadius: "6px",
+    fontSize: "12px",
+    fontWeight: "500",
+    zIndex: 9999,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+    minWidth: "160px",
+    pointerEvents: "none",
+    whiteSpace: "nowrap",
+    marginBottom: "8px",
+  },
+  tooltipContent: {
+    lineHeight: "1.5",
   },
   noResults: {
     padding: "40px",
@@ -731,15 +738,4 @@ const styles = {
     fontSize: "16px",
     fontWeight: "500",
   },
-  savingIndicator: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    fontSize: "10px",
-  },
-  timeDisplay: {
-    fontSize: "11px",
-    color: "#6b7280",
-    marginTop: "2px",
-  }
 };

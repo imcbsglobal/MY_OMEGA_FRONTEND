@@ -8,7 +8,8 @@ export default function LeaveList() {
   const loadLeave = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/hr/leave-requests/?month=11&year=2025");
+      const res = await api.get("/hr/leave-requests/")
+
       setLeaveData(res.data);
     } catch (err) {
       console.error(err);

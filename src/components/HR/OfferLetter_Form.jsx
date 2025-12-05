@@ -9,44 +9,59 @@ export default function OfferLetterForm() {
 
   const [formData, setFormData] = useState({
     candidate: "",
-    position: "",
+    job_title: "",
     department: "",
-    joining_data: "",
+    joining_date: "",
     salary: "",
     work_start_time: "09:30",
     work_end_time: "17:30",
     notice_period: "",
     body: "Dear Candidate,",
-    terms_condition: "",
+    terms_condition: "As per company policy",
     subject: "Job Offer Letter",
   });
 
   const [candidateList, setCandidateList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Fetch selected candidates
   const fetchCandidates = async () => {
     try {
+      setLoading(true);
       const res = await api.get("/offer-letter/selected-candidates/");
       setCandidateList(res.data.data);
     } catch (err) {
       console.error("Error fetching selected candidates", err);
+      setError("Failed to load candidates");
+    } finally {
+      setLoading(false);
     }
   };
 
   // Fetch candidate CV details
   const fetchCandidateDetails = async (candidateId) => {
+    if (!candidateId) return;
+
     try {
-      const res = await api.get(`/cv-management/${candidateId}/`);
+      setLoading(true);
+      const res = await api.get(`/cv-management/cvs/${candidateId}/`);
 
       setFormData((prev) => ({
         ...prev,
         candidate: candidateId,
-        position: res.data.job_title || "",
-        department: res.data.department || "",
-        salary: res.data.expected_salary || "",
+        job_title: res.data.data.job_title || "",
+        department: res.data.data.department || "",
+        salary: res.data.data.expected_salary || "",
+         notice_period: "30",
       }));
+
+      setError("");
     } catch (err) {
       console.error("Error fetching candidate details", err);
+      setError("Failed to load candidate details");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,44 +76,83 @@ export default function OfferLetterForm() {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleCandidateChange = (e) => {
+    const candidateId = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      candidate: candidateId,
+    }));
 
-    if (!formData.candidate) {
-      alert("Please select a candidate");
-      return;
-    }
-
-    // Auto-fix time format (backend needs HH:MM:SS)
-    const dataToSend = {
-      ...formData,
-      work_start_time: formData.work_start_time + ":00",
-      work_end_time: formData.work_end_time + ":00",
-    };
-
-    try {
-      if (isEdit) {
-        await api.put(`/offer-letter/${id}/`, dataToSend);
-        alert("Offer letter updated successfully");
-      } else {
-        await api.post("/offer-letter/", dataToSend);
-        alert("Offer letter created successfully");
-      }
-
-      navigate("/offer-letter");
-    } catch (error) {
-      console.error("Submit error:", error?.response?.data);
-      alert("Something went wrong");
+    if (candidateId) {
+      fetchCandidateDetails(candidateId);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        job_title: "noo",
+        department: "",
+        salary: ""
+      }));
     }
   };
+
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!formData.candidate) {
+    alert("Please select a candidate");
+    return;
+  }
+
+ const dataToSend = {
+  candidate: formData.candidate,            // ✅ UUID is correct
+  position: formData.job_title,             // ✅ FIXED (job_title -> position)
+  department: formData.department,
+  salary: Number(formData.salary),
+  joining_data: formData.joining_date,      // ✅ FIXED (joining_date -> joining_data)
+  work_start_time: formData.work_start_time,
+  work_end_time: formData.work_end_time,
+  notice_period: parseInt(formData.notice_period, 10) || 30,
+  subject: formData.subject,
+  body: formData.body,
+  terms_condition: formData.terms_condition || "As per company policy",
+};
+
+
+  console.log("Submitting FIXED data:", dataToSend);
+
+  try {
+    if (isEdit) {
+      await api.put(`/offer-letter/${id}/`, dataToSend);
+      alert("Offer letter updated successfully");
+    } else {
+      await api.post("/offer-letter/", dataToSend);
+      alert("Offer letter created successfully");
+    }
+
+    navigate("/offer-letter");
+  } catch (error) {
+    console.error("Submit error details:", error?.response?.data);
+    alert(
+      error.response?.data?.message ||
+      JSON.stringify(error.response?.data) ||
+      "Offer Letter API Error"
+    );
+  }
+};
 
   return (
     <div style={styles.pageContainer}>
       <div style={styles.card}>
         <h2 style={styles.title}>{isEdit ? "Edit Offer Letter" : "Add Offer Letter"}</h2>
 
+        {error && (
+          <div style={styles.errorBox}>
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} style={styles.form}>
-          
+
           {/* Candidate */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Select Candidate:</label>
@@ -106,17 +160,14 @@ export default function OfferLetterForm() {
               style={styles.input}
               name="candidate"
               value={formData.candidate}
-              onChange={(e) => {
-                handleChange(e);
-                fetchCandidateDetails(e.target.value);
-              }}
+              onChange={handleCandidateChange}
               required
+              disabled={loading}
             >
               <option value="">-- Select Candidate --</option>
-
               {candidateList.map((item) => (
                 <option key={item.candidate_id} value={item.candidate_id}>
-                  {item.name} — {item.job_title_name}
+                  {item.name}
                 </option>
               ))}
             </select>
@@ -124,14 +175,17 @@ export default function OfferLetterForm() {
 
           {/* Position */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Position:</label>
+            <label style={styles.label}>  job_title:</label>
             <input
               style={styles.input}
-              name="position"
-              value={formData.position}
+              name="job_title"
+              value={formData.job_title}
               onChange={handleChange}
               required
+              placeholder="e.g., Software Developer"
             />
+
+
           </div>
 
           {/* Department */}
@@ -143,6 +197,7 @@ export default function OfferLetterForm() {
               value={formData.department}
               onChange={handleChange}
               required
+              placeholder="e.g., Engineering"
             />
           </div>
 
@@ -152,11 +207,10 @@ export default function OfferLetterForm() {
             <input
               type="date"
               style={styles.input}
-              name="joining_data"
-              value={formData.joining_data}
+              name="joining_date"
+              value={formData.joining_date}
               onChange={handleChange}
               required
-              pattern="\d{4}-\d{2}-\d{2}"
             />
           </div>
 
@@ -164,11 +218,14 @@ export default function OfferLetterForm() {
           <div style={styles.formGroup}>
             <label style={styles.label}>Salary:</label>
             <input
+              type="number"
               style={styles.input}
               name="salary"
               value={formData.salary}
               onChange={handleChange}
               required
+              placeholder="e.g., 100000"
+              min="0"
             />
           </div>
 
@@ -201,15 +258,22 @@ export default function OfferLetterForm() {
           <div style={styles.formGroup}>
             <label style={styles.label}>Notice Period (days):</label>
             <input
+              type="number"
               style={styles.input}
               name="notice_period"
               value={formData.notice_period}
               onChange={handleChange}
+              placeholder="e.g., 30"
+              min="0"
             />
           </div>
 
-          <button type="submit" style={styles.saveBtn}>
-            Save
+          <button
+            type="submit"
+            style={styles.saveBtn}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Save"}
           </button>
         </form>
       </div>
@@ -217,7 +281,6 @@ export default function OfferLetterForm() {
   );
 }
 
-/* Styles — unchanged */
 const styles = {
   pageContainer: { padding: "30px", background: "#f3f4f6", minHeight: "100vh" },
   card: {
@@ -234,6 +297,14 @@ const styles = {
     fontSize: "26px",
     fontWeight: "700",
     color: "#333",
+  },
+  errorBox: {
+    backgroundColor: "#fee",
+    border: "1px solid #f99",
+    borderRadius: "8px",
+    padding: "10px",
+    marginBottom: "20px",
+    color: "#c00",
   },
   form: { display: "flex", flexDirection: "column", gap: "18px" },
   formGroup: { display: "flex", flexDirection: "column", gap: "6px" },

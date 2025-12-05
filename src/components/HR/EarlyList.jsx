@@ -8,7 +8,8 @@ export default function EarlyList() {
   const loadEarly = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/hr/early-requests/?month=11&year=2025");
+      const res = await api.get("/hr/early-requests/");
+
       setData(res.data);
     } catch (err) {
       alert("Failed loading early list");

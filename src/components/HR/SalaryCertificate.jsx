@@ -10,6 +10,10 @@ function CertificateModal({ certificate, onClose }) {
     window.print();
   };
 
+  const handleDownload = () => {
+    alert("Download functionality will be implemented with backend integration");
+  };
+
   const numberToWords = (num) => {
     const amount = parseFloat(num);
 
@@ -28,71 +32,75 @@ function CertificateModal({ certificate, onClose }) {
   return (
     <div style={modalStyles.overlay} onClick={onClose}>
       <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
-        <button style={modalStyles.closeBtn} onClick={onClose}>✕</button>
+        <div style={modalStyles.modalHeader} className="no-print">
+          <h2 style={modalStyles.modalTitle}>Salary Certificate</h2>
+          <button style={modalStyles.closeBtn} onClick={onClose}>✕</button>
+        </div>
 
         <div style={modalStyles.certificateContainer}>
-          <div style={modalStyles.certificate}>
-            <div style={modalStyles.header}>
-              <h1 style={modalStyles.companyName}>ABC COMPANY</h1>
-              <p style={modalStyles.tagline}>Excellence in Service</p>
-            </div>
-
-            <div style={modalStyles.divider}></div>
-
-            <h2 style={modalStyles.certificateTitle}>SALARY CERTIFICATE</h2>
-
-            <div style={modalStyles.content}>
-              <p style={modalStyles.date}>
-                <strong>Date:</strong> {certificate.issued_date}
-              </p>
-
-              <p style={modalStyles.toWhom}>To Whom It May Concern,</p>
-
-              <p style={modalStyles.paragraph}>
-                This is to certify that{" "}
-                <strong>{certificate.emp_name}</strong> is working with our
-                organization as{" "}
-                <strong>{certificate.emp_designation}</strong> since{" "}
-                <strong>{certificate.emp_joining_date}</strong>.
-              </p>
-
-              <p style={modalStyles.paragraph}>
-                The current monthly salary of{" "}
-                <strong>{certificate.emp_name}</strong> is{" "}
-                <strong>₹{certificate.salary}</strong> (Rupees{" "}
-                {numberToWords(certificate.salary)} only).
-              </p>
-
-              <p style={modalStyles.paragraph}>
-                This certificate is issued upon the employee's request for
-                official purposes.
-              </p>
-
-              <div style={modalStyles.employeeDetails}>
-                <h3 style={modalStyles.detailsTitle}>Employee Details:</h3>
-                <p><strong>Name:</strong> {certificate.emp_name}</p>
-                <p><strong>Email:</strong> {certificate.emp_email}</p>
-                <p><strong>Designation:</strong> {certificate.emp_designation}</p>
-                <p><strong>Date of Joining:</strong> {certificate.emp_joining_date}</p>
-              </div>
-
-              <div style={modalStyles.footer}>
-                <p style={modalStyles.regards}>Best Regards,</p>
-                <div style={modalStyles.signature}>
-                  <div style={modalStyles.signatureLine}></div>
-                  <p style={modalStyles.signatureName}>{certificate.generated_by_name}</p>
-                  <p style={modalStyles.signatureTitle}>HR Manager</p>
-                  <p style={modalStyles.signatureCompany}>ABC Company</p>
+          <div style={modalStyles.certificateBorder}>
+            {/* Header with Centered Logo */}
+            <div style={modalStyles.certificateHeader}>
+              <div style={modalStyles.logoSection}>
+                <img 
+                  src="/assets/omega-logo.png" 
+                  alt="Omega Logo" 
+                  style={modalStyles.headerLogo}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div style={{...modalStyles.logoFallback, display: 'none'}}>
+                  <span style={modalStyles.omegaFallbackText}>OMEGA</span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div style={modalStyles.actions}>
-          <button style={modalStyles.printBtn} onClick={handlePrint}>
-            🖨️ Print Certificate
-          </button>
+            {/* Certificate Title */}
+            <div style={modalStyles.titleSection}>
+              <h1 style={modalStyles.certificateTitle}>Salary Certificate</h1>
+              <div style={modalStyles.titleUnderline}></div>
+            </div>
+
+            {/* Date and Subtitle */}
+            <div style={modalStyles.metaSection}>
+              <p style={modalStyles.subtitle}>[Type the document subtitle]</p>
+              <p style={modalStyles.dateText}>[Pick the date]</p>
+            </div>
+
+            {/* Certificate Body */}
+            <div style={modalStyles.certificateBody}>
+              <p style={modalStyles.bodyText}>
+                This is to certify that <strong style={modalStyles.highlight}>Mr./Miss/Mrs. {certificate.emp_name || "[Name of Employee]"}</strong> (Employee #) is working with our esteem organization/company under the title of <strong style={modalStyles.highlight}>{certificate.emp_designation || "[Title of employee]"}</strong> since <strong style={modalStyles.highlight}>{certificate.emp_joining_date || "[Date of inception of job]"}</strong>. We found this gentleman fully committed to his/her job and totally sincere toward this organization/company.
+              </p>
+
+              <p style={modalStyles.bodyText}>
+                The current monthly salary of <strong style={modalStyles.highlight}>{certificate.emp_name || "[Employee Name]"}</strong> is <strong style={modalStyles.highlight}>₹{certificate.salary || "[Amount]"}</strong> (Rupees {numberToWords(certificate.salary)} only).
+              </p>
+
+              <p style={modalStyles.bodyText}>
+                We are issuing this letter on the specific request of our employee without accepting any liability on behalf of this letter or part of this letter on our organization/company.
+              </p>
+            </div>
+
+            {/* Signature Section */}
+            <div style={modalStyles.signatureSection}>
+              <p style={modalStyles.signatureLabel}>Name: {certificate.generated_by_name || "[Authorized Person Name]"}</p>
+              <p style={modalStyles.signatureLabel}>Title: [Designation]</p>
+              <p style={modalStyles.signatureLabel}>Signature: _______________</p>
+            </div>
+          </div>
+
+          {/* Bottom Action Buttons */}
+          <div style={modalStyles.bottomActions} className="no-print">
+            <button onClick={handlePrint} style={modalStyles.bottomPrintButton}>
+              🖨️ Print Certificate
+            </button>
+            {/* <button onClick={handleDownload} style={modalStyles.bottomDownloadButton}>
+              ⬇️ Download PDF
+            </button> */}
+          </div>
         </div>
       </div>
     </div>
@@ -132,8 +140,7 @@ export default function SalaryCertificate() {
     }
   };
 
-  const handleEdit = (id) =>
-    navigate(`/salary-certificate/edit/${id}`);
+  const handleEdit = (id) => navigate(`/salary-certificate/edit/${id}`);
 
   const handleViewCertificate = (certificate) => {
     setSelectedCertificate(certificate);
@@ -305,7 +312,7 @@ export default function SalaryCertificate() {
 }
 
 /* ------------------------------------------- */
-/*  SAME STYLES — UNCHANGED */
+/*  TABLE STYLES */
 /* ------------------------------------------- */
 
 const S = {
@@ -413,9 +420,9 @@ const S = {
     padding: "6px 12px",
     fontSize: "13px",
     fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "#eff6ff",
-    border: "1px solid #bfdbfe",
+    color: "#7c3aed",
+    backgroundColor: "#ede9fe",
+    border: "1px solid #ddd6fe",
     borderRadius: "6px",
     cursor: "pointer",
   },
@@ -423,17 +430,6 @@ const S = {
   actionButtons: {
     display: "flex",
     gap: "6px",
-  },
-
-  viewBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#059669",
-    backgroundColor: "#d1fae5",
-    border: "1px solid #a7f3d0",
-    borderRadius: "6px",
-    cursor: "pointer",
   },
 
   editBtn: {
@@ -527,7 +523,7 @@ const S = {
 };
 
 /* ------------------------------------------- */
-/*  MODAL STYLES (unchanged) */
+/*  MODAL STYLES */
 /* ------------------------------------------- */
 
 const modalStyles = {
@@ -537,160 +533,214 @@ const modalStyles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 1000,
+    zIndex: 10000,
     padding: "20px",
   },
 
   modal: {
     backgroundColor: "white",
-    borderRadius: "12px",
-    maxWidth: "900px",
-    width: "100%",
-    maxHeight: "90vh",
+    borderRadius: "16px",
+    width: "95%",
+    maxWidth: "800px",
+    maxHeight: "95vh",
     overflow: "auto",
-    position: "relative",
-    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
   },
 
-  closeBtn: {
-    position: "absolute",
-    top: "16px",
-    right: "16px",
-    background: "#fee2e2",
-    color: "#dc2626",
-    border: "none",
-    borderRadius: "50%",
-    width: "32px",
-    height: "32px",
-    fontSize: "20px",
-    cursor: "pointer",
+  modalHeader: {
     display: "flex",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    padding: "20px 30px",
+    borderBottom: "2px solid #e5e7eb",
+    position: "sticky",
+    top: 0,
+    backgroundColor: "white",
     zIndex: 10,
   },
 
-  certificateContainer: {
-    padding: "40px",
+  modalTitle: {
+    fontSize: "22px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
   },
 
-  certificate: {
-    border: "3px solid #3b82f6",
+  closeBtn: {
+    fontSize: "28px",
+    fontWeight: "300",
+    color: "#6b7280",
+    backgroundColor: "transparent",
+    border: "none",
+    cursor: "pointer",
+    padding: "0",
+    width: "36px",
+    height: "36px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: "8px",
-    padding: "40px",
+    transition: "all 0.2s",
+  },
+
+  certificateContainer: {
+    padding: "50px 40px",
     backgroundColor: "#ffffff",
   },
 
-  header: {
-    textAlign: "center",
-    marginBottom: "20px",
+  certificateBorder: {
+    maxWidth: "750px",
+    margin: "0 auto",
+    padding: "60px 80px",
+    backgroundColor: "#ffffff",
   },
 
-  companyName: {
-    fontSize: "36px",
+  certificateHeader: {
+    marginBottom: "40px",
+  },
+
+  logoSection: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: "30px",
+  },
+
+  headerLogo: {
+    width: "180px",
+    height: "auto",
+    maxHeight: "100px",
+    objectFit: "contain",
+  },
+
+  logoFallback: {
+    width: "180px",
+    height: "100px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f3f4f6",
+    border: "2px solid #d1d5db",
+    borderRadius: "8px",
+  },
+
+  omegaFallbackText: {
+    fontSize: "32px",
     fontWeight: "700",
-    color: "#1e3a8a",
-    letterSpacing: "2px",
-    marginBottom: "8px",
-  },
-
-  tagline: {
-    fontSize: "14px",
-    color: "#64748b",
+    color: "#dc2626",
     fontStyle: "italic",
-    marginBottom: "8px",
   },
 
-  divider: {
-    height: "3px",
-    backgroundColor: "#3b82f6",
-    marginBottom: "20px",
+  titleSection: {
+    textAlign: "center",
+    marginBottom: "30px",
   },
 
   certificateTitle: {
-    fontSize: "28px",
+    fontSize: "24px",
     fontWeight: "700",
-    color: "#1e3a8a",
+    color: "#000000",
+    margin: "0 0 10px 0",
+    letterSpacing: "1px",
+  },
+
+  titleUnderline: {
+    width: "80px",
+    height: "2px",
+    backgroundColor: "#d1d5db",
+    margin: "0 auto",
+  },
+
+  metaSection: {
+    marginBottom: "40px",
+  },
+
+  subtitle: {
+    fontSize: "13px",
+    color: "#6b7280",
+    marginBottom: "8px",
+    fontWeight: "400",
+  },
+
+  dateText: {
+    fontSize: "13px",
+    color: "#6b7280",
     marginBottom: "20px",
-    textAlign: "center",
+    fontWeight: "400",
   },
 
-  content: {
-    lineHeight: "1.8",
-    color: "#374151",
-  },
-
-  date: {
-    marginBottom: "20px",
-  },
-
-  toWhom: {
-    fontWeight: "600",
-    marginBottom: "20px",
-  },
-
-  paragraph: {
-    marginBottom: "16px",
-  },
-
-  employeeDetails: {
-    backgroundColor: "#f3f4f6",
-    padding: "20px",
-    borderRadius: "8px",
-    marginTop: "30px",
-  },
-
-  detailsTitle: {
-    fontWeight: "600",
-    marginBottom: "12px",
-  },
-
-  footer: {
-    marginTop: "40px",
-  },
-
-  regards: {
+  certificateBody: {
     marginBottom: "60px",
   },
 
-  signature: {
-    textAlign: "left",
+  bodyText: {
+    fontSize: "15px",
+    lineHeight: "2",
+    color: "#1f2937",
+    marginBottom: "20px",
+    textAlign: "justify",
+    fontWeight: "400",
   },
 
-  signatureLine: {
-    width: "200px",
-    height: "2px",
-    backgroundColor: "#374151",
-    marginBottom: "8px",
-  },
-
-  signatureName: {
+  highlight: {
+    color: "#000000",
     fontWeight: "600",
   },
 
-  signatureTitle: {
-    color: "#64748b",
+  signatureSection: {
+    marginTop: "60px",
   },
 
-  signatureCompany: {
-    color: "#64748b",
+  signatureLabel: {
+    fontSize: "15px",
+    color: "#1f2937",
+    margin: "8px 0",
+    fontWeight: "400",
   },
 
-  actions: {
-    padding: "20px",
-    textAlign: "center",
+  bottomActions: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "20px",
+    marginTop: "40px",
+    paddingTop: "30px",
+    borderTop: "2px solid #e5e7eb",
   },
 
-  printBtn: {
-    padding: "12px 24px",
-    backgroundColor: "#3b82f6",
+  bottomPrintButton: {
+    padding: "14px 32px",
+    fontSize: "15px",
+    fontWeight: "600",
     color: "white",
+    backgroundColor: "#059669",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "10px",
     cursor: "pointer",
+    transition: "all 0.3s",
+    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+
+  bottomDownloadButton: {
+    padding: "14px 32px",
+    fontSize: "15px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "10px",
+    cursor: "pointer",
+    transition: "all 0.3s",
+    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
 };

@@ -64,7 +64,6 @@ export default function ExperienceCertificateList() {
     }
   };
 
-  // FIXED: Using emp_designation instead of emp_job_title
   const filteredCertificates = certificates.filter(certificate => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase().trim();
@@ -132,7 +131,6 @@ export default function ExperienceCertificateList() {
               <th style={styles.tableHeader}>SL NO</th>
               <th style={styles.tableHeader}>NAME</th>
               <th style={styles.tableHeader}>EMAIL</th>
-              {/* <th style={styles.tableHeader}>ADDRESS</th> */}
               <th style={styles.tableHeader}>JOB TITLE</th>
               <th style={styles.tableHeader}>JOINING DATE</th>
               <th style={styles.tableHeader}>ISSUE DATE</th>
@@ -153,15 +151,10 @@ export default function ExperienceCertificateList() {
                   <td style={styles.tableCell}>{startIndex + index + 1}</td>
                   <td style={styles.tableCell}>{certificate.emp_name}</td>
                   <td style={styles.tableCell}>{certificate.emp_email || "N/A"}</td>
-                  {/* <td style={styles.tableCell}>{certificate.emp_address || "N/A"}</td> */}
-
-                  {/* FIXED: using emp_designation */}
                   <td style={styles.tableCell}>{certificate.emp_designation}</td>
-
                   <td style={styles.tableCell}>{certificate.joining_date || "N/A"}</td>
                   <td style={styles.tableCell}>{certificate.issue_date || "N/A"}</td>
                   <td style={styles.tableCell}>{certificate.generated_by_name || "N/A"}</td>
-
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
                       <button onClick={() => handleGenerateClick(certificate)} style={styles.generateBtn}>Generate</button>
@@ -233,12 +226,12 @@ export default function ExperienceCertificateList() {
             <div style={styles.modalHeader} className="no-print">
               <h2 style={styles.modalTitle}>Experience Certificate</h2>
               <div style={styles.modalActions}>
-                <button onClick={handlePrint} style={styles.printButton}>
-                  🖨️ Print
-                </button>
-                <button onClick={handleDownload} style={styles.downloadButton}>
-                  ⬇️ Download
-                </button>
+                  {/* <button onClick={handlePrint} style={styles.printButton}>
+                    🖨️ Print
+                  </button>
+                  <button onClick={handleDownload} style={styles.downloadButton}>
+                    ⬇️ Download
+                  </button> */}
                 <button onClick={handleCloseGenerate} style={styles.closeButton}>
                   ✕
                 </button>
@@ -247,75 +240,95 @@ export default function ExperienceCertificateList() {
 
             <div style={styles.certificateContainer}>
               <div style={styles.certificateBorder}>
+                {/* Header with Centered Logo */}
                 <div style={styles.certificateHeader}>
-                  <div style={styles.companyLogo}>
-                    <div style={styles.logoPlaceholder}>COMPANY LOGO</div>
-                  </div>
-                  <h1 style={styles.companyName}>Your Company Name</h1>
-                  <p style={styles.companyAddress}>
-                    Company Address Line 1, City, State - Postal Code<br />
-                    Phone: +91 XXX XXX XXXX | Email: info@company.com
-                  </p>
-                </div>
-
-                <div style={styles.certificateTitle}>
-                  <h2 style={styles.titleText}>EXPERIENCE CERTIFICATE</h2>
-                  <div style={styles.titleUnderline}></div>
-                </div>
-
-                <div style={styles.certificateBody}>
-                  <p style={styles.refNumber}>Ref No: EXP/{new Date().getFullYear()}/{selectedCertificate.id}</p>
-                  <p style={styles.date}>Date: {selectedCertificate.issue_date || new Date().toLocaleDateString('en-GB')}</p>
-
-                  <div style={styles.toWhom}>
-                    <p style={styles.toWhomTitle}>TO WHOM IT MAY CONCERN</p>
-                  </div>
-
-                  <div style={styles.content}>
-                    <p style={styles.paragraph}>
-                      This is to certify that <strong style={styles.highlight}>{selectedCertificate.emp_name}</strong>, 
-                      residing at <strong style={styles.highlight}>{selectedCertificate.emp_address || "Address"}</strong>, 
-                      
-                      {/* FIXED: using designation */}
-                      was employed with our organization as <strong style={styles.highlight}>{selectedCertificate.emp_designation}</strong>.
-                    </p>
-
-                    <p style={styles.paragraph}>
-                      {selectedCertificate.emp_name} joined our organization on{" "}
-                      <strong style={styles.highlight}>
-                        {selectedCertificate.joining_date ? new Date(selectedCertificate.joining_date).toLocaleDateString('en-GB') : "DD/MM/YYYY"}
-                      </strong>
-                      {" "}and worked with us until{" "}
-                      <strong style={styles.highlight}>
-                        {selectedCertificate.end_date ? new Date(selectedCertificate.end_date).toLocaleDateString('en-GB') : "DD/MM/YYYY"}
-                      </strong>.
-                    </p>
-
-                    <p style={styles.paragraph}>
-                      During the tenure with our organization, {selectedCertificate.emp_name} has shown dedication, 
-                      professionalism, and commitment to work.
-                    </p>
-
-                    <p style={styles.paragraph}>
-                      We wish {selectedCertificate.emp_name.split(' ')[0]} all the best for future endeavors.
-                    </p>
-                  </div>
-
-                  <div style={styles.signature}>
-                    <div style={styles.signatureBlock}>
-                      <div style={styles.signatureLine}></div>
-                      <p style={styles.signatureName}>Authorized Signatory</p>
-                      <p style={styles.signatureTitle}>HR Manager</p>
-                      <p style={styles.companyStamp}>[Company Stamp]</p>
+                  <div style={styles.logoSection}>
+                    <img 
+                      src="/assets/omega-logo.png" 
+                      alt="Omega Logo" 
+                      style={styles.headerLogo}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                    <div style={{...styles.logoFallback, display: 'none'}}>
+                      <span style={styles.omegaFallbackText}>OMEGA</span>
                     </div>
                   </div>
                 </div>
 
-                <div style={styles.certificateFooter}>
-                  <p style={styles.footerText}>
-                    This is a computer-generated certificate and does not require a physical signature.
+                {/* Certificate Title */}
+                <div style={styles.titleSection}>
+                  <h1 style={styles.certificateTitle}>Experience Certificate</h1>
+                  <div style={styles.titleUnderline}></div>
+                </div>
+
+                {/* Certificate Body */}
+                <div style={styles.certificateBody}>
+                  <p style={styles.bodyText}>
+                    This is to certify that <strong style={styles.highlight}>{selectedCertificate.emp_name || "Mr./Ms. [Employee Name]"}</strong> has been employed by <strong style={styles.highlight}>OMEGA</strong> as <strong style={styles.highlight}>{selectedCertificate.emp_designation || "[Designation]"}</strong> in <strong style={styles.highlight}>[Department]</strong> during the period of{' '}
+                    <strong style={styles.highlight}>
+                      {selectedCertificate.joining_date 
+                        ? new Date(selectedCertificate.joining_date).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })
+                        : "[Start Date]"
+                      }
+                    </strong> to{' '}
+                    <strong style={styles.highlight}>
+                      {selectedCertificate.end_date 
+                        ? new Date(selectedCertificate.end_date).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })
+                        : "[End Date]"
+                      }
+                    </strong>.
+                  </p>
+
+                  <p style={styles.bodyText}>
+                    His skills and qualifications proved successful with regards to task assigned to him.
+                  </p>
+
+                  <p style={styles.bodyText}>
+                    This certificate was issued to him upon his own request to be submitted to whom it may concern without any liabilities towards others.
                   </p>
                 </div>
+
+                {/* Signature Section */}
+                <div style={styles.signatureSection}>
+                  <p style={styles.dateText}>
+                    Date: {selectedCertificate.issue_date 
+                      ? new Date(selectedCertificate.issue_date).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'numeric',
+                          year: 'numeric'
+                        })
+                      : new Date().toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'numeric',
+                          year: 'numeric'
+                        })
+                    }
+                  </p>
+                  <p style={styles.signatureLabel}>Name: [Authorized Person Name]</p>
+                  <p style={styles.signatureLabel}>Title: Managing Director</p>
+                  <p style={styles.signatureLabel}>Signature: _______________</p>
+                </div>
+              </div>
+
+              {/* Bottom Action Buttons */}
+              <div style={styles.bottomActions} className="no-print">
+                <button onClick={handlePrint} style={styles.bottomPrintButton}>
+                  🖨️ Print Certificate
+                </button>
+                {/* <button onClick={handleDownload} style={styles.bottomDownloadButton}>
+                  ⬇️ Download PDF
+                </button> */}
               </div>
             </div>
           </div>
@@ -531,7 +544,7 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -540,26 +553,26 @@ const styles = {
   },
   generateModal: {
     backgroundColor: "white",
-    borderRadius: "12px",
+    borderRadius: "16px",
     width: "95%",
-    maxWidth: "1000px",
+    maxWidth: "800px",
     maxHeight: "95vh",
     overflow: "auto",
-    boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
   },
   modalHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "20px 24px",
-    borderBottom: "1px solid #e5e7eb",
+    padding: "20px 30px",
+    borderBottom: "2px solid #e5e7eb",
     position: "sticky",
     top: 0,
     backgroundColor: "white",
     zIndex: 10,
   },
   modalTitle: {
-    fontSize: "20px",
+    fontSize: "22px",
     fontWeight: "700",
     color: "#111827",
     margin: 0,
@@ -570,192 +583,170 @@ const styles = {
     alignItems: "center",
   },
   printButton: {
-    padding: "8px 16px",
-    fontSize: "13px",
+    padding: "10px 20px",
+    fontSize: "14px",
     fontWeight: "600",
     color: "white",
     backgroundColor: "#059669",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     transition: "all 0.2s",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
   },
   downloadButton: {
-    padding: "8px 16px",
-    fontSize: "13px",
+    padding: "10px 20px",
+    fontSize: "14px",
     fontWeight: "600",
     color: "white",
     backgroundColor: "#3b82f6",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     transition: "all 0.2s",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
   },
   closeButton: {
-    fontSize: "24px",
+    fontSize: "28px",
     fontWeight: "300",
     color: "#6b7280",
     backgroundColor: "transparent",
     border: "none",
     cursor: "pointer",
     padding: "0",
-    width: "32px",
-    height: "32px",
+    width: "36px",
+    height: "36px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "6px",
+    borderRadius: "8px",
+    transition: "all 0.2s",
   },
   certificateContainer: {
     padding: "50px 40px",
+    backgroundColor: "#ffffff",
   },
   certificateBorder: {
-    border: "3px solid #e5e7eb",
-    padding: "50px",
-    position: "relative",
+    maxWidth: "750px",
+    margin: "0 auto",
+    padding: "60px 80px",
     backgroundColor: "#ffffff",
   },
   certificateHeader: {
-    textAlign: "center",
     marginBottom: "40px",
-    paddingBottom: "30px",
-    borderBottom: "1px solid #e5e7eb",
   },
-  companyLogo: {
-    marginBottom: "20px",
+  logoSection: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: "30px",
   },
-  logoPlaceholder: {
-    width: "80px",
-    height: "80px",
-    margin: "0 auto",
-    backgroundColor: "#f9fafb",
-    border: "2px solid #e5e7eb",
-    borderRadius: "50%",
+  headerLogo: {
+    width: "180px",
+    height: "auto",
+    maxHeight: "100px",
+    objectFit: "contain",
+  },
+  logoFallback: {
+    width: "180px",
+    height: "100px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "10px",
-    color: "#9ca3af",
-    fontWeight: "500",
-    letterSpacing: "0.5px",
+    backgroundColor: "#f3f4f6",
+    border: "2px solid #d1d5db",
+    borderRadius: "8px",
   },
-  companyName: {
-    fontSize: "24px",
-    fontWeight: "600",
-    color: "#111827",
-    margin: "12px 0 8px 0",
-    letterSpacing: "1px",
+  omegaFallbackText: {
+    fontSize: "32px",
+    fontWeight: "700",
+    color: "#dc2626",
+    fontStyle: "italic",
   },
-  companyAddress: {
-    fontSize: "13px",
-    color: "#6b7280",
-    lineHeight: "1.6",
-    margin: 0,
-    fontWeight: "400",
+  titleSection: {
+    textAlign: "center",
+    marginBottom: "50px",
   },
   certificateTitle: {
-    textAlign: "center",
-    marginBottom: "40px",
-  },
-  titleText: {
-    fontSize: "28px",
-    fontWeight: "600",
-    color: "#111827",
-    margin: "0 0 8px 0",
-    letterSpacing: "3px",
+    fontSize: "22px",
+    fontWeight: "400",
+    color: "#4b5563",
+    margin: "0 0 10px 0",
+    letterSpacing: "1px",
   },
   titleUnderline: {
-    width: "120px",
+    width: "80px",
     height: "2px",
-    backgroundColor: "#3b82f6",
+    backgroundColor: "#d1d5db",
     margin: "0 auto",
   },
   certificateBody: {
-    padding: "20px 0",
+    marginBottom: "60px",
   },
-  refNumber: {
-    fontSize: "13px",
-    color: "#6b7280",
-    marginBottom: "4px",
-    fontWeight: "400",
-  },
-  date: {
-    fontSize: "13px",
-    color: "#6b7280",
-    marginBottom: "30px",
-    fontWeight: "400",
-  },
-  toWhom: {
-    textAlign: "center",
-    marginBottom: "30px",
-  },
-  toWhomTitle: {
+  bodyText: {
     fontSize: "15px",
-    fontWeight: "600",
-    color: "#111827",
-    margin: 0,
-    letterSpacing: "1px",
-  },
-  content: {
-    marginBottom: "50px",
-  },
-  paragraph: {
-    fontSize: "15px",
-    lineHeight: "1.9",
-    color: "#374151",
-    marginBottom: "18px",
+    lineHeight: "2",
+    color: "#1f2937",
+    marginBottom: "20px",
     textAlign: "justify",
     fontWeight: "400",
   },
   highlight: {
-    color: "#111827",
+    color: "#000000",
     fontWeight: "600",
   },
-  signature: {
+  signatureSection: {
     marginTop: "60px",
+  },
+  dateText: {
+    fontSize: "15px",
+    color: "#1f2937",
+    marginBottom: "10px",
+    fontWeight: "400",
+  },
+  signatureLabel: {
+    fontSize: "15px",
+    color: "#1f2937",
+    margin: "8px 0",
+    fontWeight: "400",
+  },
+  bottomActions: {
     display: "flex",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "20px",
+    marginTop: "40px",
+    paddingTop: "30px",
+    borderTop: "2px solid #e5e7eb",
   },
-  signatureBlock: {
-    textAlign: "center",
-    minWidth: "220px",
-  },
-  signatureLine: {
-    width: "100%",
-    height: "50px",
-    borderBottom: "1px solid #9ca3af",
-    marginBottom: "8px",
-  },
-  signatureName: {
+  bottomPrintButton: {
+    padding: "14px 32px",
     fontSize: "15px",
     fontWeight: "600",
-    color: "#111827",
-    margin: "4px 0",
+    color: "white",
+    backgroundColor: "#059669",
+    border: "none",
+    borderRadius: "10px",
+    cursor: "pointer",
+    transition: "all 0.3s",
+    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
-  signatureTitle: {
-    fontSize: "13px",
-    color: "#6b7280",
-    margin: "4px 0",
-    fontWeight: "400",
-  },
-  companyStamp: {
-    fontSize: "11px",
-    color: "#9ca3af",
-    fontStyle: "italic",
-    marginTop: "8px",
-    fontWeight: "400",
-  },
-  certificateFooter: {
-    marginTop: "50px",
-    paddingTop: "20px",
-    borderTop: "1px solid #e5e7eb",
-    textAlign: "center",
-  },
-  footerText: {
-    fontSize: "11px",
-    color: "#9ca3af",
-    fontStyle: "italic",
-    margin: 0,
-    fontWeight: "400",
+  bottomDownloadButton: {
+    padding: "14px 32px",
+    fontSize: "15px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "10px",
+    cursor: "pointer",
+    transition: "all 0.3s",
+    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
 };

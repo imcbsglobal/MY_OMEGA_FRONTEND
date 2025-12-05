@@ -1,936 +1,1715 @@
-import React, { useState, useEffect } from "react";
-import api from "../../api/client";
+import React, { useState, useEffect } from 'react';
+import api from '../../api/client'; // Import the configured axios client
 
-const PunchinPunchout = () => {
-  const [todayStatus, setTodayStatus] = useState({
-    punchIn: null,
-    punchInLocation: null,
-    punchOut: null,
-    punchOutLocation: null,
+const PunchInPunchOut = () => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [showSuccessScreen, setShowSuccessScreen] = useState(false);
+  const [successType, setSuccessType] = useState('');
+  const [countdown, setCountdown] = useState(5);
+  const [todayStatus, setTodayStatus] = useState({ 
+    punch_records: [], 
+    total_working_hours: 0,
+    total_break_hours: 0,
+    is_currently_on_break: false
   });
+  const [loading, setLoading] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [branch, setBranch] = useState('Office');
+  const [monthlySummary, setMonthlySummary] = useState(null);
+  const [isCurrentlyPunchedIn, setIsCurrentlyPunchedIn] = useState(false);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [location, setLocation] = useState({ latitude: null, longitude: null, address: '' });
+  const [attendanceHistory, setAttendanceHistory] = useState({});
+  const [hoveredDay, setHoveredDay] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
 
-  const [breakStatus, setBreakStatus] = useState({
-    breaks: [],
-    isOnBreak: false,
-    currentBreakId: null,
-  });
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    
+    // Check if mobile on initial render and on resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
 
-  const formatToIST12 = (utcString) => {
-    if (!utcString) return null;
-    const date = new Date(utcString);
-    return date.toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
+  useEffect(() => {
+    fetchUserProfile();
+    fetchTodayAttendance();
+    fetchMonthlySummary();
+    fetchLeaveRequests();
+    getUserLocation();
+    fetchAttendanceHistory();
+  }, [currentMonth]);
+
+  useEffect(() => {
+    if (showSuccessScreen && countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0) {
+      setShowSuccessScreen(false);
+      setCountdown(5);
+    }
+  }, [showSuccessScreen, countdown]);
+
+  const getUserLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocation({ latitude, longitude, address: '' });
+          try {
+            const response = await api.post('/hr/reverse-geocode-bigdata/', { latitude, longitude });
+            if (response.data?.address) {
+              setLocation(prev => ({ ...prev, address: response.data.address }));
+              setBranch(response.data.address);
+            }
+          } catch (error) {
+            console.error('Error getting address:', error);
+          }
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setLocation({ latitude: 10.8505, longitude: 76.2711, address: 'Office' });
+        }
+      );
+    } else {
+      setLocation({ latitude: 10.8505, longitude: 76.2711, address: 'Office' });
+    }
+  };
+
+  const fetchUserProfile = async () => {
+    try {
+      const response = await api.get('/auth/profile/');
+      if (response.data) {
+        setUserName(response.data.name || response.data.username || 'User');
+        setUserEmail(response.data.email || '');
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      setUserName('User');
+    }
+  };
+
+  const fetchMonthlySummary = async () => {
+    try {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear();
+      
+      const response = await api.get(`/hr/attendance/my_summary/?month=${month}&year=${year}`);
+      
+      if (response.data) {
+        setMonthlySummary({
+          verified_full_days: response.data.verified_full_days || 0,
+          verified_half_days: response.data.verified_half_days || 0,
+          leaves: response.data.leaves || 0,
+          total_working_hours: response.data.total_working_hours || '0.00'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching monthly summary:', error);
+      setMonthlySummary({
+        verified_full_days: 0,
+        verified_half_days: 0,
+        leaves: 0,
+        total_working_hours: '0.00'
+      });
+    }
+  };
+
+  const fetchLeaveRequests = async () => {
+    try {
+      const response = await api.get('/hr/leave/my_requests/');
+      if (response.data) {
+        setLeaveRequests(response.data.results || response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching leave requests:', error);
+    }
+  };
+
+  const fetchAttendanceHistory = async () => {
+    try {
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1;
+      
+      const response = await api.get(`/hr/attendance/history/?year=${year}&month=${month}`);
+      
+      if (response.data) {
+        const history = {};
+        response.data.forEach(record => {
+          const date = new Date(record.date);
+          const day = date.getDate();
+          history[day] = {
+            punch_records: record.punch_records || [],
+            worked: record.worked || false,
+            total_hours: record.total_hours || 0
+          };
+        });
+        setAttendanceHistory(history);
+      }
+    } catch (error) {
+      console.error('Error fetching attendance history:', error);
+    }
+  };
+
+  const fetchTodayAttendance = async () => {
+    try {
+      const response = await api.get('/hr/attendance/today_status/');
+      if (response.data) {
+        const punchRecords = response.data.punch_records || [];
+        
+        setTodayStatus({ 
+          punch_records: punchRecords,
+          total_working_hours: response.data.total_working_hours || 0,
+          total_break_hours: response.data.total_break_hours || 0,
+          is_currently_on_break: response.data.is_currently_on_break || false
+        });
+        
+        // Check if user is currently punched in (last punch is IN)
+        if (punchRecords.length > 0) {
+          const lastPunch = punchRecords[punchRecords.length - 1];
+          setIsCurrentlyPunchedIn(lastPunch.punch_type === 'in');
+        } else {
+          setIsCurrentlyPunchedIn(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching today attendance:', error);
+    }
+  };
+
+  const formatTime = (date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  const formatDay = (date) => date.toLocaleDateString('en-US', { weekday: 'long' });
+
+  const formatHoursMinutes = (decimalHours) => {
+    const hours = Math.floor(decimalHours);
+    const minutes = Math.round((decimalHours - hours) * 60);
+    return `${hours}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  const handlePunchIn = async () => {
+    setLoading(true);
+    try {
+      await api.post('/hr/attendance/punch_in/', {
+        location: location.address || 'Office',
+        latitude: location.latitude || 10.8505,
+        longitude: location.longitude || 76.2711,
+      });
+      setIsCurrentlyPunchedIn(true);
+      await fetchTodayAttendance();
+      await fetchMonthlySummary();
+      setSuccessType('punchin');
+      setShowSuccessScreen(true);
+    } catch (error) {
+      console.error('Punch in failed:', error);
+      alert(error.response?.data?.error || error.response?.data?.message || 'Punch in failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePunchOut = async () => {
+    setLoading(true);
+    try {
+      await api.post('/hr/attendance/punch_out/', {
+        location: location.address || 'Office',
+        latitude: location.latitude || 10.8505,
+        longitude: location.longitude || 76.2711,
+        note: 'Punch Out'
+      });
+      setIsCurrentlyPunchedIn(false);
+      await fetchTodayAttendance();
+      await fetchMonthlySummary();
+      setSuccessType('punchout');
+      setShowSuccessScreen(true);
+    } catch (error) {
+      console.error('Punch out failed:', error);
+      alert(error.response?.data?.error || error.response?.data?.message || 'Punch Out Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isDateOnLeave = (date) => {
+    return leaveRequests.some(leave => {
+      if (leave.status !== 'approved' && leave.status !== 'pending') return false;
+      const leaveStart = new Date(leave.from_date);
+      const leaveEnd = new Date(leave.to_date);
+      leaveStart.setHours(0, 0, 0, 0);
+      leaveEnd.setHours(23, 59, 59, 999);
+      date.setHours(0, 0, 0, 0);
+      return date >= leaveStart && date <= leaveEnd;
     });
   };
 
-  const [selectedMonth, setSelectedMonth] = useState("2025-11");
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [isPunching, setIsPunching] = useState(false);
-  const [isBreakProcessing, setIsBreakProcessing] = useState(false);
-
-  // ✅ Attendance types with star icons and colors (same as AttendanceManagement)
-  const ATTENDANCE_TYPES = {
-    FULL_DAY: { label: "Full Day", color: "#10b981", icon: "full", status: "full" },
-    VERIFIED: { label: "Verified", color: "#3b82f6", icon: "full", status: "full", verified: true },
-    HALF_DAY: { label: "Half Day", color: "#f59e0b", icon: "half", status: "half" },
-    VERIFIED_HALF: { label: "Verified Half Day", color: "#f43f5e", icon: "half", status: "half", verified: true },
-    LEAVE: { label: "Leave", color: "#ef4444", icon: "full", status: "leave" },
-    HOLIDAY: { label: "Holiday", color: "#eab308", icon: "full", status: "holiday" },
-    NOT_MARKED: { label: "Not Marked", color: "#9ca3af", icon: "full" }
-  };
-
-  // ✅ Load today's status
-  const loadTodayStatus = async () => {
-    try {
-      const { data } = await api.get("/hr/attendance/today_status/");
-      setTodayStatus({
-        punchIn: formatToIST12(data?.punch_in_time),
-        punchInLocation: data?.punch_in_location || null,
-        punchOut: formatToIST12(data?.punch_out_time),
-        punchOutLocation: data?.punch_out_location || null,
-      });
-    } catch (err) {
-      console.error("❌ Failed to load today's status:", err);
-    }
-  };
-
-  // ✅ Load today's breaks
-  const loadTodayBreaks = async () => {
-    try {
-      const { data } = await api.get("/hr/attendance/today_breaks/");
-      
-      let breaksArray = [];
-      if (Array.isArray(data)) {
-        breaksArray = data;
-      } else if (data.breaks && Array.isArray(data.breaks)) {
-        breaksArray = data.breaks;
-      } else if (data.data && Array.isArray(data.data)) {
-        breaksArray = data.data;
-      }
-
-      const breaks = breaksArray.map(b => ({
-        id: b.id,
-        start: formatToIST12(b.break_in || b.start_time || b.break_start),
-        end: (b.break_out || b.end_time || b.break_end) 
-          ? formatToIST12(b.break_out || b.end_time || b.break_end) 
-          : null,
-      }));
-
-      const ongoingBreak = breaks.find(b => !b.end);
-      
-      setBreakStatus({
-        breaks,
-        isOnBreak: !!ongoingBreak,
-        currentBreakId: ongoingBreak?.id || null,
-      });
-    } catch (err) {
-      console.error("❌ Failed to load today's breaks:", err);
-      setBreakStatus({
-        breaks: [],
-        isOnBreak: false,
-        currentBreakId: null,
-      });
-    }
-  };
-
-  // ✅ Load user's own monthly attendance records
-  const loadMyAttendanceRecords = async () => {
-    try {
-      const [year, month] = selectedMonth.split("-");
-      const { data } = await api.get(
-        `/hr/attendance/my_records/?month=${parseInt(month)}&year=${year}`
-      );
-      
-      // Handle different response formats
-      let records = [];
-      if (Array.isArray(data)) {
-        records = data;
-      } else if (data.records && Array.isArray(data.records)) {
-        records = data.records;
-      } else if (data.data && Array.isArray(data.data)) {
-        records = data.data;
-      }
-      
-      setAttendanceRecords(records);
-    } catch (err) {
-      console.error("❌ Failed to load attendance records:", err);
-      setAttendanceRecords([]);
-    }
-  };
-
-  // ✅ Reverse-geocode to get address
-  const getAddressFromLocation = async (lat, lon) => {
-    try {
-      const { data } = await api.post("/hr/reverse-geocode-bigdata/", {
-        latitude: lat,
-        longitude: lon,
-      });
-      return data?.address || `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
-    } catch {
-      return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
-    }
-  };
-
-  // ✅ Punch In
-  const handlePunchIn = async () => {
-    if (isPunching || todayStatus.punchIn) return;
-    setIsPunching(true);
-
-    try {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const locationName = await getAddressFromLocation(latitude, longitude);
-
-          await api.post("/hr/attendance/punch_in/", {
-            latitude,
-            longitude,
-            location: locationName,
-          });
-
-          await loadTodayStatus();
-          await loadMyAttendanceRecords();
-        },
-        (err) => {
-          console.error("⚠️ Location error:", err);
-          alert("Enable location services for punch-in.");
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } catch (err) {
-      console.error("❌ Punch in failed:", err);
-      alert("Punch in failed: " + (err?.response?.data?.detail || err.message));
-    } finally {
-      setIsPunching(false);
-    }
-  };
-
-  // ✅ Punch Out
-  const handlePunchOut = async () => {
-    if (isPunching || todayStatus.punchOut || !todayStatus.punchIn) return;
-    setIsPunching(true);
-
-    try {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const locationName = await getAddressFromLocation(latitude, longitude);
-          
-          await api.post("/hr/attendance/punch_out/", {
-            latitude,
-            longitude,
-            location: locationName,
-          });
-
-          await loadTodayStatus();
-          await loadMyAttendanceRecords();
-        },
-        (err) => {
-          console.error("⚠️ Location error:", err);
-          alert("Enable location services for punch-out.");
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } catch (err) {
-      console.error("❌ Punch out failed:", err);
-      alert("Punch out failed: " + (err?.response?.data?.detail || err.message));
-    } finally {
-      setIsPunching(false);
-    }
-  };
-
-  // ✅ Handle Break Start
-  const handleBreakStart = async () => {
-    if (isBreakProcessing || breakStatus.isOnBreak) return;
-    if (todayStatus.punchIn === null || todayStatus.punchOut !== null) {
-      alert("Please punch in first and ensure you haven't punched out yet.");
-      return;
-    }
-
-    setIsBreakProcessing(true);
-    try {
-      await api.post("/hr/attendance/start_break/");
-      await loadTodayBreaks();
-      alert("Break started successfully!");
-    } catch (err) {
-      console.error("❌ Break start failed:", err);
-      const errorMsg = err?.response?.data?.detail || err.message;
-      alert("Break start failed: " + errorMsg);
-    } finally {
-      setIsBreakProcessing(false);
-    }
-  };
-
-  // ✅ Handle Break End
-  const handleBreakEnd = async () => {
-    if (isBreakProcessing || !breakStatus.isOnBreak) {
-      alert("No active break to end.");
-      return;
-    }
-
-    setIsBreakProcessing(true);
-    try {
-      await api.post("/hr/attendance/end_break/");
-      await loadTodayBreaks();
-      alert("Break ended successfully!");
-    } catch (err) {
-      console.error("❌ Break end failed:", err);
-      const errorMsg = err?.response?.data?.detail || err.message;
-      alert("Break end failed: " + errorMsg);
-      await loadTodayBreaks();
-    } finally {
-      setIsBreakProcessing(false);
-    }
-  };
-
-  // ✅ Load data on mount/month change
-  useEffect(() => {
-    loadTodayStatus();
-    loadTodayBreaks();
-    loadMyAttendanceRecords();
-  }, [selectedMonth]);
-
-  // ✅ Calculate summary statistics
-  const calculateSummary = () => {
-    const totalDays = attendanceRecords.length;
-    const presentDays = attendanceRecords.filter(record => 
-      record.status === 'Full Day' || record.status === 'Verified Full Day'
-    ).length;
-    const halfDays = attendanceRecords.filter(record => 
-      record.status === 'Half Day' || record.status === 'Verified Half Day'
-    ).length;
-    const leaveDays = attendanceRecords.filter(record => 
-      record.status === 'Leave'
-    ).length;
+  const getDayAttendanceInfo = (day) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const dayKey = day;
     
-    return { totalDays, presentDays, halfDays, leaveDays };
+    if (attendanceHistory[dayKey]) {
+      const records = attendanceHistory[dayKey].punch_records;
+      const inRecords = records.filter(r => r.punch_type === 'in');
+      const outRecords = records.filter(r => r.punch_type === 'out');
+      
+      return {
+        worked: attendanceHistory[dayKey].worked,
+        firstPunchIn: inRecords.length > 0 ? new Date(inRecords[0].punch_time) : null,
+        lastPunchOut: outRecords.length > 0 ? new Date(outRecords[outRecords.length - 1].punch_time) : null,
+        totalHours: attendanceHistory[dayKey].total_hours
+      };
+    }
+    
+    return { worked: false, firstPunchIn: null, lastPunchOut: null, totalHours: 0 };
   };
 
-  const summary = calculateSummary();
-
-  // ✅ Get day name for a specific date
-  const getDayName = (dateString) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const date = new Date(dateString);
-    return days[date.getDay()];
+  const handleDayHover = (event, day) => {
+    if (event) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      setTooltipPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top
+      });
+    }
+    setHoveredDay(day);
   };
 
-  // ✅ Get days in month for calendar view
-  const getDaysInMonth = (yearMonth) => {
-    const [year, month] = yearMonth.split('-').map(Number);
-    return new Date(year, month, 0).getDate();
-  };
-
-  const daysInMonth = getDaysInMonth(selectedMonth);
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  // ✅ Get attendance status for calendar view
-  const getAttendanceForDay = (day) => {
-    const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`;
-    const record = attendanceRecords.find(r => r.date === dateStr);
-    return record || null;
-  };
-
-  // ✅ Determine status type based on record
-  const determineStatus = (date, record) => {
-    const isSunday = getDayName(date) === 'Sun';
-    if (isSunday) return "HOLIDAY";
-    if (!record) return "NOT_MARKED";
-
-    const backendStatus = (record.status || "").toString().toLowerCase();
-    const verified = (record.verification_status || "").toString().toLowerCase() === "verified";
-
-    const mapBackend = (bs) => {
-      if (!bs) return null;
-      if (bs === "full") return verified ? "VERIFIED" : "FULL_DAY";
-      if (bs === "half") return verified ? "VERIFIED_HALF" : "HALF_DAY";
-      if (bs === "leave") return "LEAVE";
-      if (bs === "wfh") return verified ? "VERIFIED" : "FULL_DAY";
-      return null;
-    };
-
-    const mapped = mapBackend(backendStatus);
-    if (mapped) return mapped;
-
-    return "NOT_MARKED";
-  };
-
-  // ✅ Star Icon Component (same as AttendanceManagement)
-  const StarIcon = ({ color, type, size = 20 }) => {
-    if (type === "half") {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24">
-          <defs>
-            <clipPath id={`half-clip-${color}-${Date.now()}`}>
-              <rect x="0" y="0" width="12" height="24" />
-            </clipPath>
-          </defs>
-          <path
-            d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
-            fill={color}
-            clipPath={`url(#half-clip-${color}-${Date.now()})`}
-          />
-          <path
-            d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z"
-            fill="none"
-            stroke={color}
-            strokeWidth="1"
-          />
-        </svg>
+  const renderCalendar = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startingDayOfWeek = new Date(year, month, 1).getDay();
+    const days = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const isToday = date.toDateString() === new Date().toDateString();
+      const onLeave = isDateOnLeave(new Date(date));
+      const attendanceInfo = getDayAttendanceInfo(day);
+      const { worked, firstPunchIn, lastPunchOut } = attendanceInfo;
+      
+      days.push(
+        <div 
+          key={day} 
+          className={`calendar-day ${isToday ? 'today' : ''} ${onLeave ? 'on-leave' : ''}`}
+          onMouseEnter={(e) => handleDayHover(e, day)}
+          onMouseLeave={() => setHoveredDay(null)}
+          onClick={() => setHoveredDay(hoveredDay === day ? null : day)}
+        >
+          {day}
+          <div className="day-status-dots">
+            {worked && !onLeave && <div className="status-dot worked-dot" title="Worked"></div>}
+            {onLeave && <div className="status-dot leave-dot" title="On Leave"></div>}
+          </div>
+        </div>
       );
     }
-
+    
     return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-        <path d="M12 .587l3.668 7.568L24 9.423l-6 5.853L19.335 24 12 19.897 4.665 24 6 15.276 0 9.423l8.332-1.268z" />
-      </svg>
+      <div className="calendar">
+        <div className="calendar-header">
+          <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}>‹</button>
+          <div className="calendar-title">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+          <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}>›</button>
+        </div>
+        <div className="calendar-days-header">
+          {dayNames.map(name => <div key={name} className="calendar-day-name">{name}</div>)}
+        </div>
+        <div className="calendar-grid">{days}</div>
+        
+        {hoveredDay && (
+          <div 
+            className="day-tooltip"
+            style={{
+              left: `${tooltipPosition.x}px`,
+              top: `${tooltipPosition.y - 10}px`,
+              transform: 'translateX(-50%)'
+            }}
+          >
+            <div className="tooltip-content">
+              <div className="tooltip-date">{hoveredDay} {currentMonth.toLocaleDateString('en-US', { month: 'short' })}</div>
+              {(() => {
+                const attendanceInfo = getDayAttendanceInfo(hoveredDay);
+                const onLeave = isDateOnLeave(new Date(year, month, hoveredDay));
+                
+                if (onLeave) {
+                  return <div className="tooltip-status">On Leave</div>;
+                } else if (attendanceInfo.worked) {
+                  return (
+                    <>
+                      <div className="tooltip-status worked">Worked</div>
+                      {attendanceInfo.firstPunchIn && (
+                        <div className="tooltip-time">First In: {formatTime(attendanceInfo.firstPunchIn)}</div>
+                      )}
+                      {attendanceInfo.lastPunchOut && (
+                        <div className="tooltip-time">Last Out: {formatTime(attendanceInfo.lastPunchOut)}</div>
+                      )}
+                      {attendanceInfo.totalHours > 0 && (
+                        <div className="tooltip-hours">Total: {formatHoursMinutes(attendanceInfo.totalHours)}</div>
+                      )}
+                    </>
+                  );
+                } else if (new Date(year, month, hoveredDay).toDateString() === new Date().toDateString()) {
+                  return <div className="tooltip-status today">Today</div>;
+                }
+              })()}
+            </div>
+            <div className="tooltip-arrow"></div>
+          </div>
+        )}
+        
+        <div className="calendar-legend">
+          <div className="legend-item"><div className="legend-color worked-dot"></div><span>Worked</span></div>
+          <div className="legend-item"><div className="legend-color leave-dot"></div><span>Leave</span></div>
+          <div className="legend-item"><div className="legend-color today"></div><span>Today</span></div>
+        </div>
+      </div>
     );
   };
 
-  const handleRefresh = () => {
-    loadTodayStatus();
-    loadTodayBreaks();
-    loadMyAttendanceRecords();
+  const renderPunchSessions = () => {
+    const punchRecords = todayStatus.punch_records || [];
+    if (punchRecords.length === 0) return null;
+
+    const sessions = [];
+    for (let i = 0; i < punchRecords.length; i += 2) {
+      const punchIn = punchRecords[i];
+      const punchOut = punchRecords[i + 1];
+      
+      if (punchIn && punchIn.punch_type === 'in') {
+        sessions.push({
+          punchIn: punchIn,
+          punchOut: punchOut && punchOut.punch_type === 'out' ? punchOut : null
+        });
+      }
+    }
+
+    return (
+      <div className="sessions-summary">
+        <div className="sessions-header">Today's Sessions</div>
+        <div className="sessions-list">
+          {sessions.map((session, index) => {
+            const punchInTime = session.punchIn ? new Date(session.punchIn.punch_time) : null;
+            const punchOutTime = session.punchOut ? new Date(session.punchOut.punch_time) : null;
+            let duration = '0:00';
+            
+            if (punchInTime) {
+              const end = punchOutTime || new Date();
+              const minutes = Math.floor((end - punchInTime) / (1000 * 60));
+              const hours = Math.floor(minutes / 60);
+              const mins = minutes % 60;
+              duration = `${hours}:${mins.toString().padStart(2, '0')}`;
+            }
+            
+            return (
+              <div key={index} className="session-item">
+                <div className="session-number">Session {index + 1}</div>
+                <div className="session-times">
+                  <div className="session-time">
+                    <span className="time-label">In:</span>
+                    <span className="time-value">{punchInTime ? formatTime(punchInTime) : '-'}</span>
+                  </div>
+                  <div className="session-time">
+                    <span className="time-label">Out:</span>
+                    <span className="time-value">{punchOutTime ? formatTime(punchOutTime) : 'Active'}</span>
+                  </div>
+                </div>
+                <div className="session-duration">{duration}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
-  // ✅ UI
-  return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={styles.title}>My Attendance</h2>
-        <div style={styles.headerActions}>
-          <div style={styles.monthSelector}>
-            <select 
-              value={selectedMonth} 
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              style={styles.monthSelect}
-            >
-              <option value="2025-11">November, 2025</option>
-              <option value="2025-10">October, 2025</option>
-              <option value="2025-09">September, 2025</option>
-            </select>
+  const renderMobileHeader = () => {
+    return (
+      <div className="mobile-header">
+        <div className="mobile-header-top">
+          <div className="mobile-date-time">
+            <div className="mobile-date-day">{formatDay(currentTime)}</div>
+            <div className="mobile-date">{formatDate(currentTime)}</div>
+            <div className="mobile-time">{formatTime(currentTime)}</div>
           </div>
-          <div style={styles.searchContainer}>
-            <input
-              type="text"
-              placeholder="Search by name..."
-              style={styles.searchInput}
-            />
-            <span style={styles.searchIcon}>🔍</span>
-          </div>
-          <button onClick={handleRefresh} style={styles.refreshButton}>
-            ↻ Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div style={styles.legendContainer}>
-        {Object.entries(ATTENDANCE_TYPES).map(([key, value]) => (
-          <div key={key} style={styles.legendItem}>
-            <StarIcon color={value.color} type={value.icon} size={18} />
-            <span style={styles.legendText}>{value.label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Daily Attendance Actions */}
-      <div style={styles.card}>
-        <h3 style={styles.cardTitle}>Daily Attendance</h3>
-        <div style={styles.statusCard}>
-          <div style={styles.statusDetails}>
-            <div style={styles.statusRow}>
-              <span style={styles.statusLabel}>Punch In:</span>
-              <span style={styles.statusValue}>
-                {todayStatus.punchIn || "Not punched in yet"}
-              </span>
-            </div>
-            <div style={styles.statusRow}>
-              <span style={styles.statusLabel}>Punch In Location:</span>
-              <span style={styles.statusValue}>
-                {todayStatus.punchInLocation || "Not available"}
-              </span>
-            </div>
-            <div style={styles.statusRow}>
-              <span style={styles.statusLabel}>Punch Out:</span>
-              <span style={styles.statusValue}>
-                {todayStatus.punchOut || "Not punched out yet"}
-              </span>
-            </div>
-            <div style={styles.statusRow}>
-              <span style={styles.statusLabel}>Punch Out Location:</span>
-              <span style={styles.statusValue}>
-                {todayStatus.punchOutLocation || "Not available"}
-              </span>
+          <div className="mobile-user-info">
+            <div className="mobile-user-avatar">👤</div>
+            <div className="mobile-user-details">
+              <div className="mobile-user-name">{userName}</div>
+              {userEmail && <div className="mobile-user-email">{userEmail}</div>}
             </div>
           </div>
         </div>
-        <div style={styles.actionButtons}>
-          <button
-            style={{
-              ...styles.punchInBtn,
-              ...(todayStatus.punchIn !== null ? styles.buttonDisabled : {}),
-            }}
-            onClick={handlePunchIn}
-            disabled={todayStatus.punchIn !== null || isPunching}
-          >
-            → Punch In
-          </button>
-          <button
-            style={{
-              ...styles.punchOutBtn,
-              ...(todayStatus.punchIn === null || todayStatus.punchOut !== null
-                ? styles.buttonDisabled
-                : {}),
-            }}
-            onClick={handlePunchOut}
-            disabled={
-              todayStatus.punchIn === null ||
-              todayStatus.punchOut !== null ||
-              isPunching
-            }
-          >
-            ← Punch Out
-          </button>
+        <div className="mobile-monthly-stats">
+          {monthlySummary && (
+            <div className="mobile-stats-grid">
+              <div className="mobile-stat-item">
+                <div className="mobile-stat-label">Full Days</div>
+                <div className="mobile-stat-value">{monthlySummary.verified_full_days}</div>
+              </div>
+              <div className="mobile-stat-item">
+                <div className="mobile-stat-label">Half Days</div>
+                <div className="mobile-stat-value">{monthlySummary.verified_half_days}</div>
+              </div>
+              <div className="mobile-stat-item">
+                <div className="mobile-stat-label">Leaves</div>
+                <div className="mobile-stat-value">{monthlySummary.leaves}</div>
+              </div>
+              <div className="mobile-stat-item">
+                <div className="mobile-stat-label">Total Hours</div>
+                <div className="mobile-stat-value">{monthlySummary.total_working_hours}h</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    );
+  };
 
-      {/* Break Time Management */}
-      <div style={styles.card}>
-        <h3 style={styles.cardTitle}>Break Time Management</h3>
-        <div style={styles.statusCard}>
-          <div style={styles.statusHeader}>
-            <span style={styles.statusLabel}>Today's Break Status</span>
-            {breakStatus.isOnBreak && (
-              <span style={styles.activeBreakBadge}>● Break Active</span>
-            )}
-          </div>
-          <div style={styles.breakDetails}>
-            {breakStatus.breaks.length === 0 ? (
-              <div style={styles.noBreaks}>No breaks taken today</div>
-            ) : (
-              breakStatus.breaks.map((b, i) => (
-                <div key={b.id || i} style={styles.breakItem}>
-                  <span style={styles.breakLabel}>Break {i + 1}:</span>
-                  <span style={styles.breakTime}>
-                    {b.start} to {b.end || "In progress..."}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
+  const renderDesktopSidebar = () => {
+    return (
+      <div className="sidebar">
+        <div className="current-date">
+          <div className="date-day">{formatDay(currentTime)}, {formatDate(currentTime)}</div>
+          <div className="date-time">{formatTime(currentTime)}</div>
         </div>
-        <div style={styles.actionButtons}>
-          <button
-            style={{
-              ...styles.breakInBtn,
-              ...(todayStatus.punchIn === null ||
-              todayStatus.punchOut !== null ||
-              breakStatus.isOnBreak
-                ? styles.buttonDisabled
-                : {}),
-            }}
-            onClick={handleBreakStart}
-            disabled={
-              todayStatus.punchIn === null ||
-              todayStatus.punchOut !== null ||
-              breakStatus.isOnBreak ||
-              isBreakProcessing
-            }
-          >
-            ☕ Start Break
-          </button>
-          <button
-            style={{
-              ...styles.breakOutBtn,
-              ...(!breakStatus.isOnBreak ? styles.buttonDisabled : {}),
-            }}
-            onClick={handleBreakEnd}
-            disabled={!breakStatus.isOnBreak || isBreakProcessing}
-          >
-            ⏸ End Break
-          </button>
+        <div className="user-profile">
+          <div className="user-avatar-img">👤</div>
+          <div className="user-name">{userName}</div>
+          {userEmail && <div className="user-email">{userEmail}</div>}
         </div>
-      </div>
-
-      {/* Monthly Calendar View */}
-      <div style={styles.card}>
-        <h3 style={styles.cardTitle}>My Attendance Calendar - {selectedMonth}</h3>
         
-        {/* Summary Statistics */}
-        <div style={styles.summaryContainer}>
-          <div style={styles.summaryItem}>
-            <span style={styles.summaryLabel}>Total Days</span>
-            <span style={styles.summaryValue}>{summary.totalDays}</span>
+        {monthlySummary && (
+          <div className="monthly-summary">
+            <div className="summary-header">This Month</div>
+            <div className="summary-stats">
+              <div className="stat-item">
+                <div className="stat-label">Full Days</div>
+                <div className="stat-value">{monthlySummary.verified_full_days}</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-label">Half Days</div>
+                <div className="stat-value">{monthlySummary.verified_half_days}</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-label">Leaves</div>
+                <div className="stat-value">{monthlySummary.leaves}</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-label">Total Hours</div>
+                <div className="stat-value">{monthlySummary.total_working_hours}h</div>
+              </div>
+            </div>
           </div>
-          <div style={styles.summaryItem}>
-            <span style={styles.summaryLabel}>Present</span>
-            <span style={styles.summaryValue}>{summary.presentDays}</span>
+        )}
+        
+        <div className="time-summary">
+          <div className="summary-section">
+            <div className="summary-title">Today's Summary</div>
+            <div className="summary-stats-grid">
+              <div className="stat-box">
+                <div className="stat-box-label">Worked</div>
+                <div className="stat-box-value worked">
+                  {formatHoursMinutes(todayStatus.total_working_hours || 0)}
+                </div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-box-label">Break Time</div>
+                <div className="stat-box-value out-time">
+                  {formatHoursMinutes(todayStatus.total_break_hours || 0)}
+                </div>
+              </div>
+            </div>
           </div>
-          <div style={styles.summaryItem}>
-            <span style={styles.summaryLabel}>Half Days</span>
-            <span style={styles.summaryValue}>{summary.halfDays}</span>
-          </div>
-          <div style={styles.summaryItem}>
-            <span style={styles.summaryLabel}>Leaves</span>
-            <span style={styles.summaryValue}>{summary.leaveDays}</span>
-          </div>
-        </div>
-
-        {/* Calendar Table */}
-        <div style={styles.tableContainer}>
-          <table style={styles.calendarTable}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={{...styles.tableHeader, ...styles.stickyNameColumn}}>
-                  NAME
-                </th>
-                <th style={styles.tableHeader}>DUTY START</th>
-                <th style={styles.tableHeader}>DUTY END</th>
-                <th style={styles.tableHeader}>SUMMARY</th>
-                {days.map(day => {
-                  const dayName = getDayName(`${selectedMonth}-${String(day).padStart(2, '0')}`);
-                  const isSunday = dayName === 'Sun';
-                  return (
-                    <th
-                      key={day}
-                      style={{
-                        ...styles.tableHeader,
-                        ...styles.dayHeader,
-                        backgroundColor: isSunday ? '#fef3c7' : '#f3f4f6',
-                      }}
-                    >
-                      <div style={styles.dayNumber}>{day}</div>
-                      <div style={styles.dayName}>{dayName}</div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={styles.tableRow}>
-                <td style={{...styles.tableCell, ...styles.stickyNameColumn, fontWeight: '600'}}>
-                  My Attendance
-                </td>
-                <td style={styles.tableCell}>09:30</td>
-                <td style={styles.tableCell}>17:30</td>
-                <td style={styles.tableCell}>
-                  <button style={styles.summaryBtn}>📊</button>
-                </td>
-                {days.map(day => {
-                  const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`;
-                  const record = getAttendanceForDay(day);
-                  const statusType = determineStatus(dateStr, record);
-                  const statusConfig = ATTENDANCE_TYPES[statusType] || ATTENDANCE_TYPES.NOT_MARKED;
-                  const dayName = getDayName(dateStr);
-                  const isSunday = dayName === 'Sun';
-                  
-                  return (
-                    <td key={day} style={{
-                      ...styles.calendarCell,
-                      backgroundColor: isSunday ? '#fef3c7' : 'white'
-                    }}>
-                      <div style={styles.attendanceIcon} title={statusConfig.label}>
-                        <StarIcon 
-                          color={statusConfig.color} 
-                          type={statusConfig.icon} 
-                          size={20}
-                        />
-                      </div>
-                      <div style={styles.timeDisplay}>
-                        <div style={styles.punchTime}>
-                          {record?.punch_in_time ? formatToIST12(record.punch_in_time) : "–"}
-                        </div>
-                        <div style={styles.punchTime}>
-                          {record?.punch_out_time ? formatToIST12(record.punch_out_time) : "–"}
-                        </div>
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            </tbody>
-          </table>
+          
+          {renderPunchSessions()}
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="attendance-container">
+      {!isMobile ? (
+        <>
+          {renderDesktopSidebar()}
+          
+          <div className="main-content">
+            <div className="content-wrapper">
+              <div className="action-section">
+                {!isCurrentlyPunchedIn ? (
+                  <div className="action-screen">
+                    <h2 className="action-title">Ready to punch in?</h2>
+                    <br />
+                    <div className="action-buttons-single">
+                      <button 
+                        className="action-btn punch-in-btn" 
+                        onClick={handlePunchIn} 
+                        disabled={loading}
+                      >
+                        <div className="btn-icon">👆</div>
+                        <div className="btn-text">{loading ? 'Processing...' : 'Punch In'}</div>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="action-screen">
+                    <div className="check-icon">✓</div>
+                    <h2 className="action-title">You are punched in</h2>
+                    <div className="action-subtitle">to {branch}</div>
+                    
+                    <div className="summary-box">
+                      <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
+                      <p><b>Break Time:</b> {formatHoursMinutes(todayStatus.total_break_hours || 0)}</p>
+                      <p><b>Sessions Today:</b> {Math.ceil((todayStatus.punch_records || []).length / 2)}</p>
+                    </div>
+                    
+                    <div className="action-buttons-single">
+                      <button 
+                        className="action-btn punch-out-btn" 
+                        onClick={handlePunchOut} 
+                        disabled={loading}
+                      >
+                        <div className="btn-icon">👇</div>
+                        <div className="btn-text">{loading ? 'Processing...' : 'Punch Out'}</div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="calendar-section">
+                <div className="calendar-container">{renderCalendar()}</div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="mobile-container">
+          {renderMobileHeader()}
+          
+          <div className="mobile-main-content">
+            <div className="mobile-action-section">
+              {!isCurrentlyPunchedIn ? (
+                <div className="mobile-action-screen">
+                  <h2 className="mobile-action-title">Ready to punch in?</h2>
+                  <div className="mobile-action-buttons-single">
+                    <button 
+                      className="mobile-action-btn punch-in-btn" 
+                      onClick={handlePunchIn} 
+                      disabled={loading}
+                    >
+                      <div className="mobile-btn-icon">👆</div>
+                      <div className="mobile-btn-text">{loading ? 'Processing...' : 'Punch In'}</div>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mobile-action-screen">
+                  <div className="mobile-check-icon">✓</div>
+                  <h2 className="mobile-action-title">You are punched in</h2>
+                  <div className="mobile-action-subtitle">to {branch}</div>
+                  
+                  <div className="mobile-summary-box">
+                    <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
+                    <p><b>Break Time:</b> {formatHoursMinutes(todayStatus.total_break_hours || 0)}</p>
+                    <p><b>Sessions Today:</b> {Math.ceil((todayStatus.punch_records || []).length / 2)}</p>
+                  </div>
+                  
+                  <div className="mobile-action-buttons-single">
+                    <button 
+                      className="mobile-action-btn punch-out-btn" 
+                      onClick={handlePunchOut} 
+                      disabled={loading}
+                    >
+                      <div className="mobile-btn-icon">👇</div>
+                      <div className="mobile-btn-text">{loading ? 'Processing...' : 'Punch Out'}</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="mobile-today-summary">
+              <div className="mobile-summary-title">Today's Summary</div>
+              <div className="mobile-summary-stats-grid">
+                <div className="mobile-stat-box">
+                  <div className="mobile-stat-box-label">Worked</div>
+                  <div className="mobile-stat-box-value worked">
+                    {formatHoursMinutes(todayStatus.total_working_hours || 0)}
+                  </div>
+                </div>
+                <div className="mobile-stat-box">
+                  <div className="mobile-stat-box-label">Break Time</div>
+                  <div className="mobile-stat-box-value out-time">
+                    {formatHoursMinutes(todayStatus.total_break_hours || 0)}
+                  </div>
+                </div>
+              </div>
+              
+              {renderPunchSessions()}
+            </div>
+            
+            <div className="mobile-calendar-section">
+              <div className="mobile-calendar-container">{renderCalendar()}</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showSuccessScreen && (
+        <div className={`success-screen ${successType}`}>
+          <div className={`success-icon ${successType}-icon`}>✓</div>
+          <h2 className="success-title">
+            {successType === 'punchin' ? 'Punched In' : 'Punched Out'}
+          </h2>
+          <div className="success-subtitle">
+            {branch} at {formatTime(currentTime)}
+          </div>
+          <div className="success-message">
+            {successType === 'punchin' ? 'Welcome! Have a productive day 🎉' : 'Session ended! 👋'}
+          </div>
+          <div className="success-countdown">Closing in {countdown}s</div>
+        </div>
+      )}
+      
+      <style jsx>{`
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .attendance-container { 
+          font-family: -apple-system, sans-serif; 
+          display: flex; 
+          min-height: 100vh; 
+          background: #f5f5f5; 
+        }
+        .sidebar { 
+          width: 300px; 
+          background: white; 
+          padding: 24px; 
+          display: flex; 
+          flex-direction: column; 
+          gap: 20px; 
+          box-shadow: 2px 0 12px rgba(0,0,0,0.05); 
+          overflow-y: auto; 
+        }
+        .current-date { 
+          padding: 16px 0; 
+          border-bottom: 1px solid #f0f0f0; 
+        }
+        .date-day { 
+          font-size: 13px; 
+          color: #666; 
+          margin-bottom: 4px; 
+        }
+        .date-time { 
+          font-size: 28px; 
+          font-weight: 300; 
+          color: #333; 
+        }
+        .user-profile { 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          gap: 8px; 
+          padding: 16px 0; 
+          border-bottom: 1px solid #f0f0f0; 
+        }
+        .user-avatar-img { 
+          width: 64px; 
+          height: 64px; 
+          border-radius: 50%; 
+          background: linear-gradient(135deg, #E69B9B, #E07B7B); 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          font-size: 32px; 
+        }
+        .user-name { 
+          font-size: 16px; 
+          font-weight: 600; 
+          color: #333; 
+        }
+        .user-email { 
+          font-size: 12px; 
+          color: #999; 
+        }
+        .monthly-summary { 
+          background: linear-gradient(135deg, #E69B9B, #E07B7B); 
+          padding: 16px; 
+          border-radius: 12px; 
+          color: white; 
+        }
+        .summary-header { 
+          font-size: 14px; 
+          font-weight: 600; 
+          margin-bottom: 12px; 
+          opacity: 0.9; 
+        }
+        .summary-stats { 
+          display: grid; 
+          grid-template-columns: 1fr 1fr; 
+          gap: 10px; 
+        }
+        .stat-item { 
+          background: rgba(255,255,255,0.15); 
+          padding: 10px; 
+          border-radius: 8px; 
+          text-align: center; 
+        }
+        .stat-label { 
+          font-size: 11px; 
+          opacity: 0.9; 
+          margin-bottom: 4px; 
+        }
+        .stat-value { 
+          font-size: 20px; 
+          font-weight: 600; 
+        }
+        .time-summary { 
+          display: flex; 
+          flex-direction: column; 
+          gap: 20px; 
+        }
+        .summary-section { 
+          padding-bottom: 20px; 
+          border-bottom: 1px solid #f0f0f0; 
+        }
+        .summary-title { 
+          font-size: 13px; 
+          color: #999; 
+          margin-bottom: 12px; 
+        }
+        .summary-stats-grid { 
+          display: grid; 
+          grid-template-columns: 1fr 1fr; 
+          gap: 12px; 
+        }
+        .stat-box { 
+          background: #f9f9f9; 
+          padding: 14px; 
+          border-radius: 10px; 
+          text-align: center; 
+        }
+        .stat-box-label { 
+          font-size: 11px; 
+          color: #999; 
+          margin-bottom: 6px; 
+          text-transform: uppercase; 
+          font-weight: 600; 
+        }
+        .stat-box-value { 
+          font-size: 24px; 
+          font-weight: 600; 
+        }
+        .stat-box-value.worked { 
+          color: #E07B7B; 
+        }
+        .stat-box-value.out-time { 
+          color: #9B6B6B; 
+        }
+        .sessions-summary { 
+          background: #f9f9f9; 
+          padding: 16px; 
+          border-radius: 12px; 
+        }
+        .sessions-header { 
+          font-size: 13px; 
+          font-weight: 600; 
+          color: #666; 
+          margin-bottom: 12px; 
+        }
+        .sessions-list { 
+          display: flex; 
+          flex-direction: column; 
+          gap: 12px; 
+        }
+        .session-item { 
+          background: white; 
+          padding: 12px; 
+          border-radius: 8px; 
+          border-left: 3px solid #E07B7B; 
+        }
+        .session-number { 
+          font-size: 11px; 
+          color: #999; 
+          margin-bottom: 6px; 
+          font-weight: 600; 
+          text-transform: uppercase; 
+        }
+        .session-times { 
+          display: flex; 
+          justify-content: space-between; 
+          margin-bottom: 6px; 
+        }
+        .session-time { 
+          display: flex; 
+          flex-direction: column; 
+        }
+        .time-label { 
+          font-size: 10px; 
+          color: #999; 
+        }
+        .time-value { 
+          font-size: 13px; 
+          color: #333; 
+          font-weight: 600; 
+        }
+        .session-duration { 
+          font-size: 16px; 
+          font-weight: 600; 
+          color: #E07B7B; 
+          text-align: center; 
+          margin-top: 4px; 
+        }
+        .summary-box { 
+          background: white; 
+          padding: 18px 20px; 
+          margin: 20px 0; 
+          border-radius: 14px; 
+          box-shadow: 0 4px 14px rgba(0,0,0,0.08); 
+          text-align: left; 
+        }
+        .summary-box p { 
+          font-size: 15px; 
+          color: #444; 
+          margin: 8px 0; 
+          font-weight: 500; 
+        }
+        .summary-box b { 
+          color: #222; 
+          font-weight: 600; 
+        }
+        .main-content { 
+          flex: 1; 
+          padding: 32px; 
+          display: flex; 
+          position: relative; 
+          overflow-y: auto; 
+        }
+        .content-wrapper { 
+          display: flex; 
+          gap: 32px; 
+          width: 100%; 
+          max-width: 1400px; 
+          margin: 0 auto; 
+        }
+        .action-section { 
+          flex: 1; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+        }
+        .calendar-section { 
+          flex: 0 0 400px; 
+          display: flex; 
+          flex-direction: column; 
+        }
+        .calendar-container { 
+          background: white; 
+          padding: 24px; 
+          border-radius: 16px; 
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06); 
+          position: relative; 
+        }
+        .action-screen { 
+          text-align: center; 
+          max-width: 500px; 
+          width: 100%; 
+        }
+        .check-icon { 
+          width: 80px; 
+          height: 80px; 
+          border-radius: 50%; 
+          border: 4px solid #E07B7B; 
+          color: #E07B7B; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          font-size: 48px; 
+          margin: 0 auto 24px; 
+        }
+        .action-title { 
+          font-size: 28px; 
+          font-weight: 600; 
+          color: #333; 
+          margin-bottom: 8px; 
+        }
+        .action-subtitle { 
+          font-size: 16px; 
+          color: #999; 
+          margin-bottom: 24px; 
+        }
+        .action-buttons-single { 
+          display: flex; 
+          justify-content: center; 
+        }
+        .action-btn { 
+          padding: 48px 32px; 
+          border: none; 
+          border-radius: 16px; 
+          cursor: pointer; 
+          transition: all 0.3s; 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          gap: 16px; 
+          width: 100%; 
+        }
+        .action-buttons-single .action-btn { 
+          max-width: 280px; 
+        }
+        .btn-icon { 
+          font-size: 48px; 
+        }
+        .btn-text { 
+          font-size: 18px; 
+          font-weight: 600; 
+        }
+        .punch-in-btn { 
+          background: linear-gradient(135deg, #E69B9B, #E07B7B); 
+          color: white; 
+        }
+        .punch-out-btn { 
+          background: linear-gradient(135deg, #A38B8B, #9B6B6B); 
+          color: white; 
+        }
+        .action-btn:hover:not(:disabled) { 
+          transform: translateY(-4px); 
+          box-shadow: 0 8px 24px rgba(0,0,0,0.15); 
+        }
+        .action-btn:disabled { 
+          opacity: 0.4; 
+          cursor: not-allowed; 
+        }
+        .success-screen { 
+          position: fixed; 
+          right: 0; 
+          top: 0; 
+          bottom: 0; 
+          width: 50%; 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          justify-content: center; 
+          color: white; 
+          padding: 64px; 
+          text-align: center; 
+          animation: slideIn 0.4s ease; 
+          z-index: 100; 
+        }
+        .success-screen.punchin { 
+          background: linear-gradient(135deg, #E69B9B, #E07B7B); 
+        }
+        .success-screen.punchout { 
+          background: linear-gradient(135deg, #A38B8B, #9B6B6B); 
+        }
+        @keyframes slideIn { 
+          from { transform: translateX(100%); opacity: 0; } 
+          to { transform: translateX(0); opacity: 1; } 
+        }
+        .success-icon { 
+          width: 120px; 
+          height: 120px; 
+          border-radius: 50%; 
+          border: 5px solid white; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          font-size: 72px; 
+          margin-bottom: 32px; 
+          animation: scaleIn 0.5s ease 0.2s both; 
+        }
+        @keyframes scaleIn { 
+          from { transform: scale(0); } 
+          to { transform: scale(1); } 
+        }
+        .success-title { 
+          font-size: 42px; 
+          font-weight: 600; 
+          margin-bottom: 16px; 
+        }
+        .success-subtitle { 
+          font-size: 18px; 
+          opacity: 0.95; 
+          margin-bottom: 32px; 
+        }
+        .success-message { 
+          font-size: 20px; 
+          font-weight: 500; 
+          margin-bottom: 48px; 
+          opacity: 0.95; 
+        }
+        .success-countdown { 
+          font-size: 14px; 
+          opacity: 0.8; 
+        }
+        .calendar { 
+          display: flex; 
+          flex-direction: column; 
+          gap: 16px; 
+          position: relative; 
+        }
+        .calendar-header { 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+        }
+        .calendar-nav { 
+          background: none; 
+          border: none; 
+          font-size: 20px; 
+          cursor: pointer; 
+          color: #666; 
+          padding: 4px 12px; 
+        }
+        .calendar-title { 
+          font-size: 18px; 
+          font-weight: 600; 
+          color: #333; 
+        }
+        .calendar-days-header { 
+          display: grid; 
+          grid-template-columns: repeat(7, 1fr); 
+          gap: 4px; 
+          text-align: center; 
+        }
+        .calendar-day-name { 
+          font-size: 12px; 
+          font-weight: 600; 
+          color: #999; 
+          padding: 8px 0; 
+        }
+        .calendar-grid { 
+          display: grid; 
+          grid-template-columns: repeat(7, 1fr); 
+          gap: 4px; 
+        }
+        .calendar-day { 
+          aspect-ratio: 1; 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          justify-content: center; 
+          font-size: 14px; 
+          font-weight: 500; 
+          color: #333; 
+          border-radius: 8px; 
+          position: relative; 
+          cursor: pointer; 
+          transition: background-color 0.2s; 
+        }
+        .calendar-day:hover { 
+          background-color: #f9f9f9; 
+        }
+        .calendar-day.empty { 
+          background: none; 
+          cursor: default; 
+        }
+        .calendar-day.today { 
+          background: #E07B7B; 
+          color: white; 
+          font-weight: 600; 
+        }
+        .calendar-day.on-leave { 
+          background: #f9f9f9; 
+          color: #999; 
+          text-decoration: line-through; 
+        }
+        .day-status-dots { 
+          display: flex; 
+          gap: 3px; 
+          margin-top: 2px; 
+        }
+        .status-dot { 
+          width: 6px; 
+          height: 6px; 
+          border-radius: 50%; 
+        }
+        .worked-dot { 
+          background-color: #4CAF50; 
+        }
+        .leave-dot { 
+          background-color: #f44336; 
+        }
+        .day-tooltip { 
+          position: fixed; 
+          background: white; 
+          border-radius: 8px; 
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+          padding: 12px; 
+          z-index: 1000; 
+          min-width: 160px; 
+          pointer-events: none; 
+        }
+        .tooltip-content { 
+          text-align: center; 
+        }
+        .tooltip-date { 
+          font-weight: 600; 
+          font-size: 14px; 
+          margin-bottom: 4px; 
+          color: #333; 
+        }
+        .tooltip-status { 
+          font-size: 12px; 
+          padding: 2px 6px; 
+          border-radius: 4px; 
+          display: inline-block; 
+          margin-bottom: 6px; 
+        }
+        .tooltip-status.worked { 
+          background: #e8f5e9; 
+          color: #2e7d32; 
+        }
+        .tooltip-status.today { 
+          background: #ffe0e0; 
+          color: #E07B7B; 
+        }
+        .tooltip-time { 
+          font-size: 11px; 
+          color: #666; 
+          margin: 2px 0; 
+        }
+        .tooltip-hours { 
+          font-size: 12px; 
+          font-weight: 600; 
+          color: #333; 
+          margin-top: 4px; 
+        }
+        .tooltip-arrow { 
+          position: absolute; 
+          bottom: -6px; 
+          left: 50%; 
+          transform: translateX(-50%); 
+          width: 0; 
+          height: 0; 
+          border-left: 6px solid transparent; 
+          border-right: 6px solid transparent; 
+          border-top: 6px solid white; 
+        }
+        .calendar-legend { 
+          display: flex; 
+          flex-wrap: wrap; 
+          gap: 12px; 
+          margin-top: 16px; 
+        }
+        .legend-item { 
+          display: flex; 
+          align-items: center; 
+          gap: 6px; 
+          font-size: 12px; 
+          color: #666; 
+        }
+        .legend-color { 
+          width: 12px; 
+          height: 12px; 
+          border-radius: 50%; 
+        }
+        .legend-color.worked-dot { 
+          background: #4CAF50; 
+        }
+        .legend-color.leave-dot { 
+          background: #f44336; 
+        }
+        .legend-color.today { 
+          background: #E07B7B; 
+        }
+
+        /* Mobile Styles */
+        .mobile-container {
+          width: 100%;
+          min-height: 100vh;
+          background: #f5f5f5;
+        }
+        
+        .mobile-header {
+          background: white;
+          padding: 16px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+        
+        .mobile-header-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+        
+        .mobile-date-time {
+          flex: 1;
+        }
+        
+        .mobile-date-day {
+          font-size: 14px;
+          color: #666;
+          margin-bottom: 2px;
+        }
+        
+        .mobile-date {
+          font-size: 16px;
+          font-weight: 600;
+          color: #333;
+          margin-bottom: 2px;
+        }
+        
+        .mobile-time {
+          font-size: 20px;
+          font-weight: 300;
+          color: #333;
+        }
+        
+        .mobile-user-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        
+        .mobile-user-avatar {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #E69B9B, #E07B7B);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+        }
+        
+        .mobile-user-details {
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .mobile-user-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: #333;
+        }
+        
+        .mobile-user-email {
+          font-size: 11px;
+          color: #999;
+        }
+        
+        .mobile-monthly-stats {
+          background: linear-gradient(135deg, #E69B9B, #E07B7B);
+          padding: 12px;
+          border-radius: 10px;
+          color: white;
+        }
+        
+        .mobile-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        
+        .mobile-stat-item {
+          background: rgba(255,255,255,0.15);
+          padding: 8px;
+          border-radius: 6px;
+          text-align: center;
+        }
+        
+        .mobile-stat-label {
+          font-size: 9px;
+          opacity: 0.9;
+          margin-bottom: 2px;
+          white-space: nowrap;
+        }
+        
+        .mobile-stat-value {
+          font-size: 16px;
+          font-weight: 600;
+        }
+        
+        .mobile-main-content {
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        
+        .mobile-action-section {
+          background: white;
+          padding: 24px;
+          border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        
+        .mobile-action-screen {
+          text-align: center;
+          width: 100%;
+        }
+        
+        .mobile-check-icon {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          border: 3px solid #E07B7B;
+          color: #E07B7B;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 36px;
+          margin: 0 auto 16px;
+        }
+        
+        .mobile-action-title {
+          font-size: 22px;
+          font-weight: 600;
+          color: #333;
+          margin-bottom: 6px;
+        }
+        
+        .mobile-action-subtitle {
+          font-size: 14px;
+          color: #999;
+          margin-bottom: 20px;
+        }
+        
+        .mobile-summary-box {
+          background: #f9f9f9;
+          padding: 16px;
+          margin: 16px 0;
+          border-radius: 12px;
+          text-align: left;
+        }
+        
+        .mobile-summary-box p {
+          font-size: 14px;
+          color: #444;
+          margin: 6px 0;
+          font-weight: 500;
+        }
+        
+        .mobile-summary-box b {
+          color: #222;
+          font-weight: 600;
+        }
+        
+        .mobile-action-buttons-single {
+          display: flex;
+          justify-content: center;
+          margin-top: 20px;
+        }
+        
+        .mobile-action-btn {
+          padding: 32px 24px;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.3s;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          max-width: 300px;
+        }
+        
+        .mobile-btn-icon {
+          font-size: 36px;
+        }
+        
+        .mobile-btn-text {
+          font-size: 16px;
+          font-weight: 600;
+        }
+        
+        .mobile-today-summary {
+          background: white;
+          padding: 20px;
+          border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        
+        .mobile-summary-title {
+          font-size: 14px;
+          color: #999;
+          margin-bottom: 12px;
+          font-weight: 600;
+        }
+        
+        .mobile-summary-stats-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          margin-bottom: 20px;
+        }
+        
+        .mobile-stat-box {
+          background: #f9f9f9;
+          padding: 16px;
+          border-radius: 10px;
+          text-align: center;
+        }
+        
+        .mobile-stat-box-label {
+          font-size: 11px;
+          color: #999;
+          margin-bottom: 6px;
+          text-transform: uppercase;
+          font-weight: 600;
+        }
+        
+        .mobile-stat-box-value {
+          font-size: 20px;
+          font-weight: 600;
+        }
+        
+        .mobile-stat-box-value.worked {
+          color: #E07B7B;
+        }
+        
+        .mobile-stat-box-value.out-time {
+          color: #9B6B6B;
+        }
+        
+        .mobile-calendar-section {
+          background: white;
+          padding: 20px;
+          border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        
+        .mobile-calendar-container {
+          position: relative;
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 1024px) {
+          .content-wrapper {
+            flex-direction: column;
+            gap: 24px;
+          }
+          
+          .calendar-section {
+            flex: 0 0 auto;
+          }
+          
+          .calendar-container {
+            max-width: 100%;
+          }
+          
+          .mobile-stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+          
+          .mobile-stat-item {
+            padding: 10px;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .attendance-container {
+            flex-direction: column;
+          }
+          
+          .sidebar {
+            width: 100%;
+            padding: 16px;
+            box-shadow: none;
+            border-bottom: 1px solid #f0f0f0;
+          }
+          
+          .main-content {
+            padding: 16px;
+          }
+          
+          .content-wrapper {
+            gap: 20px;
+          }
+          
+          .action-btn {
+            padding: 32px 24px;
+          }
+          
+          .btn-icon {
+            font-size: 36px;
+          }
+          
+          .btn-text {
+            font-size: 16px;
+          }
+          
+          .calendar-title {
+            font-size: 16px;
+          }
+          
+          .calendar-day {
+            font-size: 13px;
+          }
+          
+          .day-status-dots {
+            margin-top: 1px;
+          }
+          
+          .status-dot {
+            width: 5px;
+            height: 5px;
+          }
+          
+          .success-screen {
+            width: 100%;
+            padding: 32px;
+          }
+          
+          .success-icon {
+            width: 80px;
+            height: 80px;
+            font-size: 48px;
+          }
+          
+          .success-title {
+            font-size: 28px;
+          }
+          
+          .success-message {
+            font-size: 16px;
+          }
+          
+          .mobile-header-top {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+          }
+          
+          .mobile-user-info {
+            width: 100%;
+            justify-content: space-between;
+          }
+          
+          .mobile-stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+          
+          .mobile-stat-label {
+            font-size: 8px;
+          }
+          
+          .mobile-stat-value {
+            font-size: 14px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .summary-stats-grid {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+          
+          .stat-box {
+            padding: 12px;
+          }
+          
+          .calendar-grid {
+            gap: 2px;
+          }
+          
+          .calendar-day {
+            border-radius: 4px;
+          }
+          
+          .action-screen {
+            max-width: 100%;
+          }
+          
+          .action-buttons-single .action-btn {
+            max-width: 100%;
+          }
+          
+          .mobile-stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          
+          .mobile-summary-stats-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .mobile-action-btn {
+            padding: 24px 20px;
+          }
+          
+          .mobile-btn-icon {
+            font-size: 32px;
+          }
+          
+          .mobile-btn-text {
+            font-size: 14px;
+          }
+          
+          .mobile-action-title {
+            font-size: 20px;
+          }
+          
+          .calendar-day-name {
+            font-size: 11px;
+          }
+          
+          .calendar-day {
+            font-size: 12px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .mobile-stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          
+          .mobile-stat-item {
+            padding: 6px;
+          }
+          
+          .mobile-stat-label {
+            font-size: 7px;
+          }
+          
+          .mobile-stat-value {
+            font-size: 12px;
+          }
+          
+          .calendar-grid {
+            gap: 1px;
+          }
+          
+          .calendar-day {
+            font-size: 11px;
+          }
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+          .day-tooltip {
+            display: none !important;
+          }
+          
+          .calendar-day {
+            min-height: 44px;
+          }
+        }
+      `}</style>
     </div>
   );
 };
 
-// ✅ Updated Styles
-const styles = {
-  container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
-    minHeight: "100vh",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "24px",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  headerActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    flexWrap: "wrap",
-  },
-  monthSelector: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  monthSelect: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    border: "2px solid #e5e7eb",
-    borderRadius: "8px",
-    outline: "none",
-    fontWeight: "500",
-    color: "#374151",
-    backgroundColor: "white",
-  },
-  searchContainer: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-  },
-  searchInput: {
-    padding: "12px 40px 12px 16px",
-    fontSize: "14px",
-    border: "2px solid #e5e7eb",
-    borderRadius: "8px",
-    outline: "none",
-    width: "280px",
-    fontWeight: "500",
-    color: "#374151",
-  },
-  searchIcon: {
-    position: "absolute",
-    right: "14px",
-    fontSize: "18px",
-    pointerEvents: "none",
-    color: "#9ca3af",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
-  refreshButton: {
-    padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  legendContainer: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "16px",
-    marginBottom: "24px",
-    padding: "16px",
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-  },
-  legendItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-  },
-  legendText: {
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#374151",
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "24px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    marginBottom: "20px",
-  },
-  cardTitle: {
-    fontSize: "20px",
-    fontWeight: "600",
-    color: "#111827",
-    margin: "0 0 20px 0",
-  },
-  statusCard: {
-    backgroundColor: "#f8fafc",
-    borderRadius: "8px",
-    padding: "20px",
-    marginBottom: "20px",
-    border: "1px solid #e5e7eb",
-  },
-  statusHeader: { 
-    marginBottom: "16px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statusLabel: { fontSize: "16px", fontWeight: "600", color: "#374151" },
-  activeBreakBadge: {
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#f59e0b",
-    backgroundColor: "#fef3c7",
-    padding: "4px 12px",
-    borderRadius: "12px",
-  },
-  statusDetails: { display: "flex", flexDirection: "column", gap: "12px" },
-  statusRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: "8px",
-    borderBottom: "1px solid #e5e7eb",
-  },
-  statusValue: { fontSize: "14px", fontWeight: "500", color: "#111827" },
-  breakDetails: { display: "flex", flexDirection: "column", gap: "8px" },
-  breakItem: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "12px",
-    backgroundColor: "white",
-    borderRadius: "6px",
-    borderLeft: "4px solid #ffa726",
-  },
-  breakLabel: { fontSize: "14px", fontWeight: "500", color: "#6b7280" },
-  breakTime: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#111827",
-    fontFamily: "'Courier New', monospace",
-  },
-  noBreaks: {
-    textAlign: "center",
-    color: "#9ca3af",
-    fontStyle: "italic",
-    padding: "20px",
-  },
-  actionButtons: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "12px",
-  },
-  punchInBtn: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#10b981",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  punchOutBtn: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#ef4444",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  breakInBtn: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#f59e0b",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  breakOutBtn: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  buttonDisabled: { opacity: 0.5, cursor: "not-allowed" },
-  summaryContainer: {
-    display: "flex",
-    gap: "16px",
-    marginBottom: "20px",
-    padding: "16px",
-    backgroundColor: "#f8fafc",
-    borderRadius: "8px",
-  },
-  summaryItem: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "4px",
-  },
-  summaryLabel: {
-    fontSize: "12px",
-    fontWeight: "500",
-    color: "#6b7280",
-    textTransform: "uppercase",
-  },
-  summaryValue: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#111827",
-  },
-  tableContainer: {
-    backgroundColor: "white",
-    borderRadius: "8px",
-    overflow: "auto",
-    maxHeight: "600px",
-    border: "1px solid #e5e7eb",
-  },
-  calendarTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    position: "relative",
-  },
-  tableHeaderRow: { backgroundColor: "#f3f4f6", position: "sticky", top: 0, zIndex: 10 },
-  tableHeader: {
-    padding: "12px 8px",
-    textAlign: "left",
-    fontSize: "12px",
-    fontWeight: "600",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    borderBottom: "2px solid #e5e7eb",
-    whiteSpace: "nowrap",
-  },
-  dayHeader: {
-    textAlign: "center",
-    minWidth: "60px",
-  },
-  dayNumber: {
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-  dayName: {
-    fontSize: "10px",
-    fontWeight: "500",
-    marginTop: "2px",
-  },
-  stickyNameColumn: {
-    position: "sticky",
-    left: 0,
-    backgroundColor: "white",
-    zIndex: 5,
-    width: "200px",
-  },
-  tableRow: {
-    borderBottom: "1px solid #e5e7eb",
-  },
-  tableCell: {
-    padding: "12px 8px",
-    fontSize: "14px",
-    color: "#374151",
-    whiteSpace: "nowrap",
-  },
-  calendarCell: {
-    padding: "8px",
-    textAlign: "center",
-    minWidth: "60px",
-    borderRight: "1px solid #e5e7eb",
-  },
-  attendanceIcon: {
-    marginBottom: "4px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  timeDisplay: {
-    fontSize: "10px",
-    color: "#6b7280",
-  },
-  punchTime: {
-    lineHeight: "1.2",
-  },
-  summaryBtn: {
-    fontSize: "20px",
-    border: "none",
-    background: "none",
-    cursor: "pointer",
-    padding: "4px",
-  },
-};
-
-export default PunchinPunchout;
+export default PunchInPunchOut;

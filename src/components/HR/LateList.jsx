@@ -8,7 +8,8 @@ export default function LateList() {
   const loadLate = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/hr/late-requests/?month=11&year=2025");
+      const res = await api.get("/hr/late-requests/");
+
       setData(res.data);
     } catch (err) {
       alert("Failed loading late list");
