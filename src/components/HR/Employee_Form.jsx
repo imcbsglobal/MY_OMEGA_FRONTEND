@@ -11,6 +11,10 @@ export default function EmployeeForm() {
   const isEdit = Boolean(id);
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  // add near other state declarations
+const [jobTitles, setJobTitles] = useState([]);
+const [loadingJobTitles, setLoadingJobTitles] = useState(false);
+
 
   const [formData, setFormData] = useState({
     user: '',
@@ -70,9 +74,27 @@ export default function EmployeeForm() {
       setLoadingUsers(false);
     }
   };
+  const fetchJobTitles = async () => {
+  setLoadingJobTitles(true);
+  try {
+   
+    // adjust endpoint to match your backend route for job title master
+    const res = await api.get("cv-management/job-titles/"); 
+    // if API returns { results: [...] } adapt like you did for users
+    const data = Array.isArray(res.data) ? res.data : (res.data?.results || res.data?.data || []);
+    setJobTitles(data);
+  } catch (err) {
+    console.error("Failed to fetch job titles:", err);
+    // optional: alert("Failed to load job titles");
+  } finally {
+    setLoadingJobTitles(false);
+  }
+};
+
 
   useEffect(() => {
     fetchUsers();
+     fetchJobTitles();  
     if (isEdit) loadEmployee();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -609,14 +631,27 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                 <label style={styles.label}>
                   Job Title <span style={styles.required}>*</span>
                 </label>
-                <input
-                  type="text"
-                  name="designation"
-                  value={formData.designation}
-                  onChange={handleChange}
-                  style={styles.input}
-                  required
-                />
+                <select
+                name="designation"
+                value={formData.designation}
+                onChange={handleChange}
+                style={styles.input}
+                required
+              >
+                <option value="">Select Job Title</option>
+
+                {loadingJobTitles ? (
+                  <option value="">Loading job titles...</option>
+                ) : (
+                  jobTitles.map((title) => (
+                    // adapt value based on your master object: if master item has `id` and `name` use those
+                    <option key={title.id ?? title.name} value={title.name ?? title.title ?? title.id}>
+                      {title.name ?? title.title ?? title.id}
+                    </option>
+                  ))
+                )}
+              </select>
+
               </div>
 
               <div style={styles.formGroup}>
@@ -664,28 +699,6 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                   onChange={handleChange}
                   style={styles.input}
                   placeholder="e.g., 9:00 AM - 6:00 PM"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Date of Leaving</label>
-                <input
-                  type="date"
-                  name="date_of_leaving"
-                  value={formData.date_of_leaving}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Probation End Date</label>
-                <input
-                  type="date"
-                  name="probation_end_date"
-                  value={formData.probation_end_date}
-                  onChange={handleChange}
-                  style={styles.input}
                 />
               </div>
 

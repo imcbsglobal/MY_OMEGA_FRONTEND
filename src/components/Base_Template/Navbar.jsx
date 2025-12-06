@@ -46,6 +46,11 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, [isMobile]);
 
+  // Close all dropdowns when route changes
+  useEffect(() => {
+    setOpenDropdowns({});
+  }, [location.pathname]);
+
   // Icon mapping for user menu items based on name
   const getIconForMenuItem = (name) => {
     const iconMap = {
@@ -85,12 +90,43 @@ export default function Navbar() {
     return FileText; // Default icon
   };
 
+  // Filter out Leave Management and Request sections for non-admin users
+  const filterMenuItem = (item) => {
+    if (!item) return null;
+
+    // Remove "Leave Management" and "Request" for non-admin users
+    if (!isAdmin) {
+      const itemName = (item.name || item.title || "").toLowerCase();
+      if (itemName.includes('leave management') || 
+          itemName.includes('request') || 
+          itemName === 'leave list' || 
+          itemName === 'early list' || 
+          itemName === 'late list' ||
+          itemName === 'leave request' ||
+          itemName === 'late request' ||
+          itemName === 'early request') {
+        return null;
+      }
+    }
+
+    return item;
+  };
+
   // Format menu item
   function formatMenuItem(item) {
     if (!item) return null;
 
+    // Filter out unwanted items for non-admin users
+    const filteredItem = filterMenuItem(item);
+    if (!filteredItem) return null;
+
     const name = item.name || item.title || "menu";
     const key = item.key || item.id || name;
+
+    // Filter children recursively
+    const filteredChildren = (item.children || [])
+      .map((child) => formatMenuItem(child))
+      .filter(Boolean);
 
     return {
       id: item.id,
@@ -99,7 +135,7 @@ export default function Navbar() {
       title: name,
       path: item.path || `/${key.toString().toLowerCase().replace(/\s+/g, "-")}`,
       icon: getIconForMenuItem(name),
-      children: (item.children || []).map((child) => formatMenuItem(child)),
+      children: filteredChildren,
       allowed_actions: item.allowed_actions || {
         can_view: item.can_view ?? true,
         can_edit: item.can_edit ?? false,
@@ -117,7 +153,7 @@ export default function Navbar() {
           const response = await api.get("/user-controll/my-menu/");
           console.log("User Menu Response:", response.data);
           const menuArr = response.data?.menu || [];
-          const formatted = menuArr.map((item) => formatMenuItem(item));
+          const formatted = menuArr.map((item) => formatMenuItem(item)).filter(Boolean);
           console.log("Formatted Menu:", formatted);
           setMenuTree(formatted);
           localStorage.setItem("menuTree", JSON.stringify(formatted));
@@ -175,7 +211,6 @@ export default function Navbar() {
             { name: "Leave List", path: "/leave-management/leave-list", icon: FileText },
             { name: "Early List", path: "/leave-management/early-list", icon: Clock },
             { name: "Late List", path: "/leave-management/late-list", icon: Clock },
-            { name: "Break List", path: "/leave-management/break-list", icon: Clock },
           ],
         },
         {
@@ -191,36 +226,31 @@ export default function Navbar() {
         { name: "Salary Certificate", path: "/salary-certificate", icon: DollarSign },
       ]
     },
-   {
-  name: "Marketing",
-  path: "/under-construction",
-  icon: Megaphone
-},
-
-{
-  name: "Vehicle Management",
-  path: "/under-construction",
-  icon: Car
-},
-
-{
-  name: "Target Management",
-  path: "/under-construction",
-  icon: Target
-},
-
-{
-  name: "Warehouse Management",
-  path: "/under-construction",
-  icon: Warehouse
-},
-
-{
-  name: "Delivery Management",
-  path: "/under-construction",
-  icon: Truck
-},
-
+    {
+      name: "Marketing",
+      path: "/under-construction",
+      icon: Megaphone
+    },
+    {
+      name: "Vehicle Management",
+      path: "/under-construction",
+      icon: Car
+    },
+    {
+      name: "Target Management",
+      path: "/under-construction",
+      icon: Target
+    },
+    {
+      name: "Warehouse Management",
+      path: "/under-construction",
+      icon: Warehouse
+    },
+    {
+      name: "Delivery Management",
+      path: "/under-construction",
+      icon: Truck
+    },
     { 
       name: "User Management", 
       icon: UserCog,
@@ -353,16 +383,13 @@ export default function Navbar() {
       gap: "12px",
     },
     menuContainer: {
-  flex: 1,
-  overflowY: "auto",
-  overflowX: "hidden",
-  padding: "12px 0",
-
-  // ✅ Hide scrollbar (all browsers)
-  scrollbarWidth: "none",     // Firefox
-  msOverflowStyle: "none",    // IE / Edge
-},
-
+      flex: 1,
+      overflowY: "auto",
+      overflowX: "hidden",
+      padding: "12px 0",
+      scrollbarWidth: "none",
+      msOverflowStyle: "none",
+    },
     menuItem: {
       display: "flex",
       alignItems: "center",
@@ -425,23 +452,22 @@ export default function Navbar() {
     },
   };
 
-          if (loading && !isAdmin) {
-            return (
-              <>
-                <div style={styles.mobileToggle} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                  <Menu size={24} color="#1e293b" />
-                </div>
-                <aside style={styles.sidebar} ref={sidebarRef}>
-                <div style={styles.header}>
-          <div style={styles.logo}>
-            <img
-              src="/assets/omega-logo.png"   // ← change file name if needed
-              alt="Omega"
-              style={{ height: "32px", objectFit: "contain" }}
-            />
-          </div>
+  if (loading && !isAdmin) {
+    return (
+      <>
+        <div style={styles.mobileToggle} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <Menu size={24} color="#1e293b" />
         </div>
-
+        <aside style={styles.sidebar} ref={sidebarRef}>
+          <div style={styles.header}>
+            <div style={styles.logo}>
+              <img
+                src="/assets/omega-logo.png"
+                alt="Omega"
+                style={{ height: "32px", objectFit: "contain" }}
+              />
+            </div>
+          </div>
           <div style={{ padding: "16px", textAlign: "center", color: "#6b7280" }}>
             Loading menu...
           </div>
@@ -470,15 +496,14 @@ export default function Navbar() {
       <aside style={styles.sidebar} ref={sidebarRef}>
         {/* Header */}
         <div style={styles.header}>
-  <div style={styles.logo}>
-    <img
-      src="/assets/omega-logo.png"   // ← same path here
-      alt="Omega"
-      style={{ height: "32px", objectFit: "contain" }}
-    />
-  </div>
-</div>
-
+          <div style={styles.logo}>
+            <img
+              src="/assets/omega-logo.png"
+              alt="Omega"
+              style={{ height: "32px", objectFit: "contain" }}
+            />
+          </div>
+        </div>
 
         {/* Menu Items */}
         <div style={styles.menuContainer}>

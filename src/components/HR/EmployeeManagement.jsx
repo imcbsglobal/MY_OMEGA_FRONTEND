@@ -1,5 +1,5 @@
 // EmployeeManagement.jsx
-// Updated with profile picture display
+// Updated with job titles API integration
 
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -9,12 +9,19 @@ export default function EmployeeManagement() {
   const navigate = useNavigate();
   const location = useLocation();
   const [employees, setEmployees] = useState([]);
+  const [jobTitles, setJobTitles] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingTitles, setLoadingTitles] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All Jobs");
+  const [organizationFilter, setOrganizationFilter] = useState("All Organizations");
 
+  // Fetch employees and job titles
   useEffect(() => {
     loadEmployees();
+    loadJobTitles();
   }, [location]);
 
   async function loadEmployees() {
@@ -54,14 +61,19 @@ export default function EmployeeManagement() {
           department: emp.department || emp.job_info?.department || "",
           employment_status: emp.employment_status || emp.job_info?.employment_status || "",
           is_active: emp.is_active !== undefined ? emp.is_active : true,
-         profile_picture: emp.avatar_url || emp.profile_picture || ""
-
+          profile_picture: emp.avatar_url || emp.profile_picture || ""
         };
       });
 
       console.log("Processed Employees:", processedEmployees);
 
       setEmployees(processedEmployees);
+      
+      // Extract unique departments from employees
+      const uniqueDepartments = [...new Set(processedEmployees
+        .map(e => e.department)
+        .filter(Boolean))];
+      setDepartments(uniqueDepartments);
       
       if (processedEmployees.length > 0) {
         setSelectedId(processedEmployees[0].id);
@@ -73,6 +85,42 @@ export default function EmployeeManagement() {
       alert(`Failed to load employees: ${err.response?.data?.detail || err.message}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadJobTitles() {
+    setLoadingTitles(true);
+    try {
+      const { data } = await api.get("/cv-management/job-titles/");
+      
+      console.log("=== JOB TITLES API RESPONSE ===");
+      console.log("Raw Response:", data);
+      
+      // Extract job titles array
+      let titlesData = [];
+      if (Array.isArray(data)) {
+        titlesData = data;
+      } else if (data?.data && Array.isArray(data.data)) {
+        titlesData = data.data;
+      } else if (data?.results && Array.isArray(data.results)) {
+        titlesData = data.results;
+      }
+
+      console.log("Job Titles Data:", titlesData);
+      
+      // Extract just the title strings
+      const titles = titlesData
+        .map(item => item.title || item.name)
+        .filter(Boolean)
+        .sort();
+      
+      setJobTitles(titles);
+      
+    } catch (err) {
+      console.error("❌ Job Titles Load Error:", err);
+      alert(`Failed to load job titles: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoadingTitles(false);
     }
   }
 
@@ -95,16 +143,24 @@ export default function EmployeeManagement() {
   }
 
   const filtered = employees.filter((e) => {
-    if (!search || search.trim() === "") return true;
-    
-    const q = search.toLowerCase();
-    return (
-      (e.name || "").toLowerCase().includes(q) ||
-      (e.email || "").toLowerCase().includes(q) ||
-      (e.job_title || "").toLowerCase().includes(q) ||
-      (e.employee_id || "").toString().toLowerCase().includes(q) ||
-      (e.department || "").toLowerCase().includes(q)
+    // Search filter
+    const searchMatch = !search || search.trim() === "" ? true : (
+      (e.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (e.email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (e.job_title || "").toLowerCase().includes(search.toLowerCase()) ||
+      (e.employee_id || "").toString().toLowerCase().includes(search.toLowerCase()) ||
+      (e.department || "").toLowerCase().includes(search.toLowerCase())
     );
+
+    // Status filter (Job Title filter)
+    const statusMatch = statusFilter === "All Jobs" ? true : 
+      (e.job_title || "").toLowerCase() === statusFilter.toLowerCase();
+
+    // Organization filter (Department filter)
+    const organizationMatch = organizationFilter === "All Organizations" ? true : 
+      (e.department || "").toLowerCase() === organizationFilter.toLowerCase();
+
+    return searchMatch && statusMatch && organizationMatch;
   });
 
   if (loading) {
@@ -138,17 +194,71 @@ export default function EmployeeManagement() {
 
       {/* Debug Info */}
       <div style={S.debugBanner}>
-        <strong>Total:</strong> {employees.length} | 
+        <strong>Total Employees:</strong> {employees.length} | 
         <strong> Filtered:</strong> {filtered.length} | 
-        <strong> Search:</strong> "{search}"
+        <strong> Job Titles:</strong> {jobTitles.length} |
+        <strong> Departments:</strong> {departments.length}
       </div>
 
       {/* Main Split Layout */}
       <div style={S.main}>
         {/* LEFT LIST */}
         <div style={S.left}>
+          {/* Filter Section */}
+          <div style={S.filterSection}>
+            <div style={S.filterHeader}>Filters</div>
+            
+            <div style={S.filterGroup}>
+              <div style={S.filterLabel}>Search</div>
+              <input
+                placeholder="Search by name, ID, job..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={S.filterInput}
+              />
+            </div>
+            
+            <div style={S.filterGroup}>
+              <div style={S.filterLabel}>Status</div>
+              <div style={S.selectContainer}>
+                <select 
+                  value={statusFilter} 
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={S.filterSelect}
+                  disabled={loadingTitles}
+                >
+                  <option value="All Jobs">All Jobs</option>
+                  {jobTitles.map((title, index) => (
+                    <option key={index} value={title}>{title}</option>
+                  ))}
+                </select>
+                <div style={S.selectArrow}>▼</div>
+              </div>
+              {loadingTitles && (
+                <div style={S.loadingText}>Loading job titles...</div>
+              )}
+            </div>
+            
+            <div style={S.filterGroup}>
+              <div style={S.filterLabel}>Organization</div>
+              <div style={S.selectContainer}>
+                <select 
+                  value={organizationFilter} 
+                  onChange={(e) => setOrganizationFilter(e.target.value)}
+                  style={S.filterSelect}
+                >
+                  <option value="All Organizations">All Organizations</option>
+                  {departments.map((dept, index) => (
+                    <option key={index} value={dept}>{dept}</option>
+                  ))}
+                </select>
+                <div style={S.selectArrow}>▼</div>
+              </div>
+            </div>
+          </div>
+
           <div style={S.leftHeader}>
-            Employee Directory ({filtered.length})
+            Employee Directory ({filtered.length} employee(s))
           </div>
 
           <div style={S.leftList}>
@@ -165,11 +275,11 @@ export default function EmployeeManagement() {
                 >
                   <div style={S.leftRow}>
                     {emp.profile_picture ? (
-                     <img 
-  src={emp.profile_picture || emp.avatar_url || ""} 
-  alt={emp.name} 
-  style={S.profilePicture} 
-/>
+                      <img 
+                        src={emp.profile_picture || emp.avatar_url || ""} 
+                        alt={emp.name} 
+                        style={S.profilePicture} 
+                      />
                     ) : (
                       <div style={S.avatar}>
                         {emp.name ? emp.name.charAt(0).toUpperCase() : "?"}
@@ -194,7 +304,7 @@ export default function EmployeeManagement() {
               <div style={S.noResults}>
                 {employees.length === 0 
                   ? "No employees found. Click '+ Add Employee' to create one." 
-                  : "No employees match your search."}
+                  : "No employees match your search or filters."}
               </div>
             )}
           </div>
@@ -233,7 +343,6 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
     <div style={S.detailCard}>
       <div style={S.detailHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-           {/* ✅ UPDATED IMAGE LOGIC */}
           {employee.avatar_url || employee.profile_picture ? (
             <img
               src={employee.avatar_url || employee.profile_picture}
@@ -355,8 +464,80 @@ const S = {
 
   main: { display: "flex", gap: 20 },
   left: { width: 350, background: "#fff", borderRadius: 8, border: "1px solid #e5e7eb", overflow: "hidden" },
-  leftHeader: { padding: 12, fontWeight: 700, background: "#f3f4f6", borderBottom: "1px solid #e5e7eb", color: "#374151", fontSize: 13 },
-  leftList: { maxHeight: "70vh", overflowY: "auto" },
+  
+  // Filter Section Styles
+  filterSection: {
+    padding: 16,
+    borderBottom: "1px solid #e5e7eb",
+  },
+  filterHeader: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#111827",
+    marginBottom: 16,
+  },
+  filterGroup: {
+    marginBottom: 16,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#374151",
+    marginBottom: 8,
+    display: "block",
+  },
+  filterInput: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: 6,
+    border: "1px solid #d1d5db",
+    fontSize: 14,
+    outline: "none",
+    backgroundColor: "#fff",
+    color: "#111827",
+  },
+  selectContainer: {
+    position: "relative",
+    width: "100%",
+  },
+  filterSelect: {
+    width: "100%",
+    padding: "10px 12px",
+    paddingRight: "32px",
+    borderRadius: 6,
+    border: "1px solid #d1d5db",
+    fontSize: 14,
+    outline: "none",
+    backgroundColor: "#fff",
+    color: "#111827",
+    appearance: "none",
+    cursor: "pointer",
+  },
+  selectArrow: {
+    position: "absolute",
+    right: "12px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "#6b7280",
+    fontSize: "12px",
+    pointerEvents: "none",
+  },
+  loadingText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  
+  leftHeader: { 
+    padding: 12, 
+    fontWeight: 700, 
+    background: "#f3f4f6", 
+    borderBottom: "1px solid #e5e7eb", 
+    color: "#374151", 
+    fontSize: 14,
+  },
+  leftList: { maxHeight: "calc(70vh - 200px)", overflowY: "auto" },
   leftItem: { padding: 12, borderBottom: "1px solid #f1f5f9", cursor: "pointer", transition: "background 0.2s" },
   leftItemActive: { background: "#eef2ff" },
   leftRow: { display: "flex", alignItems: "center", gap: 10 },

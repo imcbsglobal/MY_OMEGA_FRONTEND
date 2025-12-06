@@ -22,6 +22,7 @@ export default function OfferLetterForm() {
   });
 
   const [candidateList, setCandidateList] = useState([]);
+  const [jobTitles, setJobTitles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,6 +40,30 @@ export default function OfferLetterForm() {
     }
   };
 
+  // ✅ Fetch job titles from master data - USING YOUR ENDPOINT
+  const fetchJobTitles = async () => {
+    try {
+      const res = await api.get("/cv-management/job-titles/");
+      
+      // Based on your JobTitles component, response format is: { data: [...] }
+      const titles = Array.isArray(res.data.data) ? res.data.data : [];
+      setJobTitles(titles);
+      console.log("Job titles loaded from master:", titles);
+    } catch (err) {
+      console.error("Error fetching job titles from master", err);
+      setError("Failed to load job titles from master");
+      // Optional fallback titles
+      const defaultTitles = [
+        "Software Developer",
+        "Senior Software Developer",
+        "Full Stack Developer",
+        "Frontend Developer",
+        "Backend Developer"
+      ];
+      setJobTitles(defaultTitles);
+    }
+  };
+
   // Fetch candidate CV details
   const fetchCandidateDetails = async (candidateId) => {
     if (!candidateId) return;
@@ -53,7 +78,7 @@ export default function OfferLetterForm() {
         job_title: res.data.data.job_title || "",
         department: res.data.data.department || "",
         salary: res.data.data.expected_salary || "",
-         notice_period: "30",
+        notice_period: "30",
       }));
 
       setError("");
@@ -67,6 +92,7 @@ export default function OfferLetterForm() {
 
   useEffect(() => {
     fetchCandidates();
+    fetchJobTitles();
   }, []);
 
   const handleChange = (e) => {
@@ -88,57 +114,56 @@ export default function OfferLetterForm() {
     } else {
       setFormData(prev => ({
         ...prev,
-        job_title: "noo",
+        job_title: "",
         department: "",
         salary: ""
       }));
     }
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!formData.candidate) {
-    alert("Please select a candidate");
-    return;
-  }
-
- const dataToSend = {
-  candidate: formData.candidate,            // ✅ UUID is correct
-  position: formData.job_title,             // ✅ FIXED (job_title -> position)
-  department: formData.department,
-  salary: Number(formData.salary),
-  joining_data: formData.joining_date,      // ✅ FIXED (joining_date -> joining_data)
-  work_start_time: formData.work_start_time,
-  work_end_time: formData.work_end_time,
-  notice_period: parseInt(formData.notice_period, 10) || 30,
-  subject: formData.subject,
-  body: formData.body,
-  terms_condition: formData.terms_condition || "As per company policy",
-};
-
-
-  console.log("Submitting FIXED data:", dataToSend);
-
-  try {
-    if (isEdit) {
-      await api.put(`/offer-letter/${id}/`, dataToSend);
-      alert("Offer letter updated successfully");
-    } else {
-      await api.post("/offer-letter/", dataToSend);
-      alert("Offer letter created successfully");
+    if (!formData.candidate) {
+      alert("Please select a candidate");
+      return;
     }
 
-    navigate("/offer-letter");
-  } catch (error) {
-    console.error("Submit error details:", error?.response?.data);
-    alert(
-      error.response?.data?.message ||
-      JSON.stringify(error.response?.data) ||
-      "Offer Letter API Error"
-    );
-  }
-};
+    const dataToSend = {
+      candidate: formData.candidate,
+      position: formData.job_title,
+      department: formData.department,
+      salary: Number(formData.salary),
+      joining_data: formData.joining_date,
+      work_start_time: formData.work_start_time,
+      work_end_time: formData.work_end_time,
+      notice_period: parseInt(formData.notice_period, 10) || 30,
+      subject: formData.subject,
+      body: formData.body,
+      terms_condition: formData.terms_condition || "As per company policy",
+    };
+
+    console.log("Submitting data:", dataToSend);
+
+    try {
+      if (isEdit) {
+        await api.put(`/offer-letter/${id}/`, dataToSend);
+        alert("Offer letter updated successfully");
+      } else {
+        await api.post("/offer-letter/", dataToSend);
+        alert("Offer letter created successfully");
+      }
+
+      navigate("/offer-letter");
+    } catch (error) {
+      console.error("Submit error details:", error?.response?.data);
+      alert(
+        error.response?.data?.message ||
+        JSON.stringify(error.response?.data) ||
+        "Offer Letter API Error"
+      );
+    }
+  };
 
   return (
     <div style={styles.pageContainer}>
@@ -153,7 +178,7 @@ export default function OfferLetterForm() {
 
         <form onSubmit={handleSubmit} style={styles.form}>
 
-          {/* Candidate */}
+          {/* Candidate Dropdown */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Select Candidate:</label>
             <select
@@ -173,19 +198,23 @@ export default function OfferLetterForm() {
             </select>
           </div>
 
-          {/* Position */}
+          {/* ✅ Job Title Dropdown - From Master Data */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>  job_title:</label>
-            <input
+            <label style={styles.label}>Job Title:</label>
+            <select
               style={styles.input}
               name="job_title"
               value={formData.job_title}
               onChange={handleChange}
               required
-              placeholder="e.g., Software Developer"
-            />
-
-
+            >
+              <option value="">-- Select Job Title --</option>
+              {jobTitles.map((item) => (
+                <option key={item.uuid || item.id} value={item.title}>
+                  {item.title}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Department */}

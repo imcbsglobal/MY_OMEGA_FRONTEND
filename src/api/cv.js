@@ -12,35 +12,25 @@ export function toApiPayload(ui, fileIfAny) {
     return "O";
   };
 
-  // ✅ Correct Interview Status mapper
-  const mapStatus = (s) => {
-    if (!s) return "pending";
-    const v = s.toLowerCase();
-    if (v.startsWith("p")) return "pending";
-    if (v.startsWith("o") || v.startsWith("sch")) return "ongoing";
-    if (v.startsWith("s") || v.startsWith("comp")) return "selected";
-    if (v.startsWith("r")) return "rejected";
-    return "pending";
-  };
-
   // ✅ Convert DOB to YYYY-MM-DD
   const normalizeDob = (dob) => {
     if (!dob) return "";
     const parts = dob.split("-");
     if (parts.length === 3) {
       const [a, b, c] = parts;
-      // if first part > 31 → it's already in YYYY-MM-DD format
+      // If already YYYY-MM-DD
       if (Number(a) > 31) return dob;
-      // else convert DD-MM-YYYY → YYYY-MM-DD
+      // Convert DD-MM-YYYY → YYYY-MM-DD
       return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
     }
     return dob;
   };
 
   const form = new FormData();
+
   if (ui.name) form.append("name", ui.name);
   if (ui.gender) form.append("gender", mapGender(ui.gender));
-  if (ui.dob) form.append("dob", normalizeDob(ui.dob)); // ✅ fixed here
+  if (ui.dob) form.append("dob", normalizeDob(ui.dob));
   if (ui.jobTitleId != null) form.append("job_title", String(ui.jobTitleId));
   if (ui.place) form.append("place", ui.place);
   if (ui.district) form.append("district", ui.district);
@@ -49,11 +39,16 @@ export function toApiPayload(ui, fileIfAny) {
   if (ui.email) form.append("email", ui.email);
   if (ui.phoneNumber) form.append("phone_number", ui.phoneNumber);
   if (ui.address) form.append("address", ui.address);
+
   form.append("cv_source", ui.cvSource || "Direct");
-  form.append("interview_status", mapStatus(ui.interviewStatus));
+
+  // ✅ FORCE DEFAULT STATUS ON CREATE
+  form.append("interview_status", "pending");
+
   if (ui.remarks) form.append("remarks", ui.remarks);
   if (fileIfAny) form.append("cv_file", fileIfAny);
-console.log("toApiPayload form data:", [...form.entries()]);
+
+  console.log("toApiPayload form data:", [...form.entries()]);
   return form;
 }
 
@@ -62,7 +57,12 @@ export function toUi(cv) {
   return {
     uuid: cv.id || cv.uuid,
     name: cv.name || "",
-    gender: cv.gender === "M" ? "Male" : cv.gender === "F" ? "Female" : "Other",
+    gender:
+      cv.gender === "M"
+        ? "Male"
+        : cv.gender === "F"
+        ? "Female"
+        : "Other",
     dob: cv.dob || "",
     jobTitleId: cv.job_title ?? null,
     jobTitle: cv.job_title_name ?? cv.job_title ?? "",
@@ -71,12 +71,15 @@ export function toUi(cv) {
     education: cv.education || "",
     experience: cv.experience || "",
     email: cv.email || "",
-    phoneNumber : cv.phone_number || "",
+    phoneNumber: cv.phone_number || "",
     address: cv.address || "",
     cvAttachmentUrl: cv.cv_file || "",
     cvFileName: cv.cv_file ? cv.cv_file.split("/").pop() : "",
     cvSource: cv.cv_source || "Direct",
+
+    // ✅ Always fallback to pending
     interviewStatus: cv.interview_status || "pending",
+
     remarks: cv.remarks || "",
     createdUser: cv.created_by || "",
     createdDate: cv.created_at || "",
@@ -90,28 +93,35 @@ export const CV = {
     const r = await api.get("/cv-management/cvs/");
     return r.data.data;
   },
+
   get: async (uuid) => {
     const r = await api.get(`/cv-management/cvs/${uuid}/`);
     return r.data.data;
   },
+
+  // ✅ CREATE (multipart)
   create: async (formData) => {
     const r = await api.post("/cv-management/cvs/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return r.data.data;
   },
-  update: async (uuid, formDataOrJson, isMultipart = true) => {
-    const r = await api.put(`/cv-management/cvs/${uuid}/`, formDataOrJson, {
+
+  // ✅ PATCH for PARTIAL updates (status change)
+  update: async (uuid, data, isMultipart = false) => {
+    const r = await api.patch(`/cv-management/cvs/${uuid}/`, data, {
       headers: isMultipart
         ? { "Content-Type": "multipart/form-data" }
-        : undefined,
+        : { "Content-Type": "application/json" },
     });
     return r.data.data;
   },
+
   remove: async (uuid) => {
     const r = await api.delete(`/cv-management/cvs/${uuid}/`);
     return r.data;
   },
+
   jobTitles: async () => {
     const r = await api.get("/cv-management/job-titles/");
     return r.data.data || r.data;

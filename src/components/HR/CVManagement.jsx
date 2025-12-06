@@ -26,6 +26,7 @@ export default function CVManagement() {
       }
     })();
   }, []);
+  
 
   const handleAddNewClick = () => navigate("/cv-management/add");
   const handleEditClick = (cv) => navigate(`/cv-management/edit/${cv.uuid}`);
@@ -42,6 +43,57 @@ export default function CVManagement() {
       console.error(e);
       alert(e.response?.data?.detail || "Failed to delete CV");
     }
+  };
+  
+  const handleStatusChange = async (uuid, newStatus) => {
+    try {
+      await CV.update(
+        uuid,
+        { interview_status: newStatus.toLowerCase() },
+        false
+      );
+
+      setCvs((prev) =>
+        prev.map((cv) =>
+          cv.uuid === uuid
+            ? { ...cv, interviewStatus: newStatus.toLowerCase() }
+            : cv
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update status");
+    }
+  };
+
+  // Helper function to get status styles based on value
+  const getStatusStyles = (status) => {
+    const statusValue = status?.toLowerCase() || "pending";
+    
+    const styleMap = {
+      pending: {
+        backgroundColor: "#fef3c7",
+        color: "#92400e",
+        borderColor: "#fbbf24",
+      },
+      ongoing: {
+        backgroundColor: "#dbeafe",
+        color: "#1e40af",
+        borderColor: "#60a5fa",
+      },
+      selected: {
+        backgroundColor: "#d1fae5",
+        color: "#065f46",
+        borderColor: "#34d399",
+      },
+      rejected: {
+        backgroundColor: "#fee2e2",
+        color: "#991b1b",
+        borderColor: "#f87171",
+      },
+    };
+
+    return styleMap[statusValue] || styleMap.pending;
   };
 
   const filtered = cvs.filter((cv) => {
@@ -108,7 +160,6 @@ export default function CVManagement() {
               <th style={styles.tableHeader}>GENDER</th>
               <th style={styles.tableHeader}>STATUS</th>
               <th style={styles.tableHeader}>PHONE</th>
-              <th style={styles.tableHeader}>REMARKS</th>
               <th style={styles.tableHeader}>ACTION</th>
             </tr>
           </thead>
@@ -123,44 +174,76 @@ export default function CVManagement() {
                 </td>
               </tr>
             ) : (
-              pageItems.map((cv, idx) => (
-                <tr key={cv.uuid} style={styles.tableRow}>
-                  <td style={styles.tableCell}>{startIndex + idx + 1}</td>
-                  <td style={styles.tableCell}>{cv.name}</td>
-                  <td style={styles.tableCell}>{cv.jobTitle}</td>
-                  <td style={styles.tableCell}>
-                    <button
-                      style={styles.viewCvBtn}
-                      onClick={() => handleViewCVClick(cv.cvAttachmentUrl)}
-                    >
-                      View CV
-                    </button>
-                  </td>
-                  <td style={styles.tableCell}>{cv.place || "N/A"}</td>
-                  <td style={styles.tableCell}>{cv.gender}</td>
-                  <td style={styles.tableCell}>
-                    <span style={styles.statusBadge}>{cv.interviewStatus}</span>
-                  </td>
-                  <td style={styles.tableCell}>{cv.phoneNumber}</td>
-                  <td style={styles.tableCell}>{cv.remarks}</td>
-                  <td style={styles.tableCell}>
-                    <div style={styles.actionButtons}>
-                      <button onClick={() => handleViewClick(cv)} style={styles.viewBtn}>
-                        View
-                      </button>
-                      <button onClick={() => handleEditClick(cv)} style={styles.editBtn}>
-                        Edit
-                      </button>
+              pageItems.map((cv, idx) => {
+                const statusStyles = getStatusStyles(cv.interviewStatus);
+                
+                return (
+                  <tr key={cv.uuid} style={styles.tableRow}>
+                    {/* SL NO */}
+                    <td style={styles.tableCell}>{startIndex + idx + 1}</td>
+
+                    {/* NAME */}
+                    <td style={styles.tableCell}>{cv.name}</td>
+
+                    {/* JOB TITLE */}
+                    <td style={styles.tableCell}>{cv.jobTitle}</td>
+
+                    {/* CV */}
+                    <td style={styles.tableCell}>
                       <button
-                        onClick={() => handleDeleteClick(cv.uuid)}
-                        style={styles.deleteBtn}
+                        style={styles.viewCvBtn}
+                        onClick={() => handleViewCVClick(cv.cvAttachmentUrl)}
                       >
-                        Delete
+                        View CV
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+
+                    {/* PLACE */}
+                    <td style={styles.tableCell}>{cv.place || "N/A"}</td>
+
+                    {/* GENDER */}
+                    <td style={styles.tableCell}>{cv.gender || "N/A"}</td>
+
+                    {/* ✅ STATUS DROPDOWN */}
+                    <td style={styles.tableCell}>
+                      <select
+                        value={cv.interviewStatus || "pending"}
+                        onChange={(e) => handleStatusChange(cv.uuid, e.target.value)}
+                        style={{
+                          ...styles.statusDropdown,
+                          ...statusStyles,
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="ongoing">Ongoing</option>
+                        <option value="selected">Selected</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </td>
+
+                    {/* PHONE */}
+                    <td style={styles.tableCell}>{cv.phoneNumber || "N/A"}</td>
+
+                    {/* ACTION */}
+                    <td style={styles.tableCell}>
+                      <div style={styles.actionButtons}>
+                        <button onClick={() => handleViewClick(cv)} style={styles.viewBtn}>
+                          View
+                        </button>
+                        <button onClick={() => handleEditClick(cv)} style={styles.editBtn}>
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(cv.uuid)}
+                          style={styles.deleteBtn}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -304,14 +387,17 @@ const styles = {
     fontSize: "14px",
     color: "#374151",
   },
-  statusBadge: {
-    padding: "4px 12px",
-    borderRadius: "12px",
-    fontSize: "12px",
+  statusDropdown: {
+    padding: "6px 10px",
+    borderRadius: "6px",
+    border: "1px solid",
+    fontSize: "13px",
     fontWeight: "600",
-    display: "inline-block",
-    backgroundColor: "#fef3c7",
-    color: "#92400e",
+    cursor: "pointer",
+    outline: "none",
+    transition: "all 0.2s",
+    width: "100%",
+    maxWidth: "120px",
   },
   viewCvBtn: {
     padding: "6px 12px",

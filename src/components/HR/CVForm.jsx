@@ -29,7 +29,6 @@ export default function CVForm() {
     cvSource: "Direct",
     cvAttachmentUrl: "",
     cvFileName: "",
-    interviewStatus: "Pending",
   });
 
   useEffect(() => {
@@ -62,21 +61,58 @@ export default function CVForm() {
     setCvData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ✅ Updated: Handle job title selection from dropdown
+  const handleJobTitleChange = (e) => {
+    const selectedValue = e.target.value;
+    
+    if (!selectedValue) {
+      // If "Select Job Title" is selected
+      setCvData(prev => ({ 
+        ...prev, 
+        jobTitle: "",
+        jobTitleId: null 
+      }));
+      return;
+    }
+    
+    // Find the selected job title object
+    const selectedJob = jobTitles.find(job => 
+      (job.id && String(job.id) === selectedValue) || 
+      (job.name && job.name === selectedValue) ||
+      (job.title && job.title === selectedValue)
+    );
+    
+    if (selectedJob) {
+      setCvData(prev => ({
+        ...prev,
+        jobTitle: selectedJob.name || selectedJob.title || selectedValue,
+        jobTitleId: selectedJob.id || null
+      }));
+    } else {
+      // If not found, just set the text
+      setCvData(prev => ({
+        ...prev,
+        jobTitle: selectedValue,
+        jobTitleId: null
+      }));
+    }
+  };
+
   const handleFileUpload = (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const maxSize = 2 * 1024 * 1024; // ✅ 2MB
+    const maxSize = 2 * 1024 * 1024; // ✅ 2MB
 
-  if (file.size > maxSize) {
-    alert("❌ File too large. Please reduce the size (Max 2MB).");
-    e.target.value = "";
-    return;
-  }
+    if (file.size > maxSize) {
+      alert("❌ File too large. Please reduce the size (Max 2MB).");
+      e.target.value = "";
+      return;
+    }
 
-  setUploadedFile(file);
-  setCvData((prev) => ({ ...prev, cvFileName: file.name }));
-};
+    setUploadedFile(file);
+    setCvData((prev) => ({ ...prev, cvFileName: file.name }));
+  };
 
   const handleRemoveFile = () => {
     setUploadedFile(null);
@@ -127,8 +163,8 @@ export default function CVForm() {
         alert("CV updated successfully!");
       } else {
         const form = toApiPayload(updatedData, uploadedFile);
-      await CV.create(form);
-alert("CV added successfully!");
+        await CV.create(form);
+        alert("CV added successfully!");
       }
 
       window.dispatchEvent(new Event("cv-updated"));  // ✅ FORCE SYNC
@@ -273,40 +309,38 @@ alert("CV added successfully!");
                 style={styles.input}
                 name="name"
                 value={cvData.name}
-                onChange={handleInputChange}
+                onChange={(e) =>
+                  setCvData((prev) => ({
+                    ...prev,
+                    name: e.target.value.toUpperCase(),
+                  }))
+                }
                 required
               />
             </div>
 
-            {/* Job Title */}
+            {/* ✅ Job Title - UPDATED TO DROPDOWN */}
             <div style={styles.formGroup}>
               <label style={styles.label}>Job Title *</label>
-              <input
-                list="jobTitleList"
+              <select
                 style={styles.input}
                 name="jobTitle"
                 value={cvData.jobTitle}
-                onChange={(e) => {
-                  const selectedTitle = e.target.value;
-                  const jt = jobTitles.find(
-                    (j) =>
-                      j.name?.toLowerCase() === selectedTitle.toLowerCase() ||
-                      j.title?.toLowerCase() === selectedTitle.toLowerCase()
-                  );
-                  setCvData((p) => ({
-                    ...p,
-                    jobTitle: selectedTitle,
-                    jobTitleId: jt ? jt.id : null,
-                  }));
-                }}
-                placeholder="Select or type job title"
+                onChange={handleJobTitleChange}
                 required
-              />
-              <datalist id="jobTitleList">
-                {jobTitles.map((j) => (
-                  <option key={j.id} value={j.name || j.title} />
-                ))}
-              </datalist>
+              >
+                <option value="">-- Select Job Title --</option>
+                {jobTitles.map((job) => {
+                  const displayName = job.name || job.title || String(job);
+                  const value = job.id ? String(job.id) : displayName;
+                  
+                  return (
+                    <option key={value} value={value}>
+                      {displayName}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
 
             {/* Gender */}
@@ -443,29 +477,6 @@ alert("CV added successfully!");
                 <option value="Website">Website</option>
                 <option value="Job Portal">Job Portal</option>
               </select>
-            </div>
-
-            {/* Interview Status */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Interview Status</label>
-             <select
-  style={styles.input}
-  name="interviewStatus"
-  value={cvData.interviewStatus}
-  onChange={(e) =>
-    setCvData((prev) => ({
-      ...prev,
-      interviewStatus: e.target.value.toLowerCase(),
-    }))
-  }
->
-  <option value="pending">Pending</option>
-  <option value="ongoing">Ongoing</option>
-  <option value="selected">Selected</option>
-  <option value="rejected">Rejected</option>
-</select>
-
-
             </div>
           </div>
 
