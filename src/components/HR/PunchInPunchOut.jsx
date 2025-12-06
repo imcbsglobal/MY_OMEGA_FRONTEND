@@ -8,9 +8,7 @@ const PunchInPunchOut = () => {
   const [countdown, setCountdown] = useState(5);
   const [todayStatus, setTodayStatus] = useState({ 
     punch_records: [], 
-    total_working_hours: 0,
-    total_break_hours: 0,
-    is_currently_on_break: false
+    total_working_hours: 0
   });
   const [loading, setLoading] = useState(false);
   const [userName, setUserName] = useState('');
@@ -25,6 +23,8 @@ const PunchInPunchOut = () => {
   const [hoveredDay, setHoveredDay] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
+  const [myRecords, setMyRecords] = useState([]);
+  const [calendarSummary, setCalendarSummary] = useState({});
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -50,6 +50,7 @@ const PunchInPunchOut = () => {
     fetchLeaveRequests();
     getUserLocation();
     fetchAttendanceHistory();
+    fetchMyRecords();
   }, [currentMonth]);
 
   useEffect(() => {
@@ -164,6 +165,64 @@ const PunchInPunchOut = () => {
     }
   };
 
+  const fetchMyRecords = async () => {
+    try {
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1;
+      
+      const response = await api.get(`/hr/attendance/my_records/?month=${month}&year=${year}`);
+      
+      if (response.data) {
+        const records = response.data.results || response.data || [];
+        setMyRecords(records);
+        
+        // Process records for calendar summary
+        const summary = {};
+        records.forEach(record => {
+          const date = new Date(record.date || record.punch_time);
+          const day = date.getDate();
+          
+          if (!summary[day]) {
+            summary[day] = {
+              total_hours: 0,
+              punch_ins: [],
+              punch_outs: [],
+              status: 'absent'
+            };
+          }
+          
+          if (record.punch_type === 'in') {
+            summary[day].punch_ins.push(new Date(record.punch_time));
+            if (summary[day].punch_ins.length === 1) {
+              summary[day].first_punch_in = new Date(record.punch_time);
+            }
+          } else if (record.punch_type === 'out') {
+            summary[day].punch_outs.push(new Date(record.punch_time));
+            if (summary[day].punch_outs.length > 0) {
+              summary[day].last_punch_out = new Date(record.punch_time);
+            }
+          }
+          
+          // Calculate total hours for the day
+          if (record.total_hours) {
+            summary[day].total_hours = parseFloat(record.total_hours);
+          }
+          
+          // Determine status
+          if (summary[day].punch_ins.length > 0 || summary[day].total_hours > 0) {
+            summary[day].status = 'worked';
+          }
+        });
+        
+        setCalendarSummary(summary);
+      }
+    } catch (error) {
+      console.error('Error fetching my records:', error);
+      setMyRecords([]);
+      setCalendarSummary({});
+    }
+  };
+
   const fetchTodayAttendance = async () => {
     try {
       const response = await api.get('/hr/attendance/today_status/');
@@ -172,9 +231,7 @@ const PunchInPunchOut = () => {
         
         setTodayStatus({ 
           punch_records: punchRecords,
-          total_working_hours: response.data.total_working_hours || 0,
-          total_break_hours: response.data.total_break_hours || 0,
-          is_currently_on_break: response.data.is_currently_on_break || false
+          total_working_hours: response.data.total_working_hours || 0
         });
         
         // Check if user is currently punched in (last punch is IN)
@@ -211,6 +268,7 @@ const PunchInPunchOut = () => {
       setIsCurrentlyPunchedIn(true);
       await fetchTodayAttendance();
       await fetchMonthlySummary();
+      await fetchMyRecords();
       setSuccessType('punchin');
       setShowSuccessScreen(true);
     } catch (error) {
@@ -233,6 +291,7 @@ const PunchInPunchOut = () => {
       setIsCurrentlyPunchedIn(false);
       await fetchTodayAttendance();
       await fetchMonthlySummary();
+      await fetchMyRecords();
       setSuccessType('punchout');
       setShowSuccessScreen(true);
     } catch (error) {
@@ -255,24 +314,60 @@ const PunchInPunchOut = () => {
     });
   };
 
-  const getDayAttendanceInfo = (day) => {
+  const getDaySummary = (day) => {
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     const dayKey = day;
     
+    // Check if on leave first
+    if (isDateOnLeave(new Date(date))) {
+      return {
+        status: 'leave',
+        worked: false,
+        firstPunchIn: null,
+        lastPunchOut: null,
+        totalHours: 0
+      };
+    }
+    
+    // Check calendar summary from my_records API
+    if (calendarSummary[dayKey]) {
+      const summary = calendarSummary[dayKey];
+      return {
+        status: summary.status,
+        worked: summary.status === 'worked',
+        firstPunchIn: summary.first_punch_in || null,
+        lastPunchOut: summary.last_punch_out || null,
+        totalHours: summary.total_hours || 0,
+        punchIns: summary.punch_ins || [],
+        punchOuts: summary.punch_outs || []
+      };
+    }
+    
+    // Fallback to attendance history
     if (attendanceHistory[dayKey]) {
       const records = attendanceHistory[dayKey].punch_records;
       const inRecords = records.filter(r => r.punch_type === 'in');
       const outRecords = records.filter(r => r.punch_type === 'out');
       
       return {
+        status: attendanceHistory[dayKey].worked ? 'worked' : 'absent',
         worked: attendanceHistory[dayKey].worked,
         firstPunchIn: inRecords.length > 0 ? new Date(inRecords[0].punch_time) : null,
         lastPunchOut: outRecords.length > 0 ? new Date(outRecords[outRecords.length - 1].punch_time) : null,
-        totalHours: attendanceHistory[dayKey].total_hours
+        totalHours: attendanceHistory[dayKey].total_hours || 0
       };
     }
     
-    return { worked: false, firstPunchIn: null, lastPunchOut: null, totalHours: 0 };
+    // Check if it's a future date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    
+    if (date > today) {
+      return { status: 'future', worked: false, firstPunchIn: null, lastPunchOut: null, totalHours: 0 };
+    }
+    
+    return { status: 'absent', worked: false, firstPunchIn: null, lastPunchOut: null, totalHours: 0 };
   };
 
   const handleDayHover = (event, day) => {
@@ -301,22 +396,29 @@ const PunchInPunchOut = () => {
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const isToday = date.toDateString() === new Date().toDateString();
-      const onLeave = isDateOnLeave(new Date(date));
-      const attendanceInfo = getDayAttendanceInfo(day);
-      const { worked, firstPunchIn, lastPunchOut } = attendanceInfo;
+      const daySummary = getDaySummary(day);
+      const { status, worked } = daySummary;
+      
+      let dayClass = `calendar-day ${isToday ? 'today' : ''}`;
+      if (status === 'leave') dayClass += ' on-leave';
+      if (status === 'worked') dayClass += ' worked-day';
+      if (status === 'absent') dayClass += ' absent-day';
+      if (status === 'future') dayClass += ' future-day';
       
       days.push(
         <div 
           key={day} 
-          className={`calendar-day ${isToday ? 'today' : ''} ${onLeave ? 'on-leave' : ''}`}
+          className={dayClass}
           onMouseEnter={(e) => handleDayHover(e, day)}
           onMouseLeave={() => setHoveredDay(null)}
           onClick={() => setHoveredDay(hoveredDay === day ? null : day)}
         >
           {day}
           <div className="day-status-dots">
-            {worked && !onLeave && <div className="status-dot worked-dot" title="Worked"></div>}
-            {onLeave && <div className="status-dot leave-dot" title="On Leave"></div>}
+            {status === 'worked' && <div className="status-dot worked-dot" title="Worked"></div>}
+            {status === 'leave' && <div className="status-dot leave-dot" title="On Leave"></div>}
+            {status === 'absent' && <div className="status-dot absent-dot" title="Absent"></div>}
+            {status === 'future' && <div className="status-dot future-dot" title="Future Date"></div>}
           </div>
         </div>
       );
@@ -329,6 +431,28 @@ const PunchInPunchOut = () => {
           <div className="calendar-title">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
           <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}>›</button>
         </div>
+        
+        <div className="calendar-summary-stats">
+          <div className="summary-stat-item">
+            <div className="summary-stat-label">Worked Days</div>
+            <div className="summary-stat-value">
+              {Object.values(calendarSummary).filter(s => s.status === 'worked').length}
+            </div>
+          </div>
+          <div className="summary-stat-item">
+            <div className="summary-stat-label">Total Hours</div>
+            <div className="summary-stat-value">
+              {Object.values(calendarSummary).reduce((total, s) => total + (s.total_hours || 0), 0).toFixed(1)}h
+            </div>
+          </div>
+          <div className="summary-stat-item">
+            <div className="summary-stat-label">Leave Days</div>
+            <div className="summary-stat-value">
+              {Object.values(calendarSummary).filter(s => s.status === 'leave').length}
+            </div>
+          </div>
+        </div>
+        
         <div className="calendar-days-header">
           {dayNames.map(name => <div key={name} className="calendar-day-name">{name}</div>)}
         </div>
@@ -346,28 +470,41 @@ const PunchInPunchOut = () => {
             <div className="tooltip-content">
               <div className="tooltip-date">{hoveredDay} {currentMonth.toLocaleDateString('en-US', { month: 'short' })}</div>
               {(() => {
-                const attendanceInfo = getDayAttendanceInfo(hoveredDay);
-                const onLeave = isDateOnLeave(new Date(year, month, hoveredDay));
+                const daySummary = getDaySummary(hoveredDay);
+                const { status, firstPunchIn, lastPunchOut, totalHours, punchIns, punchOuts } = daySummary;
                 
-                if (onLeave) {
-                  return <div className="tooltip-status">On Leave</div>;
-                } else if (attendanceInfo.worked) {
+                if (status === 'leave') {
+                  return <div className="tooltip-status leave">On Leave</div>;
+                } else if (status === 'worked') {
                   return (
                     <>
-                      <div className="tooltip-status worked">Worked</div>
-                      {attendanceInfo.firstPunchIn && (
-                        <div className="tooltip-time">First In: {formatTime(attendanceInfo.firstPunchIn)}</div>
+                      <div className="tooltip-status worked">Worked - {formatHoursMinutes(totalHours)}</div>
+                      {firstPunchIn && (
+                        <div className="tooltip-time">First In: {formatTime(firstPunchIn)}</div>
                       )}
-                      {attendanceInfo.lastPunchOut && (
-                        <div className="tooltip-time">Last Out: {formatTime(attendanceInfo.lastPunchOut)}</div>
+                      {lastPunchOut && (
+                        <div className="tooltip-time">Last Out: {formatTime(lastPunchOut)}</div>
                       )}
-                      {attendanceInfo.totalHours > 0 && (
-                        <div className="tooltip-hours">Total: {formatHoursMinutes(attendanceInfo.totalHours)}</div>
+                      {punchIns && punchIns.length > 0 && (
+                        <div className="tooltip-detail">
+                          <div className="tooltip-detail-label">Punch Ins:</div>
+                          <div className="tooltip-detail-times">
+                            {punchIns.slice(0, 3).map((time, idx) => (
+                              <div key={idx} className="tooltip-detail-time">{formatTime(time)}</div>
+                            ))}
+                            {punchIns.length > 3 && <div className="tooltip-detail-time">+{punchIns.length - 3} more</div>}
+                          </div>
+                        </div>
+                      )}
+                      {totalHours > 0 && (
+                        <div className="tooltip-hours">Total Hours: {formatHoursMinutes(totalHours)}</div>
                       )}
                     </>
                   );
-                } else if (new Date(year, month, hoveredDay).toDateString() === new Date().toDateString()) {
-                  return <div className="tooltip-status today">Today</div>;
+                } else if (status === 'absent') {
+                  return <div className="tooltip-status absent">Absent</div>;
+                } else if (status === 'future') {
+                  return <div className="tooltip-status future">Future Date</div>;
                 }
               })()}
             </div>
@@ -378,63 +515,8 @@ const PunchInPunchOut = () => {
         <div className="calendar-legend">
           <div className="legend-item"><div className="legend-color worked-dot"></div><span>Worked</span></div>
           <div className="legend-item"><div className="legend-color leave-dot"></div><span>Leave</span></div>
+          <div className="legend-item"><div className="legend-color absent-dot"></div><span>Absent</span></div>
           <div className="legend-item"><div className="legend-color today"></div><span>Today</span></div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderPunchSessions = () => {
-    const punchRecords = todayStatus.punch_records || [];
-    if (punchRecords.length === 0) return null;
-
-    const sessions = [];
-    for (let i = 0; i < punchRecords.length; i += 2) {
-      const punchIn = punchRecords[i];
-      const punchOut = punchRecords[i + 1];
-      
-      if (punchIn && punchIn.punch_type === 'in') {
-        sessions.push({
-          punchIn: punchIn,
-          punchOut: punchOut && punchOut.punch_type === 'out' ? punchOut : null
-        });
-      }
-    }
-
-    return (
-      <div className="sessions-summary">
-        <div className="sessions-header">Today's Sessions</div>
-        <div className="sessions-list">
-          {sessions.map((session, index) => {
-            const punchInTime = session.punchIn ? new Date(session.punchIn.punch_time) : null;
-            const punchOutTime = session.punchOut ? new Date(session.punchOut.punch_time) : null;
-            let duration = '0:00';
-            
-            if (punchInTime) {
-              const end = punchOutTime || new Date();
-              const minutes = Math.floor((end - punchInTime) / (1000 * 60));
-              const hours = Math.floor(minutes / 60);
-              const mins = minutes % 60;
-              duration = `${hours}:${mins.toString().padStart(2, '0')}`;
-            }
-            
-            return (
-              <div key={index} className="session-item">
-                <div className="session-number">Session {index + 1}</div>
-                <div className="session-times">
-                  <div className="session-time">
-                    <span className="time-label">In:</span>
-                    <span className="time-value">{punchInTime ? formatTime(punchInTime) : '-'}</span>
-                  </div>
-                  <div className="session-time">
-                    <span className="time-label">Out:</span>
-                    <span className="time-value">{punchOutTime ? formatTime(punchOutTime) : 'Active'}</span>
-                  </div>
-                </div>
-                <div className="session-duration">{duration}</div>
-              </div>
-            );
-          })}
         </div>
       </div>
     );
@@ -525,21 +607,13 @@ const PunchInPunchOut = () => {
             <div className="summary-title">Today's Summary</div>
             <div className="summary-stats-grid">
               <div className="stat-box">
-                <div className="stat-box-label">Worked</div>
+                <div className="stat-box-label">Worked Hours</div>
                 <div className="stat-box-value worked">
                   {formatHoursMinutes(todayStatus.total_working_hours || 0)}
                 </div>
               </div>
-              <div className="stat-box">
-                <div className="stat-box-label">Break Time</div>
-                <div className="stat-box-value out-time">
-                  {formatHoursMinutes(todayStatus.total_break_hours || 0)}
-                </div>
-              </div>
             </div>
           </div>
-          
-          {renderPunchSessions()}
         </div>
       </div>
     );
@@ -577,7 +651,6 @@ const PunchInPunchOut = () => {
                     
                     <div className="summary-box">
                       <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
-                      <p><b>Break Time:</b> {formatHoursMinutes(todayStatus.total_break_hours || 0)}</p>
                       <p><b>Sessions Today:</b> {Math.ceil((todayStatus.punch_records || []).length / 2)}</p>
                     </div>
                     
@@ -629,7 +702,6 @@ const PunchInPunchOut = () => {
                   
                   <div className="mobile-summary-box">
                     <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
-                    <p><b>Break Time:</b> {formatHoursMinutes(todayStatus.total_break_hours || 0)}</p>
                     <p><b>Sessions Today:</b> {Math.ceil((todayStatus.punch_records || []).length / 2)}</p>
                   </div>
                   
@@ -651,20 +723,12 @@ const PunchInPunchOut = () => {
               <div className="mobile-summary-title">Today's Summary</div>
               <div className="mobile-summary-stats-grid">
                 <div className="mobile-stat-box">
-                  <div className="mobile-stat-box-label">Worked</div>
+                  <div className="mobile-stat-box-label">Worked Hours</div>
                   <div className="mobile-stat-box-value worked">
                     {formatHoursMinutes(todayStatus.total_working_hours || 0)}
                   </div>
                 </div>
-                <div className="mobile-stat-box">
-                  <div className="mobile-stat-box-label">Break Time</div>
-                  <div className="mobile-stat-box-value out-time">
-                    {formatHoursMinutes(todayStatus.total_break_hours || 0)}
-                  </div>
-                </div>
               </div>
-              
-              {renderPunchSessions()}
             </div>
             
             <div className="mobile-calendar-section">
@@ -797,7 +861,7 @@ const PunchInPunchOut = () => {
         }
         .summary-stats-grid { 
           display: grid; 
-          grid-template-columns: 1fr 1fr; 
+          grid-template-columns: 1fr; 
           gap: 12px; 
         }
         .stat-box { 
@@ -819,63 +883,6 @@ const PunchInPunchOut = () => {
         }
         .stat-box-value.worked { 
           color: #E07B7B; 
-        }
-        .stat-box-value.out-time { 
-          color: #9B6B6B; 
-        }
-        .sessions-summary { 
-          background: #f9f9f9; 
-          padding: 16px; 
-          border-radius: 12px; 
-        }
-        .sessions-header { 
-          font-size: 13px; 
-          font-weight: 600; 
-          color: #666; 
-          margin-bottom: 12px; 
-        }
-        .sessions-list { 
-          display: flex; 
-          flex-direction: column; 
-          gap: 12px; 
-        }
-        .session-item { 
-          background: white; 
-          padding: 12px; 
-          border-radius: 8px; 
-          border-left: 3px solid #E07B7B; 
-        }
-        .session-number { 
-          font-size: 11px; 
-          color: #999; 
-          margin-bottom: 6px; 
-          font-weight: 600; 
-          text-transform: uppercase; 
-        }
-        .session-times { 
-          display: flex; 
-          justify-content: space-between; 
-          margin-bottom: 6px; 
-        }
-        .session-time { 
-          display: flex; 
-          flex-direction: column; 
-        }
-        .time-label { 
-          font-size: 10px; 
-          color: #999; 
-        }
-        .time-value { 
-          font-size: 13px; 
-          color: #333; 
-          font-weight: 600; 
-        }
-        .session-duration { 
-          font-size: 16px; 
-          font-weight: 600; 
-          color: #E07B7B; 
-          text-align: center; 
-          margin-top: 4px; 
         }
         .summary-box { 
           background: white; 
@@ -916,7 +923,7 @@ const PunchInPunchOut = () => {
           justify-content: center; 
         }
         .calendar-section { 
-          flex: 0 0 400px; 
+          flex: 0 0 450px; 
           display: flex; 
           flex-direction: column; 
         }
@@ -1069,6 +1076,7 @@ const PunchInPunchOut = () => {
           display: flex; 
           justify-content: space-between; 
           align-items: center; 
+          margin-bottom: 16px; 
         }
         .calendar-nav { 
           background: none; 
@@ -1082,6 +1090,29 @@ const PunchInPunchOut = () => {
           font-size: 18px; 
           font-weight: 600; 
           color: #333; 
+        }
+        .calendar-summary-stats { 
+          display: grid; 
+          grid-template-columns: repeat(3, 1fr); 
+          gap: 8px; 
+          margin-bottom: 16px; 
+          padding: 12px; 
+          background: #f9f9f9; 
+          border-radius: 10px; 
+        }
+        .summary-stat-item { 
+          text-align: center; 
+        }
+        .summary-stat-label { 
+          font-size: 11px; 
+          color: #666; 
+          margin-bottom: 4px; 
+          font-weight: 600; 
+        }
+        .summary-stat-value { 
+          font-size: 16px; 
+          font-weight: 600; 
+          color: #E07B7B; 
         }
         .calendar-days-header { 
           display: grid; 
@@ -1113,9 +1144,11 @@ const PunchInPunchOut = () => {
           position: relative; 
           cursor: pointer; 
           transition: background-color 0.2s; 
+          border: 1px solid transparent; 
         }
         .calendar-day:hover { 
           background-color: #f9f9f9; 
+          border-color: #E07B7B; 
         }
         .calendar-day.empty { 
           background: none; 
@@ -1127,9 +1160,20 @@ const PunchInPunchOut = () => {
           font-weight: 600; 
         }
         .calendar-day.on-leave { 
-          background: #f9f9f9; 
+          background: #ffe0e0; 
           color: #999; 
           text-decoration: line-through; 
+        }
+        .calendar-day.worked-day { 
+          background: #f0f9f0; 
+        }
+        .calendar-day.absent-day { 
+          background: #f9f9f9; 
+          color: #ccc; 
+        }
+        .calendar-day.future-day { 
+          background: #f9f9f9; 
+          color: #999; 
         }
         .day-status-dots { 
           display: flex; 
@@ -1147,6 +1191,12 @@ const PunchInPunchOut = () => {
         .leave-dot { 
           background-color: #f44336; 
         }
+        .absent-dot { 
+          background-color: #ccc; 
+        }
+        .future-dot { 
+          background-color: #999; 
+        }
         .day-tooltip { 
           position: fixed; 
           background: white; 
@@ -1154,7 +1204,7 @@ const PunchInPunchOut = () => {
           box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
           padding: 12px; 
           z-index: 1000; 
-          min-width: 160px; 
+          min-width: 180px; 
           pointer-events: none; 
         }
         .tooltip-content { 
@@ -1163,19 +1213,34 @@ const PunchInPunchOut = () => {
         .tooltip-date { 
           font-weight: 600; 
           font-size: 14px; 
-          margin-bottom: 4px; 
+          margin-bottom: 8px; 
           color: #333; 
+          padding-bottom: 4px; 
+          border-bottom: 1px solid #f0f0f0; 
         }
         .tooltip-status { 
           font-size: 12px; 
-          padding: 2px 6px; 
+          padding: 4px 8px; 
           border-radius: 4px; 
           display: inline-block; 
-          margin-bottom: 6px; 
+          margin-bottom: 8px; 
+          font-weight: 600; 
         }
         .tooltip-status.worked { 
           background: #e8f5e9; 
           color: #2e7d32; 
+        }
+        .tooltip-status.leave { 
+          background: #ffebee; 
+          color: #c62828; 
+        }
+        .tooltip-status.absent { 
+          background: #f5f5f5; 
+          color: #757575; 
+        }
+        .tooltip-status.future { 
+          background: #f5f5f5; 
+          color: #9e9e9e; 
         }
         .tooltip-status.today { 
           background: #ffe0e0; 
@@ -1184,13 +1249,38 @@ const PunchInPunchOut = () => {
         .tooltip-time { 
           font-size: 11px; 
           color: #666; 
-          margin: 2px 0; 
+          margin: 3px 0; 
         }
         .tooltip-hours { 
           font-size: 12px; 
           font-weight: 600; 
           color: #333; 
-          margin-top: 4px; 
+          margin-top: 6px; 
+          padding-top: 4px; 
+          border-top: 1px solid #f0f0f0; 
+        }
+        .tooltip-detail { 
+          margin-top: 6px; 
+          padding-top: 4px; 
+          border-top: 1px solid #f0f0f0; 
+        }
+        .tooltip-detail-label { 
+          font-size: 10px; 
+          color: #999; 
+          margin-bottom: 2px; 
+        }
+        .tooltip-detail-times { 
+          display: flex; 
+          flex-wrap: wrap; 
+          gap: 4px; 
+          justify-content: center; 
+        }
+        .tooltip-detail-time { 
+          font-size: 10px; 
+          background: #f5f5f5; 
+          padding: 2px 4px; 
+          border-radius: 3px; 
+          color: #666; 
         }
         .tooltip-arrow { 
           position: absolute; 
@@ -1226,6 +1316,9 @@ const PunchInPunchOut = () => {
         }
         .legend-color.leave-dot { 
           background: #f44336; 
+        }
+        .legend-color.absent-dot { 
+          background: #ccc; 
         }
         .legend-color.today { 
           background: #E07B7B; 
@@ -1452,7 +1545,7 @@ const PunchInPunchOut = () => {
         
         .mobile-summary-stats-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr;
           gap: 12px;
           margin-bottom: 20px;
         }
@@ -1479,10 +1572,6 @@ const PunchInPunchOut = () => {
         
         .mobile-stat-box-value.worked {
           color: #E07B7B;
-        }
-        
-        .mobile-stat-box-value.out-time {
-          color: #9B6B6B;
         }
         
         .mobile-calendar-section {
@@ -1670,6 +1759,20 @@ const PunchInPunchOut = () => {
           .calendar-day {
             font-size: 12px;
           }
+          
+          .calendar-summary-stats {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            padding: 8px;
+          }
+          
+          .summary-stat-label {
+            font-size: 9px;
+          }
+          
+          .summary-stat-value {
+            font-size: 14px;
+          }
         }
 
         @media (max-width: 360px) {
@@ -1695,6 +1798,11 @@ const PunchInPunchOut = () => {
           
           .calendar-day {
             font-size: 11px;
+          }
+          
+          .calendar-summary-stats {
+            grid-template-columns: 1fr;
+            gap: 4px;
           }
         }
 

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import api from "@/api/client";
+
 export default function EarlyRequest() {
   const [form, setForm] = useState({
     date: "",
@@ -16,16 +17,21 @@ export default function EarlyRequest() {
     e.preventDefault();
     try {
       setLoading(true);
-      await api.post("early-requests/", {
+
+      await api.post("/hr/early-requests/", {
         date: form.date,
-        minutes_early: parseInt(form.minutesEarly),
+        early_by_minutes: parseInt(form.minutesEarly, 10),
         reason: form.reason,
       });
+
       alert("✅ Early request submitted successfully!");
       window.history.back();
     } catch (err) {
-      console.error("Early request failed:", err);
-      alert("❌ Failed to submit early request. " + (err?.response?.data?.detail || err.message));
+      console.error("❌ Early request failed:", err);
+      alert(
+        "❌ Failed to submit early request. " +
+          (err?.response?.data?.detail || err.message)
+      );
     } finally {
       setLoading(false);
     }
@@ -42,31 +48,59 @@ export default function EarlyRequest() {
         </div>
 
         <div style={styles.infoBanner}>
-          <strong>Requesting as Admin</strong> — Your early leave request will be reviewed by the system.
+          <strong>Requesting as Admin</strong> — Your early leave request will be reviewed.
         </div>
 
         <form onSubmit={handleSubmit}>
           <section style={styles.section}>
             <h5 style={styles.sectionTitle}>Early Leave Information</h5>
+
             <div style={styles.formRow}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Date *</label>
-                <input type="date" name="date" value={form.date} onChange={handleChange} required style={styles.input} />
+                <input
+                  type="date"
+                  name="date"
+                  value={form.date}
+                  onChange={handleChange}
+                  required
+                  style={styles.input}
+                />
               </div>
+
               <div style={styles.formGroup}>
                 <label style={styles.label}>Minutes Early *</label>
-                <input type="number" name="minutesEarly" value={form.minutesEarly} onChange={handleChange} required style={styles.input} />
+                <input
+                  type="number"
+                  name="minutesEarly"
+                  value={form.minutesEarly}
+                  onChange={handleChange}
+                  min="1"
+                  required
+                  style={styles.input}
+                />
               </div>
             </div>
 
             <div style={{ ...styles.formGroup, marginTop: "20px" }}>
               <label style={styles.label}>Reason *</label>
-              <textarea name="reason" value={form.reason} onChange={handleChange} rows="3" style={styles.textarea} required />
+              <textarea
+                name="reason"
+                value={form.reason}
+                onChange={handleChange}
+                rows="3"
+                required
+                style={styles.textarea}
+              />
             </div>
           </section>
 
           <div style={styles.buttonRow}>
-            <button type="button" style={styles.btnLight} onClick={() => window.history.back()}>
+            <button
+              type="button"
+              style={styles.btnLight}
+              onClick={() => window.history.back()}
+            >
               Cancel
             </button>
             <button type="submit" style={styles.btnPrimary} disabled={loading}>
@@ -79,7 +113,7 @@ export default function EarlyRequest() {
   );
 }
 
-/* ✅ Inline Styles (same layout as LateRequest & LeaveRequest) */
+/* ✅ Styles */
 const styles = {
   container: {
     padding: "40px",
@@ -92,7 +126,7 @@ const styles = {
     backgroundColor: "#ffffff",
     padding: "30px 40px",
     borderRadius: "10px",
-    boxShadow: "0 5px 15px rgba(0, 0, 0, 0.08)",
+    boxShadow: "0 5px 15px rgba(0,0,0,0.08)",
     width: "100%",
     maxWidth: "750px",
   },
@@ -110,7 +144,6 @@ const styles = {
     borderRadius: "6px",
     border: "1px solid #d1d5db",
     cursor: "pointer",
-    fontSize: "14px",
   },
   infoBanner: {
     backgroundColor: "#eef5ff",
@@ -121,23 +154,20 @@ const styles = {
     fontSize: "14px",
   },
   section: { marginBottom: "25px" },
-  sectionTitle: { fontWeight: "600", marginBottom: "10px", color: "#111827" },
+  sectionTitle: { fontWeight: "600", marginBottom: "10px" },
   formRow: { display: "flex", gap: "15px", flexWrap: "wrap" },
-  formGroup: { display: "flex", flexDirection: "column", flex: "1" },
+  formGroup: { display: "flex", flexDirection: "column", flex: 1 },
   label: { fontSize: "13.5px", fontWeight: "500", marginBottom: "5px" },
   input: {
     padding: "8px 10px",
     borderRadius: "6px",
     border: "1px solid #d1d5db",
-    outline: "none",
-    fontSize: "14px",
   },
   textarea: {
     padding: "8px 10px",
     borderRadius: "6px",
     border: "1px solid #d1d5db",
     resize: "none",
-    fontSize: "14px",
   },
   buttonRow: {
     display: "flex",
@@ -147,20 +177,17 @@ const styles = {
   },
   btnLight: {
     background: "#f3f4f6",
-    color: "#111827",
     padding: "10px 18px",
     borderRadius: "6px",
     border: "1px solid #d1d5db",
     cursor: "pointer",
-    fontWeight: "500",
   },
   btnPrimary: {
     background: "#2563eb",
-    color: "#ffffff",
+    color: "#fff",
     padding: "10px 18px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
-    fontWeight: "500",
   },
 };

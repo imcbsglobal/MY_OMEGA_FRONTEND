@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
+import { CV, toUi } from "../../api/cv"; // Import the CV API module
 
 function getResultStyle(result) {
   const resultStyles = {
@@ -18,23 +19,49 @@ function getResultStyle(result) {
 export default function Interview_List() {
   const navigate = useNavigate();
   const [interviews, setInterviews] = useState([]);
+  const [cvs, setCvs] = useState([]); // State for CVs
   const [loading, setLoading] = useState(true);
+  const [cvLoading, setCvLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
-  const [updatingIds, setUpdatingIds] = useState(new Set()); // track per-row updates
+  const [updatingIds, setUpdatingIds] = useState(new Set());
 
-  // ✅ Fetch data from API
+  // ✅ Fetch interview data from API
   useEffect(() => {
     const fetchInterviews = async () => {
       try {
         setLoading(true);
-        const res = await api.get("/interview-management/");
-        const data = res?.data?.data || res?.data || [];
-        setInterviews(data);
+        // Try different interview endpoints
+        const endpoints = [
+          "/interview-management/",
+          "/api/interviews/",
+          "/interviews/"
+        ];
+
+        let interviewData = [];
+        
+        for (const endpoint of endpoints) {
+          try {
+            const res = await api.get(endpoint);
+            interviewData = res?.data?.data || res?.data || res || [];
+            if (interviewData.length > 0) {
+              console.log(`Interviews fetched from ${endpoint}:`, interviewData);
+              break;
+            }
+          } catch (err) {
+            console.log(`Interview endpoint ${endpoint} failed:`, err.message);
+            continue;
+          }
+        }
+
+        setInterviews(interviewData);
       } catch (error) {
         console.error("Error fetching interviews:", error);
-        alert("Failed to load interview data!");
+        // Don't show alert if it's just no data
+        if (error.response?.status !== 404) {
+          alert("Failed to load interview data!");
+        }
         setInterviews([]);
       } finally {
         setLoading(false);
@@ -42,6 +69,99 @@ export default function Interview_List() {
     };
     fetchInterviews();
   }, []);
+
+  // ✅ Fetch CV data using the same method as CVManagement.jsx
+  useEffect(() => {
+    const fetchCVs = async () => {
+      try {
+        setCvLoading(true);
+        console.log("Fetching CVs...");
+        
+        // Method 1: Use the CV API module (from CVManagement.jsx)
+        try {
+          const data = await CV.list();
+          console.log("CVs fetched using CV.list():", data);
+          const uiData = data.map(toUi);
+          setCvs(uiData);
+          return; // Success, exit early
+        } catch (moduleErr) {
+          console.log("CV module failed:", moduleErr.message);
+        }
+
+        // Method 2: Try direct API calls
+        const endpoints = [
+          "/cv-management/",
+          "/api/cv-management/",
+          "/cvs/",
+          "/api/cvs/"
+        ];
+
+        for (const endpoint of endpoints) {
+          try {
+            const res = await api.get(endpoint);
+            const data = res?.data?.data || res?.data || res || [];
+            if (data.length > 0) {
+              console.log(`CVs fetched from ${endpoint}:`, data);
+              setCvs(data);
+              return;
+            }
+          } catch (err) {
+            console.log(`CV endpoint ${endpoint} failed:`, err.message);
+          }
+        }
+
+        // If all failed, set empty array
+        setCvs([]);
+      } catch (error) {
+        console.error("Error fetching CVs:", error);
+        setCvs([]);
+      } finally {
+        setCvLoading(false);
+      }
+    };
+    
+    fetchCVs();
+  }, []);
+
+  // Function to find CV for a candidate - SIMPLIFIED MATCHING
+  const findCandidateCV = (interview) => {
+    if (!interview || !cvs.length) return null;
+    
+    const candidateName = interview.candidate_name || interview.name || "";
+    if (!candidateName.trim()) return null;
+
+    // Direct name matching
+    const matchedCV = cvs.find(cv => {
+      const cvName = cv.name || cv.candidate_name || "";
+      return cvName.toLowerCase() === candidateName.toLowerCase();
+    });
+
+    return matchedCV;
+  };
+
+  // Function to get CV URL from CV object
+  const getCVUrl = (cv) => {
+    if (!cv) return null;
+    
+    // Check multiple possible URL fields
+    return cv.cvAttachmentUrl || cv.cv_attachment_url || cv.url || cv.file_url || cv.attachment;
+  };
+
+  // Function to open CV in new tab
+  const handleViewCV = (cv) => {
+    if (!cv) {
+      alert("No CV found for this candidate");
+      return;
+    }
+
+    const cvUrl = getCVUrl(cv);
+    
+    if (cvUrl) {
+      window.open(cvUrl, "_blank");
+    } else {
+      alert("CV attachment URL not available");
+    }
+  };
 
   const handleDeleteClick = async (id) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
@@ -57,33 +177,32 @@ export default function Interview_List() {
 
   // --- Update status (PATCH to /{id}/update-status/)
   const updateStatus = async (id, newStatus) => {
-  if (!id) return;
-  if (!window.confirm(`Change status to "${newStatus}"?`)) return;
+    if (!id) return;
+    if (!window.confirm(`Change status to "${newStatus}"?`)) return;
 
-  setUpdatingIds((s) => new Set([...s, id]));
+    setUpdatingIds((s) => new Set([...s, id]));
 
-  try {
-    await api.patch(`/interview-management/${id}/update-status/`, { status: newStatus });
+    try {
+      await api.patch(`/interview-management/${id}/update-status/`, { status: newStatus });
 
-    // ✅ FORCE LOCAL STATE UPDATE (NO REFRESH NEEDED)
-    setInterviews((prev) =>
-      prev.map((it) =>
-        it.id === id ? { ...it, status: newStatus, interview_status: newStatus } : it
-      )
-    );
+      // ✅ FORCE LOCAL STATE UPDATE (NO REFRESH NEEDED)
+      setInterviews((prev) =>
+        prev.map((it) =>
+          it.id === id ? { ...it, status: newStatus, interview_status: newStatus } : it
+        )
+      );
 
-    alert(`Status updated to "${newStatus}"`);
-  } catch (err) {
-    alert("Failed to update status");
-  } finally {
-    setUpdatingIds((s) => {
-      const next = new Set(s);
-      next.delete(id);
-      return next;
-    });
-  }
-};
-
+      alert(`Status updated to "${newStatus}"`);
+    } catch (err) {
+      alert("Failed to update status");
+    } finally {
+      setUpdatingIds((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
 
   const filteredInterviews = interviews.filter((i) => {
     const query = searchQuery.toLowerCase().trim();
@@ -103,16 +222,6 @@ export default function Interview_List() {
     startIndex,
     startIndex + itemsPerPage
   );
-
-  if (loading) {
-    return (
-      <div style={{ ...styles.container, textAlign: "center" }}>
-        <p style={{ fontSize: "18px", color: "#6b7280" }}>
-          Loading interview data...
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div style={styles.container}>
@@ -148,13 +257,14 @@ export default function Interview_List() {
               <th style={styles.tableHeader}>INTERVIEWER</th>
               <th style={styles.tableHeader}>LOCATION</th>
               <th style={styles.tableHeader}>STATUS</th>
+              <th style={styles.tableHeader}>CV</th>
               <th style={styles.tableHeader}>ACTION</th>
             </tr>
           </thead>
           <tbody>
             {currentInterviews.length === 0 ? (
               <tr>
-                <td colSpan="7" style={styles.noResults}>
+                <td colSpan="8" style={styles.noResults}>
                   No interview records found
                 </td>
               </tr>
@@ -163,6 +273,9 @@ export default function Interview_List() {
                 const id = interview.id;
                 const statusValue = (interview.status || interview.interview_status || "pending").toLowerCase();
                 const isUpdating = updatingIds.has(id);
+                const cvData = findCandidateCV(interview);
+                const hasCV = !!cvData;
+                const cvUrl = getCVUrl(cvData);
 
                 return (
                   <tr key={interview.id} style={styles.tableRow}>
@@ -176,7 +289,6 @@ export default function Interview_List() {
 
                     <td style={styles.tableCell}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {/* --- Dropdown to update status --- */}
                         <select
                           value={statusValue}
                           onChange={(e) => updateStatus(id, e.target.value)}
@@ -195,7 +307,6 @@ export default function Interview_List() {
                           <option value="rejected">Rejected</option>
                         </select>
 
-                        {/* --- Badge showing current status --- */}
                         <span
                           style={{
                             ...styles.statusBadge,
@@ -208,12 +319,26 @@ export default function Interview_List() {
                       </div>
                     </td>
 
+                    {/* CV Column */}
+                    <td style={styles.tableCell}>
+                      <button
+                        onClick={() => handleViewCV(cvData)}
+                        style={{
+                          ...styles.viewCvBtn,
+                          opacity: hasCV && cvUrl ? 1 : 0.6,
+                          cursor: hasCV && cvUrl ? "pointer" : "not-allowed",
+                        }}
+                        title={hasCV ? (cvUrl ? "View CV" : "CV has no file") : "No CV found"}
+                        disabled={!hasCV || !cvUrl}
+                      >
+                        {hasCV ? (cvUrl ? "View CV" : "No File") : "No CV"}
+                      </button>
+                    </td>
+
                     <td style={styles.tableCell}>
                       <div style={styles.actionButtons}>
                         <button
-                          onClick={() =>
-                            navigate(`/interview-management/view/${interview.id}`)
-                          }
+                          onClick={() => navigate(`/interview-management/view/${interview.id}`)}
                           style={styles.viewBtn}
                         >
                           View
@@ -239,6 +364,8 @@ export default function Interview_List() {
           </tbody>
         </table>
       </div>
+
+     
 
       {/* pagination controls */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18 }}>
@@ -506,5 +633,13 @@ const styles = {
     color: "#6b7280",
     fontSize: "16px",
     fontWeight: "500",
+  },
+  debugPanel: {
+    marginTop: "20px",
+    padding: "15px",
+    backgroundColor: "#f8f9fa",
+    border: "1px solid #dee2e6",
+    borderRadius: "5px",
+    fontSize: "14px",
   },
 };

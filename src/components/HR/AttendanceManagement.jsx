@@ -5,12 +5,12 @@ import api from "../../api/client";
 
 const ATTENDANCE_TYPES = {
   FULL_DAY: { label: "Full Day", color: "#10b981", icon: "★" },
-  HALF_DAY: { label: "Half Day", color: "#10b981", icon: "★" },
-  VERIFIED_HALF: { label: "Verified Half Day", color: "#9333ea", icon: "★" },
+  HALF_DAY: { label: "Half Day", color: "#be185d", icon: "★" },
+  VERIFIED_HALF: { label: "Verified Half Day", color: "#be185d", icon: "★" },
   LEAVE: { label: "Leave", color: "#ef4444", icon: "★" },
   HOLIDAY: { label: "Holiday", color: "#fbbf24", icon: "★" },
-  VERIFIED: { label: "Verified", color: "#3b82f6", icon: "★" },
-  NOT_MARKED: { label: "Not Marked", color: "#9ca3af", icon: "★" }
+  VERIFIED: { label: "Verified Full Day", color: "#3b82f6", icon: "★" },
+  NOT_MARKED: { label: "Not Marked", color: "#d1d5db", icon: "★" }
 };
 
 const defaultMonthISO = () => new Date().toISOString().slice(0, 7);
@@ -25,6 +25,19 @@ export default function AttendanceManagement() {
   const [userStatus, setUserStatus] = useState("Active Users");
 
   useEffect(() => {
+    const token = localStorage.getItem("accessToken") || 
+                  localStorage.getItem("access_token") || 
+                  localStorage.getItem("access") ||
+                  localStorage.getItem("token") ||
+                  sessionStorage.getItem("accessToken") ||
+                  sessionStorage.getItem("access_token");
+    
+    if (!token) {
+      console.error("No authentication token found. Please login first.");
+    }
+  }, []);
+
+  useEffect(() => {
     fetchAttendance();
   }, [selectedMonth]);
 
@@ -34,19 +47,41 @@ export default function AttendanceManagement() {
       const [year, month] = selectedMonth.split("-");
       
       const employeesResponse = await api.get("/users/");
-      const employeesList = Array.isArray(employeesResponse.data) ? employeesResponse.data : 
-        (employeesResponse.data.results || employeesResponse.data.data || []);
+      let employeesList = employeesResponse.data;
+      
+      if (!Array.isArray(employeesList)) {
+        employeesList = employeesList.results || employeesList.data || [];
+      }
 
-      const attendanceResponse = await api.get(`/hr/attendance/?month=${Number(month)}&year=${year}`);
-      const attendanceList = Array.isArray(attendanceResponse.data) ? attendanceResponse.data : 
-        (attendanceResponse.data.results || attendanceResponse.data.data || []);
+      let attendanceList = [];
+      try {
+        const attendanceResponse = await api.get(`/hr/attendance/`, {
+          params: { month: Number(month), year: year }
+        });
+        attendanceList = attendanceResponse.data;
+      } catch (adminError) {
+        console.log("Admin endpoint failed, trying user endpoint:", adminError.message);
+        try {
+          const userAttendanceResponse = await api.get(`/hr/attendance/my_records/`, {
+            params: { month: Number(month), year: year }
+          });
+          attendanceList = userAttendanceResponse.data;
+        } catch (userError) {
+          console.error("Both attendance endpoints failed:", userError);
+          attendanceList = [];
+        }
+      }
+      
+      if (!Array.isArray(attendanceList)) {
+        attendanceList = attendanceList.results || attendanceList.data || attendanceList.records || [];
+      }
 
       const empMap = new Map();
 
       employeesList.forEach(emp => {
         empMap.set(emp.id, {
           id: emp.id,
-          name: emp.name || emp.full_name || `Employee ${emp.id}`,
+          name: emp.name || emp.full_name || emp.username || `Employee ${emp.id}`,
           userId: emp.user_id || emp.email || emp.username || "",
           dutyStart: emp.duty_start || "09:30",
           dutyEnd: emp.duty_end || "17:30",
@@ -68,6 +103,7 @@ export default function AttendanceManagement() {
               punch_out: record.punch_out || record.punch_out_time || record.out_time,
               status: record.status || record.attendance_status,
               verification_status: record.verification_status || record.is_verified,
+              is_verified: record.is_verified || record.verified,
               date: formattedDate,
             };
           }
@@ -81,7 +117,11 @@ export default function AttendanceManagement() {
       setEmployees(sortedEmployees);
     } catch (err) {
       console.error("Failed to fetch attendance:", err);
-      alert("Failed to load attendance data. Please try again.");
+      if (err.response?.status === 404) {
+        alert("API endpoint not found. Please check your backend configuration.");
+      } else {
+        alert("Failed to load attendance data. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -134,31 +174,47 @@ export default function AttendanceManagement() {
           date: date,
           admin_note: `Marked as leave by admin on ${new Date().toLocaleString()}`
         });
-      } else if (existingRecord && existingRecord.attendanceId) {
-        const updateData = {
-          status: typeConfig.status || "full",
-          admin_note: `Status changed to ${typeConfig.label} by admin on ${new Date().toLocaleString()}`
-        };
-        await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, updateData);
-
-        if (typeConfig.verified) {
-          await api.post(`/hr/attendance/${existingRecord.attendanceId}/verify/`, {
-            admin_note: `Verified as ${typeConfig.label} on ${new Date().toLocaleString()}`
-          });
-        }
-      } else {
-        const createData = {
-          user: employeeId,
-          date: date,
-          status: typeConfig.status || "full",
-          admin_note: `Created as ${typeConfig.label} by admin`,
-        };
-        const response = await api.post("/hr/attendance/", createData);
-
-        if (typeConfig.verified && response.data.id) {
-          await api.post(`/hr/attendance/${response.data.id}/verify/`, {
-            admin_note: `Verified as ${typeConfig.label}`,
-          });
+      } else if (type === 'VERIFIED' || type === 'VERIFIED_HALF') {
+        const statusValue = type === 'VERIFIED' ? 'full' : 'half';
+        
+        if (existingRecord && existingRecord.attendanceId) {
+          const updateData = {
+            status: statusValue,
+            verification_status: 'verified',
+            is_verified: true,
+            admin_note: `Status changed to ${typeConfig.label} by admin on ${new Date().toLocaleString()}`
+          };
+          
+          await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, updateData);
+          
+          try {
+            await api.post(`/hr/attendance/${existingRecord.attendanceId}/verify/`, {
+              admin_note: `Verified as ${typeConfig.label} on ${new Date().toLocaleString()}`
+            });
+          } catch (verifyError) {
+            console.log("Verify endpoint not available, using patch only:", verifyError.message);
+          }
+        } else {
+          const createData = {
+            user: employeeId,
+            date: date,
+            status: statusValue,
+            verification_status: 'verified',
+            is_verified: true,
+            admin_note: `Created as verified ${typeConfig.label} by admin`,
+          };
+          
+          const response = await api.post("/hr/attendance/", createData);
+          
+          if (response.data && response.data.id) {
+            try {
+              await api.post(`/hr/attendance/${response.data.id}/verify/`, {
+                admin_note: `Verified as ${typeConfig.label}`,
+              });
+            } catch (verifyError) {
+              console.log("Verify endpoint not available, record created as verified:", verifyError.message);
+            }
+          }
         }
       }
 
@@ -167,7 +223,7 @@ export default function AttendanceManagement() {
       console.error('Failed to save attendance:', error);
       let errorMessage = 'Failed to save attendance';
       if (error.response) {
-        errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+        errorMessage = `Server error: ${error.response.status} - ${JSON.stringify(error.response.data)}`;
       } else if (error.message) {
         errorMessage = `Error: ${error.message}`;
       }
@@ -189,19 +245,20 @@ export default function AttendanceManagement() {
     if (!rec) return "NOT_MARKED";
 
     const backendStatus = (rec.status || "").toString().toLowerCase();
-    const verified = (rec.verification_status || "").toString().toLowerCase() === "verified";
+    const verificationStatus = (rec.verification_status || "").toString().toLowerCase();
+    const isVerified = rec.is_verified || verificationStatus === "verified";
 
-    const mapBackend = (bs) => {
-      if (!bs) return null;
-      if (bs === "full") return verified ? "VERIFIED" : "FULL_DAY";
-      if (bs === "half") return verified ? "VERIFIED_HALF" : "HALF_DAY";
-      if (bs === "leave") return "LEAVE";
-      if (bs === "wfh") return verified ? "WFH" : "FULL_DAY";
-      return null;
-    };
-
-    const mapped = mapBackend(backendStatus);
-    if (mapped) return mapped;
+    if (backendStatus === "full" || backendStatus === "present") {
+      return isVerified ? "VERIFIED" : "FULL_DAY";
+    } else if (backendStatus === "half") {
+      return isVerified ? "VERIFIED_HALF" : "HALF_DAY";
+    } else if (backendStatus === "leave") {
+      return "LEAVE";
+    } else if (backendStatus === "wfh" || backendStatus === "work_from_home") {
+      return isVerified ? "WFH" : "WFH";
+    } else if (backendStatus === "absent") {
+      return "NOT_MARKED";
+    }
 
     return "NOT_MARKED";
   };
@@ -217,6 +274,8 @@ export default function AttendanceManagement() {
       } else {
         date = new Date(`2000-01-01T${timeValue}`);
       }
+
+      if (isNaN(date.getTime())) return "-";
 
       return date.toLocaleTimeString("en-IN", {
         hour: "2-digit",
@@ -243,8 +302,12 @@ export default function AttendanceManagement() {
 
     const tooltipContent = record ? (
       <div style={styles.tooltipContent}>
+        <div><strong>Status:</strong> {config.label}</div>
         <div><strong>Punch In:</strong> {formatTime(record.punch_in)}</div>
         <div><strong>Punch Out:</strong> {formatTime(record.punch_out)}</div>
+        {record.verification_status && (
+          <div><strong>Verification:</strong> {record.verification_status}</div>
+        )}
       </div>
     ) : (
       <div style={styles.tooltipContent}>
@@ -276,18 +339,33 @@ export default function AttendanceManagement() {
         
         {showMenu && (
           <div style={styles.dropdown}>
-            {Object.keys(ATTENDANCE_TYPES).map((key) => (
-              <button
-                key={key}
-                onClick={() => handleClick(key)}
-                style={styles.dropdownItem}
-              >
-                <span style={{ color: ATTENDANCE_TYPES[key].color, marginRight: 8, fontSize: 16 }}>
-                  {ATTENDANCE_TYPES[key].icon}
-                </span>
-                {ATTENDANCE_TYPES[key].label}
-              </button>
-            ))}
+            <button
+              onClick={() => handleClick('VERIFIED')}
+              style={styles.dropdownItem}
+            >
+              <span style={{ color: ATTENDANCE_TYPES.VERIFIED.color, marginRight: 8, fontSize: 18 }}>
+                {ATTENDANCE_TYPES.VERIFIED.icon}
+              </span>
+              {ATTENDANCE_TYPES.VERIFIED.label}
+            </button>
+            <button
+              onClick={() => handleClick('VERIFIED_HALF')}
+              style={styles.dropdownItem}
+            >
+              <span style={{ color: ATTENDANCE_TYPES.VERIFIED_HALF.color, marginRight: 8, fontSize: 18 }}>
+                {ATTENDANCE_TYPES.VERIFIED_HALF.icon}
+              </span>
+              {ATTENDANCE_TYPES.VERIFIED_HALF.label}
+            </button>
+            <button
+              onClick={() => handleClick('LEAVE')}
+              style={styles.dropdownItem}
+            >
+              <span style={{ color: ATTENDANCE_TYPES.LEAVE.color, marginRight: 8, fontSize: 18 }}>
+                {ATTENDANCE_TYPES.LEAVE.icon}
+              </span>
+              {ATTENDANCE_TYPES.LEAVE.label}
+            </button>
           </div>
         )}
       </div>
@@ -303,12 +381,10 @@ export default function AttendanceManagement() {
 
   return (
     <div style={styles.container}>
-      {/* Header */}
       <div style={styles.pageHeader}>
         <h1 style={styles.pageTitle}>Attendance Management</h1>
       </div>
 
-      {/* Filter Section */}
       <div style={styles.filterSection}>
         <div style={styles.filterRow}>
           <div style={styles.filterGroup}>
@@ -347,17 +423,15 @@ export default function AttendanceManagement() {
         </div>
       </div>
 
-      {/* Legend */}
       <div style={styles.legendContainer}>
         {Object.entries(ATTENDANCE_TYPES).map(([key, value]) => (
           <div key={key} style={styles.legendItem}>
-            <span style={{ color: value.color, fontSize: 18, marginRight: 6 }}>{value.icon}</span>
+            <span style={{ color: value.color, fontSize: 18, marginRight: 8 }}>{value.icon}</span>
             <span style={styles.legendText}>{value.label}</span>
           </div>
         ))}
       </div>
 
-      {/* Table */}
       <div style={styles.tableContainer}>
         <div style={styles.tableWrapper}>
           <table style={styles.table}>
@@ -365,6 +439,7 @@ export default function AttendanceManagement() {
               <tr style={styles.tableHeaderRow}>
                 <th style={styles.stickyHeader}>No</th>
                 <th style={styles.stickyHeader}>Name</th>
+                <th style={styles.tableHeader}>User ID</th>
                 <th style={styles.tableHeader}>Duty Start</th>
                 <th style={styles.tableHeader}>Duty End</th>
                 <th style={styles.tableHeader}>Summary</th>
@@ -375,6 +450,7 @@ export default function AttendanceManagement() {
               <tr style={styles.tableHeaderRow}>
                 <th style={styles.stickyEmptyHeader}></th>
                 <th style={styles.stickyEmptyHeader}></th>
+                <th style={styles.emptyHeader}></th>
                 <th style={styles.emptyHeader}></th>
                 <th style={styles.emptyHeader}></th>
                 <th style={styles.emptyHeader}></th>
@@ -396,13 +472,13 @@ export default function AttendanceManagement() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={days.length + 5} style={styles.noResults}>
+                  <td colSpan={days.length + 6} style={styles.noResults}>
                     Loading attendance data...
                   </td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={days.length + 5} style={styles.noResults}>
+                  <td colSpan={days.length + 6} style={styles.noResults}>
                     {searchQuery ? `No results for "${searchQuery}"` : "No employees found"}
                   </td>
                 </tr>
@@ -411,6 +487,7 @@ export default function AttendanceManagement() {
                   <tr key={employee.id} style={styles.tableRow}>
                     <td style={styles.stickyCell}>{index + 1}</td>
                     <td style={{...styles.stickyCell, textAlign: 'left', fontWeight: 500}}>{employee.name}</td>
+                    <td style={styles.tableCell}>{employee.userId}</td>
                     <td style={styles.tableCell}>{employee.dutyStart}</td>
                     <td style={styles.tableCell}>{employee.dutyEnd}</td>
                     <td style={styles.tableCell}>
@@ -452,7 +529,7 @@ export default function AttendanceManagement() {
 const styles = {
   container: {
     padding: "20px",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#f9fafb",
     minHeight: "100vh",
     width: "100%",
   },
@@ -473,13 +550,12 @@ const styles = {
     padding: "20px",
     marginBottom: "20px",
     border: "1px solid #e5e7eb",
-    borderRadius: "4px",
+    borderRadius: "8px",
   },
   filterRow: {
     display: "grid",
     gridTemplateColumns: "repeat(3, 1fr)",
     gap: "20px",
-    marginBottom: "20px",
   },
   filterGroup: {
     display: "flex",
@@ -495,7 +571,7 @@ const styles = {
     padding: "10px 12px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
-    borderRadius: "4px",
+    borderRadius: "6px",
     outline: "none",
     backgroundColor: "#ffffff",
   },
@@ -503,7 +579,7 @@ const styles = {
     padding: "10px 12px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
-    borderRadius: "4px",
+    borderRadius: "6px",
     outline: "none",
     backgroundColor: "#ffffff",
   },
@@ -511,7 +587,7 @@ const styles = {
     padding: "10px 12px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
-    borderRadius: "4px",
+    borderRadius: "6px",
     outline: "none",
     backgroundColor: "#ffffff",
     cursor: "pointer",
@@ -519,13 +595,13 @@ const styles = {
   legendContainer: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "24px",
+    gap: "20px",
     alignItems: "center",
     marginBottom: "20px",
     padding: "16px",
     backgroundColor: "#ffffff",
     border: "1px solid #e5e7eb",
-    borderRadius: "4px",
+    borderRadius: "8px",
   },
   legendItem: {
     display: "flex",
@@ -536,24 +612,10 @@ const styles = {
     color: "#374151",
     fontWeight: 500,
   },
-  cancelButtonContainer: {
-    marginBottom: "20px",
-  },
-  cancelButton: {
-    padding: "10px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#000000",
-    backgroundColor: "#fbbf24",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
   tableContainer: {
     backgroundColor: "white",
     border: "1px solid #e5e7eb",
-    borderRadius: "4px",
+    borderRadius: "8px",
     overflow: "visible",
     marginBottom: "24px",
   },
@@ -571,24 +633,23 @@ const styles = {
     backgroundColor: "#f9fafb",
   },
   tableHeader: {
-    padding: "10px 4px",
+    padding: "12px 8px",
     textAlign: "center",
-    fontSize: "11px",
+    fontSize: "12px",
     fontWeight: "600",
     color: "#000000",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: "2px solid #e5e7eb",
     borderRight: "1px solid #e5e7eb",
     whiteSpace: "nowrap",
-    width: "auto",
     backgroundColor: "#f9fafb",
   },
   stickyHeader: {
-    padding: "10px 4px",
+    padding: "12px 8px",
     textAlign: "center",
-    fontSize: "11px",
+    fontSize: "12px",
     fontWeight: "600",
     color: "#000000",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: "2px solid #e5e7eb",
     borderRight: "1px solid #e5e7eb",
     whiteSpace: "nowrap",
     backgroundColor: "#f9fafb",
@@ -597,36 +658,36 @@ const styles = {
     zIndex: 20,
   },
   emptyHeader: {
-    padding: "10px 4px",
+    padding: "8px",
     backgroundColor: "#f9fafb",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: "2px solid #e5e7eb",
     borderRight: "1px solid #e5e7eb",
-    width: "auto",
   },
   stickyEmptyHeader: {
-    padding: "10px 4px",
+    padding: "8px",
     backgroundColor: "#f9fafb",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: "2px solid #e5e7eb",
     borderRight: "1px solid #e5e7eb",
     position: "sticky",
     left: 0,
     zIndex: 20,
   },
   dayHeader: {
-    padding: "8px 2px",
+    padding: "8px 4px",
     textAlign: "center",
     fontSize: "11px",
     fontWeight: "600",
     color: "#6b7280",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: "2px solid #e5e7eb",
     borderRight: "1px solid #e5e7eb",
-    width: "2.5%",
+    minWidth: "40px",
     backgroundColor: "#f9fafb",
   },
   dayNumber: {
     fontSize: "13px",
-    fontWeight: "600",
-    color: "#374151",
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: "2px",
   },
   dayName: {
     fontSize: "10px",
@@ -635,10 +696,10 @@ const styles = {
   },
   tableRow: {
     borderBottom: "1px solid #e5e7eb",
-    transition: "background-color 0.2s",
+    transition: "background-color 0.15s",
   },
   tableCell: {
-    padding: "8px 2px",
+    padding: "10px 4px",
     fontSize: "12px",
     color: "#374151",
     textAlign: "center",
@@ -648,7 +709,7 @@ const styles = {
     position: "relative",
   },
   stickyCell: {
-    padding: "10px 6px",
+    padding: "10px 8px",
     fontSize: "13px",
     color: "#374151",
     textAlign: "center",
@@ -662,14 +723,15 @@ const styles = {
   starButton: {
     background: "none",
     border: "none",
-    fontSize: "18px",
+    fontSize: "20px",
     cursor: "pointer",
-    padding: "0px",
+    padding: "4px",
     position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
+    transition: "transform 0.1s",
   },
   eyeButton: {
     background: "none",
@@ -688,48 +750,48 @@ const styles = {
     left: "50%",
     transform: "translateX(-50%)",
     backgroundColor: "white",
-    border: "1px solid #e5e7eb",
+    border: "1px solid #d1d5db",
     borderRadius: "8px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
     padding: "8px",
     zIndex: 9999,
-    minWidth: "180px",
+    minWidth: "200px",
     marginTop: "4px",
   },
   dropdownItem: {
     display: "flex",
     alignItems: "center",
     width: "100%",
-    padding: "8px 12px",
+    padding: "10px 12px",
     fontSize: "13px",
     fontWeight: "500",
+    color: "#374151",
     border: "none",
     background: "none",
     cursor: "pointer",
     textAlign: "left",
-    borderRadius: "4px",
-    transition: "background-color 0.2s",
+    borderRadius: "6px",
+    transition: "background-color 0.15s",
   },
   tooltip: {
     position: "absolute",
-    bottom: "100%",
+    bottom: "calc(100% + 8px)",
     left: "50%",
     transform: "translateX(-50%)",
     backgroundColor: "#1f2937",
     color: "white",
-    padding: "8px 12px",
-    borderRadius: "6px",
+    padding: "10px 14px",
+    borderRadius: "8px",
     fontSize: "12px",
     fontWeight: "500",
     zIndex: 9999,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-    minWidth: "160px",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+    minWidth: "180px",
     pointerEvents: "none",
     whiteSpace: "nowrap",
-    marginBottom: "8px",
   },
   tooltipContent: {
-    lineHeight: "1.5",
+    lineHeight: "1.6",
   },
   noResults: {
     padding: "40px",

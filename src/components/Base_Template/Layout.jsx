@@ -20,7 +20,7 @@ export default function Layout() {
 
       <main
         style={{
-          marginLeft: isMobile ? "0px" : "280px", // ✅ FIXED GAP
+          marginLeft: isMobile ? "0px" : "280px",
           flex: 1,
           minHeight: "100vh",
           padding: "20px",
