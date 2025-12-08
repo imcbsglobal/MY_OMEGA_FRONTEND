@@ -325,7 +325,8 @@ export default function CVForm() {
               <select
                 style={styles.input}
                 name="jobTitle"
-                value={cvData.jobTitle}
+               value={cvData.jobTitleId || ""}
+
                 onChange={handleJobTitleChange}
                 required
               >

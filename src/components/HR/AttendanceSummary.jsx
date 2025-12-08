@@ -1,11 +1,11 @@
-// src/components/HR/AttendanceSummary.jsx
+// src/components/HR/TotalAttendanceSummary.jsx
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { X, Download } from "lucide-react";
 import api from "../../api/client";
 
 const ATTENDANCE_TYPES = {
   FULL_DAY: { label: "Full Day", color: "#10b981" },
-  VERIFIED: { label: "Verified", color: "#3b82f6" },
+  VERIFIED: { label: "Verified Full Day", color: "#3b82f6" },
   HALF_DAY: { label: "Half Day", color: "#f59e0b" },
   VERIFIED_HALF: { label: "Verified Half Day", color: "#f43f5e" },
   LEAVE: { label: "Leave", color: "#ef4444" },
@@ -13,388 +13,381 @@ const ATTENDANCE_TYPES = {
   NOT_MARKED: { label: "Not Marked", color: "#9ca3af" }
 };
 
-export default function AttendanceSummary() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { employee, selectedMonth } = location.state || {};
-  
-  const [attendanceData, setAttendanceData] = useState([]);
-  const [summaryStats, setSummaryStats] = useState({
-    fullDaysUnverified: 0,
-    leaves: 0,
-    verifiedFullDays: 0,
-    notMarked: 0,
-    halfDaysUnverified: 0,
-    verifiedHalfDays: 0
-  });
+export default function TotalAttendanceSummary({ isOpen, onClose, selectedMonth, employees }) {
+  const [summaryData, setSummaryData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [overallStats, setOverallStats] = useState({
+    totalEmployees: 0,
+    totalFullDays: 0,
+    totalVerifiedFullDays: 0,
+    totalHalfDays: 0,
+    totalVerifiedHalfDays: 0,
+    totalLeaves: 0,
+    totalNotMarked: 0
+  });
 
   useEffect(() => {
-    if (employee && selectedMonth) {
-      fetchEmployeeAttendance();
+    if (isOpen && selectedMonth && employees.length > 0) {
+      calculateTotalSummary();
     }
-  }, [employee, selectedMonth]);
+  }, [isOpen, selectedMonth, employees]);
 
-  const fetchEmployeeAttendance = async () => {
-    if (!employee?.id) return;
-    
+  const calculateTotalSummary = async () => {
     setLoading(true);
     try {
-      const [year, month] = selectedMonth.split("-");
-      
-      // Fetch employee's attendance records for the selected month using centralized API client
-      const response = await api.get(`/hr/attendance/my_records/?month=${Number(month)}&year=${year}&user_id=${employee.id}`);
-      const data = Array.isArray(response.data) ? response.data : (response.data.results || response.data.data || []);
-      
-      setAttendanceData(data);
-      calculateSummaryStats(data);
+      const employeeSummaries = employees.map(emp => {
+        const stats = {
+          id: emp.id,
+          name: emp.name,
+          userId: emp.userId,
+          fullDaysUnverified: 0,
+          verifiedFullDays: 0,
+          halfDaysUnverified: 0,
+          verifiedHalfDays: 0,
+          leaves: 0,
+          notMarked: 0,
+          totalDays: 0
+        };
+
+        const [year, month] = selectedMonth.split("-");
+        const daysInMonth = new Date(year, month, 0).getDate();
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = `${selectedMonth}-${String(day).padStart(2, '0')}`;
+          const dayOfWeek = new Date(year, month - 1, day).getDay();
+          const isSunday = dayOfWeek === 0;
+
+          if (isSunday) continue; // Skip Sundays (holidays)
+
+          const record = emp.records[date];
+
+          if (!record) {
+            stats.notMarked++;
+          } else {
+            const status = (record.status || "").toLowerCase();
+            const verified = (record.verification_status || "").toLowerCase() === "verified" || record.is_verified;
+
+            if (status === "full" || status === "present") {
+              if (verified) {
+                stats.verifiedFullDays++;
+              } else {
+                stats.fullDaysUnverified++;
+              }
+            } else if (status === "half") {
+              if (verified) {
+                stats.verifiedHalfDays++;
+              } else {
+                stats.halfDaysUnverified++;
+              }
+            } else if (status === "leave") {
+              stats.leaves++;
+            } else {
+              stats.notMarked++;
+            }
+          }
+        }
+
+        stats.totalDays = stats.fullDaysUnverified + stats.verifiedFullDays + 
+                          stats.halfDaysUnverified + stats.verifiedHalfDays + 
+                          stats.leaves + stats.notMarked;
+
+        return stats;
+      });
+
+      setSummaryData(employeeSummaries);
+
+      // Calculate overall statistics
+      const overall = employeeSummaries.reduce((acc, emp) => ({
+        totalEmployees: acc.totalEmployees + 1,
+        totalFullDays: acc.totalFullDays + emp.fullDaysUnverified,
+        totalVerifiedFullDays: acc.totalVerifiedFullDays + emp.verifiedFullDays,
+        totalHalfDays: acc.totalHalfDays + emp.halfDaysUnverified,
+        totalVerifiedHalfDays: acc.totalVerifiedHalfDays + emp.verifiedHalfDays,
+        totalLeaves: acc.totalLeaves + emp.leaves,
+        totalNotMarked: acc.totalNotMarked + emp.notMarked
+      }), {
+        totalEmployees: 0,
+        totalFullDays: 0,
+        totalVerifiedFullDays: 0,
+        totalHalfDays: 0,
+        totalVerifiedHalfDays: 0,
+        totalLeaves: 0,
+        totalNotMarked: 0
+      });
+
+      setOverallStats(overall);
     } catch (error) {
-      console.error("Failed to fetch attendance summary:", error);
-      let errorMessage = 'Failed to load attendance summary';
-      if (error.response) {
-        errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
-      } else if (error.message) {
-        errorMessage = `Error: ${error.message}`;
-      }
-      alert(errorMessage);
+      console.error("Failed to calculate summary:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateSummaryStats = (records) => {
-    const stats = {
-      fullDaysUnverified: 0,
-      leaves: 0,
-      verifiedFullDays: 0,
-      notMarked: 0,
-      halfDaysUnverified: 0,
-      verifiedHalfDays: 0
-    };
+  const exportToCSV = () => {
+    const headers = ["Employee Name", "User ID", "Full Days", "Verified Full Days", "Half Days", "Verified Half Days", "Leaves", "Not Marked", "Total Days"];
+    const rows = summaryData.map(emp => [
+      emp.name,
+      emp.userId,
+      emp.fullDaysUnverified,
+      emp.verifiedFullDays,
+      emp.halfDaysUnverified,
+      emp.verifiedHalfDays,
+      emp.leaves,
+      emp.notMarked,
+      emp.totalDays
+    ]);
 
-    records.forEach(record => {
-      const status = (record.status || "").toLowerCase();
-      const verified = (record.verification_status || "").toLowerCase() === "verified";
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
 
-      if (status === "full") {
-        if (verified) {
-          stats.verifiedFullDays++;
-        } else {
-          stats.fullDaysUnverified++;
-        }
-      } else if (status === "half") {
-        if (verified) {
-          stats.verifiedHalfDays++;
-        } else {
-          stats.halfDaysUnverified++;
-        }
-      } else if (status === "leave") {
-        stats.leaves++;
-      } else if (status === "holiday") {
-        // Holidays are counted separately
-      } else {
-        stats.notMarked++;
-      }
-    });
-
-    setSummaryStats(stats);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `attendance_summary_${selectedMonth}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const formatDate = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', { 
-        day: '2-digit', 
-        month: 'short', 
-        year: 'numeric' 
-      });
-    } catch (error) {
-      return dateString;
-    }
-  };
-
-  const getDayName = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', { weekday: 'long' });
-    } catch (error) {
-      return 'Unknown';
-    }
-  };
-
-  const getStatusColor = (status, verified) => {
-    const statusKey = (status || "").toLowerCase();
-    const isVerified = verified === true || verified === "verified";
-    
-    if (statusKey === "full") return isVerified ? "#3b82f6" : "#10b981";
-    if (statusKey === "half") return isVerified ? "#f43f5e" : "#f59e0b";
-    if (statusKey === "leave") return "#ef4444";
-    if (statusKey === "holiday") return "#eab308";
-    return "#9ca3af";
-  };
-
-  const getStatusLabel = (status, verified) => {
-    const statusKey = (status || "").toLowerCase();
-    const isVerified = verified === true || verified === "verified";
-    
-    if (statusKey === "full") return isVerified ? "Verified Full Day" : "Full Day";
-    if (statusKey === "half") return isVerified ? "Verified Half Day" : "Half Day";
-    if (statusKey === "leave") return "Leave";
-    if (statusKey === "holiday") return "Holiday";
-    return "Not Marked";
-  };
-
-  const formatTime = (timeValue) => {
-    if (!timeValue) return "-";
-
-    try {
-      let date;
-
-      // If backend sends full ISO datetime
-      if (typeof timeValue === "string" && timeValue.includes("T")) {
-        date = new Date(timeValue);
-      } 
-      // If backend sends only HH:mm or HH:mm:ss
-      else {
-        date = new Date(`2000-01-01T${timeValue}`);
-      }
-
-      // Final time display format
-      return date.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } catch (e) {
-      console.error("Time parse error:", timeValue);
-      return "-";
-    }
-  };
-
-  if (!employee) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.errorContainer}>
-          <h2>No Employee Data</h2>
-          <p>Please go back and select an employee to view summary.</p>
-          <button onClick={() => navigate(-1)} style={styles.backButton}>
-            ← Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (!isOpen) return null;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <button onClick={() => navigate(-1)} style={styles.backButton}>
-          ← Back
-        </button>
-        <h1 style={styles.title}>Attendance Summary for {employee.name}</h1>
-        <div style={styles.monthSelector}>
-          <span style={styles.monthLabel}>
-            {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { 
+    <div style={styles.overlay}>
+      <div style={styles.modal}>
+        {/* Header */}
+        <div style={styles.header}>
+          <h2 style={styles.title}>
+            Total Attendance Summary - {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { 
               month: 'long', 
               year: 'numeric' 
             })}
-          </span>
+          </h2>
+          <button onClick={onClose} style={styles.closeButton}>
+            <X size={24} />
+          </button>
         </div>
-      </div>
 
-      {/* Summary Cards */}
-      <div style={styles.summaryGrid}>
-        <div style={{...styles.summaryCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.FULL_DAY.color}`}}>
-          <div style={styles.summaryCardHeader}>
-            <span style={styles.summaryCardTitle}>Full Days (Unverified)</span>
+        {/* Overall Statistics */}
+        <div style={styles.overallStats}>
+          <div style={styles.statCard}>
+            <div style={styles.statLabel}>Total Employees</div>
+            <div style={styles.statValue}>{overallStats.totalEmployees}</div>
           </div>
-          <div style={styles.summaryCardValue}>{summaryStats.fullDaysUnverified}</div>
-        </div>
-
-        <div style={{...styles.summaryCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.LEAVE.color}`}}>
-          <div style={styles.summaryCardHeader}>
-            <span style={styles.summaryCardTitle}>Leaves</span>
+          <div style={{...styles.statCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.FULL_DAY.color}`}}>
+            <div style={styles.statLabel}>Full Days</div>
+            <div style={styles.statValue}>{overallStats.totalFullDays}</div>
           </div>
-          <div style={styles.summaryCardValue}>{summaryStats.leaves}</div>
-        </div>
-
-        <div style={{...styles.summaryCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.VERIFIED.color}`}}>
-          <div style={styles.summaryCardHeader}>
-            <span style={styles.summaryCardTitle}>Verified Full Days</span>
+          <div style={{...styles.statCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.VERIFIED.color}`}}>
+            <div style={styles.statLabel}>Verified Full Days</div>
+            <div style={styles.statValue}>{overallStats.totalVerifiedFullDays}</div>
           </div>
-          <div style={styles.summaryCardValue}>{summaryStats.verifiedFullDays}</div>
-        </div>
-
-        <div style={{...styles.summaryCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.NOT_MARKED.color}`}}>
-          <div style={styles.summaryCardHeader}>
-            <span style={styles.summaryCardTitle}>Not Marked</span>
+          <div style={{...styles.statCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.HALF_DAY.color}`}}>
+            <div style={styles.statLabel}>Half Days</div>
+            <div style={styles.statValue}>{overallStats.totalHalfDays}</div>
           </div>
-          <div style={styles.summaryCardValue}>{summaryStats.notMarked}</div>
-        </div>
-
-        <div style={{...styles.summaryCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.HALF_DAY.color}`}}>
-          <div style={styles.summaryCardHeader}>
-            <span style={styles.summaryCardTitle}>Half Days (Unverified)</span>
+          <div style={{...styles.statCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.VERIFIED_HALF.color}`}}>
+            <div style={styles.statLabel}>Verified Half Days</div>
+            <div style={styles.statValue}>{overallStats.totalVerifiedHalfDays}</div>
           </div>
-          <div style={styles.summaryCardValue}>{summaryStats.halfDaysUnverified}</div>
-        </div>
-
-        <div style={{...styles.summaryCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.VERIFIED_HALF.color}`}}>
-          <div style={styles.summaryCardHeader}>
-            <span style={styles.summaryCardTitle}>Verified Half Days</span>
+          <div style={{...styles.statCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.LEAVE.color}`}}>
+            <div style={styles.statLabel}>Leaves</div>
+            <div style={styles.statValue}>{overallStats.totalLeaves}</div>
           </div>
-          <div style={styles.summaryCardValue}>{summaryStats.verifiedHalfDays}</div>
+          <div style={{...styles.statCard, borderLeft: `4px solid ${ATTENDANCE_TYPES.NOT_MARKED.color}`}}>
+            <div style={styles.statLabel}>Not Marked</div>
+            <div style={styles.statValue}>{overallStats.totalNotMarked}</div>
+          </div>
         </div>
-      </div>
 
-      {/* Attendance Details Table */}
-      <div style={styles.tableContainer}>
-        <h3 style={styles.tableTitle}>Attendance Details</h3>
-        {loading ? (
-          <div style={styles.loading}>Loading attendance data...</div>
-        ) : (
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeader}>Date</th>
-                <th style={styles.tableHeader}>Day</th>
-                <th style={styles.tableHeader}>Status</th>
-                <th style={styles.tableHeader}>Punch In Time</th>
-                <th style={styles.tableHeader}>Punch Out Time</th>
-                <th style={styles.tableHeader}>Total Working Time</th>
-                <th style={styles.tableHeader}>Punch In Location</th>
-                <th style={styles.tableHeader}>Punch Out Location</th>
-                <th style={styles.tableHeader}>Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceData.length === 0 ? (
-                <tr>
-                  <td colSpan="9" style={styles.noData}>
-                    No attendance records found for this month.
-                  </td>
+        {/* Export Button */}
+        <div style={styles.actionBar}>
+          <button onClick={exportToCSV} style={styles.exportButton}>
+            <Download size={18} />
+            <span>Export to CSV</span>
+          </button>
+        </div>
+
+        {/* Employee Details Table */}
+        <div style={styles.tableContainer}>
+          {loading ? (
+            <div style={styles.loading}>Loading summary data...</div>
+          ) : (
+            <table style={styles.table}>
+              <thead>
+                <tr style={styles.tableHeaderRow}>
+                  <th style={styles.tableHeader}>No</th>
+                  <th style={styles.tableHeader}>Employee Name</th>
+                  <th style={styles.tableHeader}>User ID</th>
+                  <th style={styles.tableHeader}>Full Days</th>
+                  <th style={styles.tableHeader}>Verified Full</th>
+                  <th style={styles.tableHeader}>Half Days</th>
+                  <th style={styles.tableHeader}>Verified Half</th>
+                  <th style={styles.tableHeader}>Leaves</th>
+                  <th style={styles.tableHeader}>Not Marked</th>
+                  <th style={styles.tableHeader}>Total Days</th>
                 </tr>
-              ) : (
-                attendanceData.map((record, index) => (
-                  <tr key={index} style={styles.tableRow}>
-                    <td style={styles.tableCell}>{formatDate(record.date)}</td>
-                    <td style={styles.tableCell}>{getDayName(record.date)}</td>
-                    <td style={styles.tableCell}>
-                      <span style={{
-                        ...styles.statusBadge,
-                        backgroundColor: getStatusColor(record.status, record.verification_status)
-                      }}>
-                        {getStatusLabel(record.status, record.verification_status)}
-                      </span>
+              </thead>
+              <tbody>
+                {summaryData.length === 0 ? (
+                  <tr>
+                    <td colSpan="10" style={styles.noData}>
+                      No attendance data available
                     </td>
-                    <td style={styles.tableCell}>
-                      {formatTime(record.punch_in_time || record.punch_in || record.in_time)}
-                    </td>
-                    <td style={styles.tableCell}>
-                      {formatTime(record.punch_out_time || record.punch_out || record.out_time)}
-                    </td>
-                    <td style={styles.tableCell}>{record.working_hours || "-"}</td>
-                    <td style={styles.tableCell}>{record.punch_in_location || "-"}</td>
-                    <td style={styles.tableCell}>{record.punch_out_location || "-"}</td>
-                    <td style={styles.tableCell}>{record.note || record.admin_note || "-"}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        )}
+                ) : (
+                  summaryData.map((emp, index) => (
+                    <tr key={emp.id} style={styles.tableRow}>
+                      <td style={styles.tableCell}>{index + 1}</td>
+                      <td style={{...styles.tableCell, textAlign: 'left', fontWeight: 600}}>{emp.name}</td>
+                      <td style={styles.tableCell}>{emp.userId}</td>
+                      <td style={styles.tableCell}>
+                        <span style={{...styles.badge, backgroundColor: ATTENDANCE_TYPES.FULL_DAY.color}}>
+                          {emp.fullDaysUnverified}
+                        </span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        <span style={{...styles.badge, backgroundColor: ATTENDANCE_TYPES.VERIFIED.color}}>
+                          {emp.verifiedFullDays}
+                        </span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        <span style={{...styles.badge, backgroundColor: ATTENDANCE_TYPES.HALF_DAY.color}}>
+                          {emp.halfDaysUnverified}
+                        </span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        <span style={{...styles.badge, backgroundColor: ATTENDANCE_TYPES.VERIFIED_HALF.color}}>
+                          {emp.verifiedHalfDays}
+                        </span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        <span style={{...styles.badge, backgroundColor: ATTENDANCE_TYPES.LEAVE.color}}>
+                          {emp.leaves}
+                        </span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        <span style={{...styles.badge, backgroundColor: ATTENDANCE_TYPES.NOT_MARKED.color}}>
+                          {emp.notMarked}
+                        </span>
+                      </td>
+                      <td style={{...styles.tableCell, fontWeight: 700}}>{emp.totalDays}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
-    minHeight: "100vh",
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: "20px",
+  },
+  modal: {
+    backgroundColor: "white",
+    borderRadius: "12px",
+    width: "100%",
+    maxWidth: "1400px",
+    maxHeight: "90vh",
+    overflow: "auto",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
   },
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "24px",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  backButton: {
-    padding: "10px 16px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
+    padding: "24px",
+    borderBottom: "2px solid #e5e7eb",
+    position: "sticky",
+    top: 0,
     backgroundColor: "white",
-    border: "2px solid #e5e7eb",
-    borderRadius: "8px",
-    cursor: "pointer",
-    textDecoration: "none",
-    display: "inline-block",
+    zIndex: 10,
   },
   title: {
-    fontSize: "28px",
+    fontSize: "24px",
     fontWeight: "700",
     color: "#111827",
     margin: 0,
-    flex: 1,
-    textAlign: "center",
   },
-  monthSelector: {
+  closeButton: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "8px",
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    justifyContent: "center",
+    borderRadius: "6px",
+    transition: "background-color 0.2s",
   },
-  monthLabel: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#6b7280",
-    padding: "8px 16px",
-    backgroundColor: "white",
-    borderRadius: "8px",
-    border: "1px solid #e5e7eb",
-  },
-  summaryGrid: {
+  overallStats: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
     gap: "16px",
-    marginBottom: "32px",
+    padding: "24px",
+    backgroundColor: "#f9fafb",
+    borderBottom: "1px solid #e5e7eb",
   },
-  summaryCard: {
+  statCard: {
     backgroundColor: "white",
-    padding: "20px",
+    padding: "16px",
     borderRadius: "8px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     textAlign: "center",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   },
-  summaryCardHeader: {
-    marginBottom: "12px",
-  },
-  summaryCardTitle: {
-    fontSize: "14px",
+  statLabel: {
+    fontSize: "12px",
     fontWeight: "600",
     color: "#6b7280",
     textTransform: "uppercase",
+    marginBottom: "8px",
   },
-  summaryCardValue: {
-    fontSize: "32px",
+  statValue: {
+    fontSize: "28px",
     fontWeight: "700",
     color: "#111827",
   },
-  tableContainer: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    overflow: "auto",
-    padding: "20px",
+  actionBar: {
+    padding: "16px 24px",
+    display: "flex",
+    justifyContent: "flex-end",
+    borderBottom: "1px solid #e5e7eb",
   },
-  tableTitle: {
-    fontSize: "18px",
+  exportButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "10px 20px",
+    fontSize: "14px",
     fontWeight: "600",
-    color: "#111827",
-    margin: "0 0 16px 0",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "background-color 0.2s",
+  },
+  tableContainer: {
+    padding: "24px",
+    overflowX: "auto",
   },
   table: {
     width: "100%",
@@ -405,30 +398,32 @@ const styles = {
   },
   tableHeader: {
     padding: "12px 16px",
-    textAlign: "left",
+    textAlign: "center",
     fontSize: "12px",
     fontWeight: "600",
-    color: "#6b7280",
+    color: "#374151",
     textTransform: "uppercase",
     borderBottom: "2px solid #e5e7eb",
     whiteSpace: "nowrap",
   },
   tableRow: {
     borderBottom: "1px solid #e5e7eb",
+    transition: "background-color 0.15s",
   },
   tableCell: {
     padding: "12px 16px",
     fontSize: "14px",
     color: "#374151",
+    textAlign: "center",
     whiteSpace: "nowrap",
   },
-  statusBadge: {
-    padding: "4px 8px",
+  badge: {
+    padding: "4px 12px",
     borderRadius: "12px",
-    fontSize: "12px",
+    fontSize: "13px",
     fontWeight: "600",
     color: "white",
-    textTransform: "uppercase",
+    display: "inline-block",
   },
   loading: {
     padding: "40px",
@@ -441,12 +436,5 @@ const styles = {
     textAlign: "center",
     color: "#6b7280",
     fontSize: "16px",
-  },
-  errorContainer: {
-    textAlign: "center",
-    padding: "40px",
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   },
 };
