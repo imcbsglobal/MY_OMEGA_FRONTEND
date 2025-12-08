@@ -28,10 +28,10 @@ export default function Login() {
       const res = await api.post("/login/", { email, password });
       const data = res.data;
 
-      sessionStorage.setItem("accessToken", data.access);
-      sessionStorage.setItem("refreshToken", data.refresh);
-      sessionStorage.setItem("user", JSON.stringify(data.user));
-      sessionStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("accessToken", data.access);
+localStorage.setItem("refreshToken", data.refresh);
+localStorage.setItem("user", JSON.stringify(data.user));
+localStorage.setItem("isAuthenticated", "true");
 
       if (data.menu_tree) {
         sessionStorage.setItem("menuTree", JSON.stringify(data.menu_tree));
