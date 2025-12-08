@@ -1,307 +1,163 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+// src/pages/Interview_Form.jsx
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
-export default function OfferLetterForm() {
+export default function Interview_Form() {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const isEdit = Boolean(id);
-
-  const [formData, setFormData] = useState({
-    candidate: "",
-    job_title: "",
-    department: "",
-    joining_date: "",
-    salary: "",
-    work_start_time: "09:30",
-    work_end_time: "17:30",
-    notice_period: "",
-    body: "Dear Candidate,",
-    terms_condition: "As per company policy",
-    subject: "Job Offer Letter",
-  });
-
-  const [candidateList, setCandidateList] = useState([]);
-  const [jobTitles, setJobTitles] = useState([]); // ✅ Store job titles from master
+  const [cvCandidates, setCvCandidates] = useState([]);
+  const [selectedCandidate, setSelectedCandidate] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  // Fetch selected candidates
-  const fetchCandidates = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get("/offer-letter/selected-candidates/");
-      setCandidateList(res.data.data);
-    } catch (err) {
-      console.error("Error fetching selected candidates", err);
-      setError("Failed to load candidates");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Fetch job titles from master data API
-  const fetchJobTitles = async () => {
-    try {
-      // Assuming your API endpoint for master job titles
-      const res = await api.get("/master/job-titles/");
-      
-      // Adjust based on your API response structure
-      const titles = res.data.data || res.data || [];
-      setJobTitles(titles);
-      console.log("Job titles loaded:", titles);
-    } catch (err) {
-      console.error("Error fetching job titles from master", err);
-      // Optionally, you can set a default list as fallback
-      setError("Failed to load job titles from master");
-    }
-  };
-
-  // Fetch candidate CV details
-  const fetchCandidateDetails = async (candidateId) => {
-    if (!candidateId) return;
-
-    try {
-      setLoading(true);
-      const res = await api.get(`/cv-management/cvs/${candidateId}/`);
-
-      setFormData((prev) => ({
-        ...prev,
-        candidate: candidateId,
-        job_title: res.data.data.job_title || "",
-        department: res.data.data.department || "",
-        salary: res.data.data.expected_salary || "",
-        notice_period: "30",
-      }));
-
-      setError("");
-    } catch (err) {
-      console.error("Error fetching candidate details", err);
-      setError("Failed to load candidate details");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchCandidates();
-    fetchJobTitles(); // ✅ Load job titles when component mounts
+    fetchAvailableCandidates();
   }, []);
 
-  const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
-
-  const handleCandidateChange = (e) => {
-    const candidateId = e.target.value;
-    setFormData(prev => ({
-      ...prev,
-      candidate: candidateId,
-    }));
-
-    if (candidateId) {
-      fetchCandidateDetails(candidateId);
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        job_title: "",
-        department: "",
-        salary: ""
-      }));
+  const fetchAvailableCandidates = async () => {
+    try {
+      // Use the new endpoint that filters for 'selected' candidates
+      const res = await api.get("/interview-management/cvs-for-interview/");
+      
+      console.log("Full API response:", res.data);
+      
+      const list = res.data?.data || [];
+      console.log("Available candidates for interview:", list);
+      
+      // Verify each candidate has correct ID format
+      list.forEach(candidate => {
+        console.log(`Candidate: ${candidate.name}, ID: ${candidate.id}, Type: ${typeof candidate.id}`);
+      });
+      
+      setCvCandidates(list);
+      
+      if (list.length === 0) {
+        console.warn("No candidates available. Make sure CVs have 'selected' status.");
+      }
+    } catch (err) {
+      console.error("Error fetching CV list:", err);
+      console.error("Error response:", err.response?.data);
+      alert("Failed to load candidate list. Check console for details.");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.candidate) {
-      alert("Please select a candidate");
+    if (!selectedCandidate) {
+      alert("Please select a candidate before saving.");
       return;
     }
 
-    const dataToSend = {
-      candidate: formData.candidate,
-      position: formData.job_title, // ✅ This will be the selected job title from dropdown
-      department: formData.department,
-      salary: Number(formData.salary),
-      joining_data: formData.joining_date,
-      work_start_time: formData.work_start_time,
-      work_end_time: formData.work_end_time,
-      notice_period: parseInt(formData.notice_period, 10) || 30,
-      subject: formData.subject,
-      body: formData.body,
-      terms_condition: formData.terms_condition || "As per company policy",
-    };
-
-    console.log("Submitting data:", dataToSend);
-
     try {
-      if (isEdit) {
-        await api.put(`/offer-letter/${id}/`, dataToSend);
-        alert("Offer letter updated successfully");
-      } else {
-        await api.post("/offer-letter/", dataToSend);
-        alert("Offer letter created successfully");
-      }
-
-      navigate("/offer-letter");
+      setLoading(true);
+      
+      // Log the request data
+      const requestData = {
+        candidate_id: selectedCandidate,
+        scheduled_at: new Date().toISOString(),
+      };
+      
+      console.log("Starting interview with data:", requestData);
+      console.log("Selected candidate ID type:", typeof selectedCandidate);
+      
+      const res = await api.post("/interview-management/start-interview/", requestData);
+      
+      console.log("Interview started successfully:", res.data);
+      
+      // Show success message
+      const candidateName = cvCandidates.find(c => c.id === selectedCandidate)?.name || "Candidate";
+      alert(`Interview started successfully for ${candidateName}!`);
+      
+      // Navigate to interview list
+      navigate("/interview-management");
     } catch (error) {
-      console.error("Submit error details:", error?.response?.data);
-      alert(
-        error.response?.data?.message ||
-        JSON.stringify(error.response?.data) ||
-        "Offer Letter API Error"
-      );
+      console.error("Full error object:", error);
+      console.error("Error response:", error.response);
+      
+      // Extract detailed error message
+      let errorMsg = "Failed to start interview!";
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        console.log("Error data:", data);
+        
+        // Handle different error formats
+        if (data.message) {
+          errorMsg = data.message;
+        } else if (data.details) {
+          if (typeof data.details === 'string') {
+            errorMsg = data.details;
+          } else if (data.details.candidate_id) {
+            errorMsg = Array.isArray(data.details.candidate_id) 
+              ? data.details.candidate_id[0] 
+              : data.details.candidate_id;
+          } else {
+            errorMsg = JSON.stringify(data.details);
+          }
+        } else if (data.error) {
+          errorMsg = `Error: ${data.error}`;
+        }
+      }
+      
+      alert(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={styles.pageContainer}>
+    <div style={styles.container}>
       <div style={styles.card}>
-        <h2 style={styles.title}>{isEdit ? "Edit Offer Letter" : "Add Offer Letter"}</h2>
+        <h2 style={styles.title}>Add Interview Management</h2>
 
-        {error && (
-          <div style={styles.errorBox}>
-            <strong>Error:</strong> {error}
+        {cvCandidates.length === 0 && (
+          <div style={styles.infoBox}>
+            <p style={styles.infoText}>
+              ℹ️ No candidates available for interview. 
+              <br />
+              Please add candidates with "Selected" status in CV Management first.
+            </p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-
-          {/* Candidate Dropdown */}
+        <form onSubmit={handleSubmit}>
           <div style={styles.formGroup}>
             <label style={styles.label}>Select Candidate:</label>
             <select
-              style={styles.input}
-              name="candidate"
-              value={formData.candidate}
-              onChange={handleCandidateChange}
-              required
-              disabled={loading}
+              style={styles.select}
+              value={selectedCandidate}
+              onChange={(e) => {
+                const candidateId = e.target.value;
+                console.log("Selected candidate ID:", candidateId, "Type:", typeof candidateId);
+                setSelectedCandidate(candidateId);
+              }}
+              disabled={cvCandidates.length === 0}
             >
               <option value="">-- Select Candidate --</option>
-              {candidateList.map((item) => (
-                <option key={item.candidate_id} value={item.candidate_id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* ✅ Job Title Dropdown - Shows all titles from master */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Job Title:</label>
-            <select
-              style={styles.input}
-              name="job_title"
-              value={formData.job_title}
-              onChange={handleChange}
-              required
-            >
-              <option value="">-- Select Job Title --</option>
-              {jobTitles.map((job, index) => {
-                // Handle different response formats
-                const title = job.title || job.name || job.job_title || job;
-                const value = job.id ? String(job.id) : title;
-                
-                return (
-                  <option key={index} value={value}>
-                    {title}
+              {cvCandidates.length > 0 ? (
+                cvCandidates.map((cv) => (
+                  <option key={cv.id} value={cv.id}>
+                    {cv.name} - {cv.job_title_name || cv.job_title || "No Job Title"} ({cv.place || "No Location"})
                   </option>
-                );
-              })}
+                ))
+              ) : (
+                <option disabled>No candidates available</option>
+              )}
             </select>
+            <small style={styles.helpText}>
+              Only candidates with "Selected" status are shown
+            </small>
           </div>
 
-          {/* Department */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Department:</label>
-            <input
-              style={styles.input}
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              required
-              placeholder="e.g., Engineering"
-            />
-          </div>
-
-          {/* Joining Date */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Joining Date:</label>
-            <input
-              type="date"
-              style={styles.input}
-              name="joining_date"
-              value={formData.joining_date}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          {/* Salary */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Salary:</label>
-            <input
-              type="number"
-              style={styles.input}
-              name="salary"
-              value={formData.salary}
-              onChange={handleChange}
-              required
-              placeholder="e.g., 100000"
-              min="0"
-            />
-          </div>
-
-          {/* Work Start / End */}
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Work Start Time:</label>
-              <input
-                type="time"
-                style={styles.input}
-                name="work_start_time"
-                value={formData.work_start_time}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>End Time:</label>
-              <input
-                type="time"
-                style={styles.input}
-                name="work_end_time"
-                value={formData.work_end_time}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          {/* Notice Period */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Notice Period (days):</label>
-            <input
-              type="number"
-              style={styles.input}
-              name="notice_period"
-              value={formData.notice_period}
-              onChange={handleChange}
-              placeholder="e.g., 30"
-              min="0"
-            />
-          </div>
-
-          <button
-            type="submit"
-            style={styles.saveBtn}
-            disabled={loading}
+          <button 
+            type="submit" 
+            style={{
+              ...styles.saveBtn,
+              ...(cvCandidates.length === 0 || loading ? styles.saveBtnDisabled : {})
+            }}
+            disabled={loading || cvCandidates.length === 0}
           >
-            {loading ? "Saving..." : "Save"}
+            {loading ? "Saving..." : "Start Interview"}
           </button>
         </form>
       </div>
@@ -310,48 +166,81 @@ export default function OfferLetterForm() {
 }
 
 const styles = {
-  pageContainer: { padding: "30px", background: "#f3f4f6", minHeight: "100vh" },
+  container: {
+    backgroundColor: "#f9fafb",
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-start",
+    paddingTop: "100px",
+  },
   card: {
-    background: "#ffffff",
-    width: "550px",
-    margin: "0 auto",
+    backgroundColor: "white",
+    padding: "30px 50px",
     borderRadius: "12px",
-    padding: "35px 40px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+    textAlign: "center",
+    minWidth: "420px",
   },
   title: {
-    textAlign: "center",
-    marginBottom: "25px",
-    fontSize: "26px",
+    fontSize: "20px",
     fontWeight: "700",
-    color: "#333",
+    color: "#1f2937",
+    marginBottom: "25px",
   },
-  errorBox: {
-    backgroundColor: "#fee",
-    border: "1px solid #f99",
+  infoBox: {
+    backgroundColor: "#eff6ff",
+    border: "1px solid #bfdbfe",
     borderRadius: "8px",
-    padding: "10px",
+    padding: "16px",
     marginBottom: "20px",
-    color: "#c00",
   },
-  form: { display: "flex", flexDirection: "column", gap: "18px" },
-  formGroup: { display: "flex", flexDirection: "column", gap: "6px" },
-  label: { fontSize: "15px", fontWeight: "600" },
-  input: {
-    padding: "12px",
-    border: "1px solid #cbd5e1",
-    borderRadius: "8px",
+  infoText: {
+    fontSize: "14px",
+    color: "#1e40af",
+    margin: 0,
+    lineHeight: "1.6",
+  },
+  formGroup: {
+    textAlign: "left",
+    marginBottom: "25px",
+  },
+  label: {
+    display: "block",
     fontSize: "15px",
+    fontWeight: "600",
+    marginBottom: "6px",
+    color: "#111827",
   },
-  row: { display: "flex", gap: "15px" },
+  select: {
+    width: "100%",
+    padding: "10px 12px",
+    fontSize: "15px",
+    borderRadius: "6px",
+    border: "1px solid #d1d5db",
+    outline: "none",
+  },
+  helpText: {
+    display: "block",
+    marginTop: "6px",
+    fontSize: "13px",
+    color: "#6b7280",
+  },
   saveBtn: {
     width: "100%",
-    padding: "14px",
-    background: "#0f8a4b",
-    color: "#fff",
-    fontSize: "17px",
+    backgroundColor: "#3b82f6",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    padding: "10px 0",
+    fontSize: "15px",
     fontWeight: "600",
-    borderRadius: "8px",
     cursor: "pointer",
+    transition: "background-color 0.2s",
+  },
+  saveBtnDisabled: {
+    backgroundColor: "#9ca3af",
+    cursor: "not-allowed",
+    opacity: 0.6,
   },
 };

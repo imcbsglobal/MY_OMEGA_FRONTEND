@@ -1,6 +1,4 @@
 // Employee_Form.jsx
-// Updated with user fetching and selection
-
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/client";
@@ -11,45 +9,42 @@ export default function EmployeeForm() {
   const isEdit = Boolean(id);
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  // add near other state declarations
-const [jobTitles, setJobTitles] = useState([]);
-const [loadingJobTitles, setLoadingJobTitles] = useState(false);
-
+  const [jobTitles, setJobTitles] = useState([]);
+  const [loadingJobTitles, setLoadingJobTitles] = useState(false);
 
   const [formData, setFormData] = useState({
-    user: '',
-    employee_id: '',
-    employment_status: 'Permanent',
-    employment_type: 'Full-time',
-    department: '',
-    designation: '',
-    location: '',
-    duty_time: '',
-    reporting_manager: '',
-    date_of_joining: '',
-    date_of_leaving: '',
-    probation_end_date: '',
-    confirmation_date: '',
-    basic_salary: '',
-    allowances: '',
-    gross_salary: '',
-    pf_number: '',
-    esi_number: '',
-    pan_number: '',
-    aadhar_number: '',
-    account_holder_name: '',
-    salary_account_number: '',
-    salary_bank_name: '',
-    salary_ifsc_code: '',
-    salary_branch: '',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    emergency_contact_relation: '',
-    blood_group: '',
-    marital_status: '',
-    notes: '',
+    user: "",
+    employee_id: "",
+    employment_status: "Permanent",
+    employment_type: "Full-time",
+    department: "",
+    designation: "",
+    location: "",
+    duty_time: "",
+    reporting_manager: "",
+    date_of_joining: "",
+    date_of_leaving: "",
+    probation_end_date: "",
+    confirmation_date: "",
+    basic_salary: "",
+    allowances: "",
+    gross_salary: "",
+    pf_number: "",
+    esi_number: "",
+    pan_number: "",
+    aadhar_number: "",
+    account_holder_name: "",
+    salary_account_number: "",
+    salary_bank_name: "",
+    salary_ifsc_code: "",
+    salary_branch: "",
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
+    emergency_contact_relation: "",
+    blood_group: "",
+    marital_status: "",
+    notes: "",
     is_active: true,
-    // New fields for the form layout
     full_name: "",
     date_of_birth: "",
     personal_phone: "",
@@ -57,15 +52,18 @@ const [loadingJobTitles, setLoadingJobTitles] = useState(false);
     address: "",
     place: "",
     district: "",
-    organization: ""
+    organization: "",
+    avatar: null,
+    avatar_preview: null
   });
 
-  // Fetch users list
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
       const response = await api.get('/users/');
-      const userData = Array.isArray(response.data) ? response.data : (response.data?.results || response.data?.data || []);
+      const userData = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data?.results || response.data?.data || []);
       setUsers(userData);
     } catch (err) {
       console.error("Error fetching users:", err);
@@ -74,27 +72,25 @@ const [loadingJobTitles, setLoadingJobTitles] = useState(false);
       setLoadingUsers(false);
     }
   };
-  const fetchJobTitles = async () => {
-  setLoadingJobTitles(true);
-  try {
-   
-    // adjust endpoint to match your backend route for job title master
-    const res = await api.get("cv-management/job-titles/"); 
-    // if API returns { results: [...] } adapt like you did for users
-    const data = Array.isArray(res.data) ? res.data : (res.data?.results || res.data?.data || []);
-    setJobTitles(data);
-  } catch (err) {
-    console.error("Failed to fetch job titles:", err);
-    // optional: alert("Failed to load job titles");
-  } finally {
-    setLoadingJobTitles(false);
-  }
-};
 
+  const fetchJobTitles = async () => {
+    setLoadingJobTitles(true);
+    try {
+      const res = await api.get("cv-management/job-titles/");
+      const data = Array.isArray(res.data) 
+        ? res.data 
+        : (res.data?.results || res.data?.data || []);
+      setJobTitles(data);
+    } catch (err) {
+      console.error("Failed to fetch job titles:", err);
+    } finally {
+      setLoadingJobTitles(false);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
-     fetchJobTitles();  
+    fetchJobTitles();
     if (isEdit) loadEmployee();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -139,8 +135,14 @@ const [loadingJobTitles, setLoadingJobTitles] = useState(false);
         notes: data.notes || "",
         is_active: data.is_active !== undefined ? data.is_active : true,
         full_name: data.full_name || "",
+        date_of_birth: data.date_of_birth || "",
         personal_phone: data.personal_phone || "",
-        residential_phone: data.residential_phone || ""
+        residential_phone: data.residential_phone || "",
+        address: data.address || "",
+        place: data.place || "",
+        district: data.district || "",
+        organization: data.organization || "",
+        avatar_preview: data.avatar || null
       }));
     } catch (err) {
       console.error("loadEmployee:", err);
@@ -152,14 +154,12 @@ const [loadingJobTitles, setLoadingJobTitles] = useState(false);
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
     
-    
-    // Auto-fill employee ID when user is selected
     if (name === 'user' && value) {
       const selectedUser = users.find(u => u.id === parseInt(value));
       if (selectedUser) {
         setFormData(prev => ({ 
           ...prev, 
-          [name]: value,
+          user: value,
           employee_id: selectedUser.email || selectedUser.username || `EMP${selectedUser.id}`,
           full_name: selectedUser.name || selectedUser.full_name || selectedUser.username || ""
         }));
@@ -174,99 +174,156 @@ const [loadingJobTitles, setLoadingJobTitles] = useState(false);
   }
 
   async function handleSubmit(e) {
-  e.preventDefault();
+    e.preventDefault();
 
-  const fd = new FormData();
-
-// append all NON-file fields
-Object.keys(formData).forEach((key) => {
-  if (key !== "avatar" && key !== "avatar_preview") {
-    if (formData[key] !== null && formData[key] !== undefined) {
-      fd.append(key, formData[key]);
-    }
-  }
-});
-
-// append avatar file
-if (formData.avatar && typeof formData.avatar !== "string") {
-  fd.append("avatar", formData.avatar);
-}
-
-
-  try {
-    if (isEdit) {
-      await api.patch(`/employee-management/employees/${id}/`, fd, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-      alert("Employee updated successfully");
-    } else {
-      await api.post("/employee-management/employees/", fd, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-      alert("Employee created successfully");
+    // Required field validation
+    if (!formData.user) {
+      alert("Please select a user");
+      return;
     }
 
-    navigate("/employee-management");
+    if (!formData.employee_id) {
+      alert("Employee ID is required");
+      return;
+    }
 
-  } catch (err) {
-    console.error("submit error:", err);
-    alert("Failed to save employee");
+    if (!formData.full_name) {
+      alert("Full Name is required");
+      return;
+    }
+
+    if (!formData.date_of_birth) {
+      alert("Date of Birth is required");
+      return;
+    }
+
+    if (!formData.personal_phone) {
+      alert("Personal Phone is required");
+      return;
+    }
+
+    if (!formData.place) {
+      alert("Place is required");
+      return;
+    }
+
+    if (!formData.district) {
+      alert("District is required");
+      return;
+    }
+
+    if (!formData.designation) {
+      alert("Job Title is required");
+      return;
+    }
+
+    if (!formData.date_of_joining) {
+      alert("Joining Date is required");
+      return;
+    }
+
+    const fd = new FormData();
+
+    // Add user as integer
+    fd.append("user", parseInt(formData.user));
+
+    // Add all other fields
+    const fieldsToSubmit = {
+      employee_id: formData.employee_id,
+      full_name: formData.full_name,
+      date_of_birth: formData.date_of_birth,
+      personal_phone: formData.personal_phone,
+      residential_phone: formData.residential_phone,
+      place: formData.place,
+      district: formData.district,
+      designation: formData.designation,
+      department: formData.department,
+      date_of_joining: formData.date_of_joining,
+      location: formData.location,
+      duty_time: formData.duty_time,
+      confirmation_date: formData.confirmation_date,
+      employment_status: formData.employment_status,
+      employment_type: formData.employment_type,
+      basic_salary: formData.basic_salary,
+      allowances: formData.allowances,
+      gross_salary: formData.gross_salary,
+      account_holder_name: formData.account_holder_name,
+      salary_account_number: formData.salary_account_number,
+      salary_bank_name: formData.salary_bank_name,
+      salary_ifsc_code: formData.salary_ifsc_code,
+      salary_branch: formData.salary_branch,
+      emergency_contact_name: formData.emergency_contact_name,
+      emergency_contact_phone: formData.emergency_contact_phone,
+      emergency_contact_relation: formData.emergency_contact_relation,
+      blood_group: formData.blood_group,
+      marital_status: formData.marital_status,
+      pf_number: formData.pf_number,
+      esi_number: formData.esi_number,
+      pan_number: formData.pan_number,
+      aadhar_number: formData.aadhar_number,
+      notes: formData.notes,
+      is_active: formData.is_active,
+      organization: formData.organization || ""
+    };
+
+    Object.keys(fieldsToSubmit).forEach((key) => {
+      const value = fieldsToSubmit[key];
+      if (value !== null && value !== undefined && value !== "") {
+        fd.append(key, value);
+      }
+    });
+
+    // Add avatar if present
+    if (formData.avatar && typeof formData.avatar !== "string") {
+      fd.append("avatar", formData.avatar);
+    }
+
+    console.log("Submitting Employee Data:");
+    for (let pair of fd.entries()) {
+      console.log(pair[0], pair[1]);
+    }
+
+    try {
+      if (isEdit) {
+        await api.patch(`/employee-management/employees/${id}/`, fd, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        alert("Employee updated successfully");
+      } else {
+        await api.post("/employee-management/employees/", fd, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        alert("Employee created successfully");
+      }
+
+      navigate("/employee-management");
+    } catch (err) {
+      console.error("Submit error:", err);
+      console.error("Error response:", err.response?.data);
+      
+      if (err.response?.data) {
+        const errors = err.response.data;
+        let errorMessage = "Failed to save employee:\n";
+        
+        Object.keys(errors).forEach(key => {
+          if (Array.isArray(errors[key])) {
+            errorMessage += `${key}: ${errors[key].join(", ")}\n`;
+          } else {
+            errorMessage += `${key}: ${errors[key]}\n`;
+          }
+        });
+        
+        alert(errorMessage);
+      } else {
+        alert("Failed to save employee. Please check the console for details.");
+      }
+    }
   }
-}
-
 
   return (
     <div style={styles.page}>
       <div style={styles.card}>
         <h2 style={styles.title}>{isEdit ? "Edit Employee" : "Add New Employee"}</h2>
-
-        {/* CV Section
-        <div style={styles.section}>
-          <div style={styles.checkboxContainer}>
-            <input 
-              type="checkbox" 
-              id="addFromCV" 
-              style={styles.checkbox}
-            />
-            <label htmlFor="addFromCV" style={styles.checkboxLabel}>
-              Add Employee from CV (Optional)
-            </label>
-          </div>
-          
-          <div style={styles.cvSearchSection}>
-            <label style={styles.label}>Search CV by Name</label>
-            <input
-              type="text"
-              placeholder="Type to search existing CV..."
-              style={styles.input}
-            />
-          </div>
-
-          <div style={styles.fileUploadSection}>
-            <label style={styles.label}>Upload CV</label>
-            <div style={styles.fileUpload}>
-              <input
-                type="file"
-                id="cvUpload"
-                style={styles.fileInput}
-                accept=".pdf,.doc,.docx"
-              />
-              <label htmlFor="cvUpload" style={styles.fileLabel}>
-                Choose File
-              </label>
-              <span style={styles.fileName}>No file chosen</span>
-            </div>
-          </div>
-
-          <div style={styles.cvActions}>
-            <button type="button" style={styles.secondaryButton}>
-              Education
-            </button>
-            <button type="button" style={styles.secondaryButton}>
-              Experience
-            </button>
-          </div>
-        </div> */}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           {/* User Selection */}
@@ -320,67 +377,61 @@ if (formData.avatar && typeof formData.avatar !== "string") {
               </div>
             </div>
           </div>
-                 {/* Employee Photo Upload */}
-<div style={styles.section}>
-  <h3 style={styles.sectionTitle}>Employee Photo</h3>
 
-  <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-    
-    {/* Preview Box */}
-    <div
-      style={{
-        width: 120,
-        height: 120,
-        borderRadius: 10,
-        border: "1px solid #e5e7eb",
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#f9fafb"
-      }}
-    >
-     {formData.avatar_preview ||
- (formData.avatar && typeof formData.avatar === "string") ? (
-  <img
-    src={formData.avatar_preview || formData.avatar}
-    alt="preview"
-    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-  />
-) : (
-  <span style={{ color: "#9ca3af" }}>No Photo</span>
-)}
-    </div>
+          {/* Employee Photo Upload */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Employee Photo</h3>
+            <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+              <div
+                style={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#f9fafb"
+                }}
+              >
+                {formData.avatar_preview ||
+                (formData.avatar && typeof formData.avatar === "string") ? (
+                  <img
+                    src={formData.avatar_preview || formData.avatar}
+                    alt="preview"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <span style={{ color: "#9ca3af" }}>No Photo</span>
+                )}
+              </div>
 
-    {/* Upload Button */}
-    <div>
-      <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
-        Upload Photo
-      </label>
-
-      <input
-        type="file"
-        accept="image/*"
-        style={{
-          padding: "10px 0",
-          fontSize: 14,
-        }}
-     onChange={(e) => {
-  const file = e.target.files[0];
-  if (file) {
-    setFormData((prev) => ({
-      ...prev,
-      avatar: file,
-      avatar_preview: URL.createObjectURL(file),
-    }));
-  }
-}}
-
-      />
-    </div>
-  </div>
-</div>
-
+              <div>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                  Upload Photo
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{
+                    padding: "10px 0",
+                    fontSize: 14,
+                  }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        avatar: file,
+                        avatar_preview: URL.createObjectURL(file),
+                      }));
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Personal Information */}
           <div style={styles.section}>
@@ -409,20 +460,6 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                   type="date"
                   name="date_of_birth"
                   value={formData.date_of_birth}
-                  onChange={handleChange}
-                  style={styles.input}
-                  required
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Phone <span style={styles.required}>*</span>
-                </label>
-                <input
-                  type="tel"
-                  name="personal_phone"
-                  value={formData.personal_phone}
                   onChange={handleChange}
                   style={styles.input}
                   required
@@ -496,18 +533,6 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                 />
               </div>
 
-              {/* <div style={styles.formGroup}>
-                <label style={styles.label}>Address</label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  style={styles.textarea}
-                  rows="3"
-                  placeholder="Full address..."
-                />
-              </div> */}
-
               <div style={styles.formGroup}>
                 <label style={styles.label}>
                   Place <span style={styles.required}>*</span>
@@ -521,11 +546,11 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                   required
                 />
               </div>
+
               <div style={styles.formGroup}>
                 <label style={styles.label}>
                   District <span style={styles.required}>*</span>
                 </label>
-
                 <select
                   name="district"
                   value={formData.district}
@@ -534,8 +559,6 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                   required
                 >
                   <option value="">Select a District</option>
-                  
-                  {/* Kerala Districts */}
                   <option value="Thiruvananthapuram">Thiruvananthapuram</option>
                   <option value="Kollam">Kollam</option>
                   <option value="Pathanamthitta">Pathanamthitta</option>
@@ -550,12 +573,9 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                   <option value="Wayanad">Wayanad</option>
                   <option value="Kannur">Kannur</option>
                   <option value="Kasaragod">Kasaragod</option>
-
-                  {/* Manual entry option */}
                   <option value="manual">Other (Manual Entry)</option>
                 </select>
 
-                {/* Conditional manual entry input */}
                 {formData.district === "manual" && (
                   <input
                     type="text"
@@ -568,24 +588,6 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                   />
                 )}
               </div>
-
-              {/* <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  District <span style={styles.required}>*</span>
-                </label>
-                <select
-                  name="district"
-                  value={formData.district}
-                  onChange={handleChange}
-                  style={styles.input}
-                  required
-                >
-                  <option value="">Select a District</option>
-                  <option value="district1">District 1</option>
-                  <option value="district2">District 2</option>
-                  <option value="district3">District 3</option>
-                </select>
-              </div> */}
 
               <div style={styles.formGroup}>
                 <label style={styles.label}>Emergency Contact Name</label>
@@ -632,26 +634,23 @@ if (formData.avatar && typeof formData.avatar !== "string") {
                   Job Title <span style={styles.required}>*</span>
                 </label>
                 <select
-                name="designation"
-                value={formData.designation}
-                onChange={handleChange}
-                style={styles.input}
-                required
-              >
-                <option value="">Select Job Title</option>
-
-                {loadingJobTitles ? (
-                  <option value="">Loading job titles...</option>
-                ) : (
-                  jobTitles.map((title) => (
-                    // adapt value based on your master object: if master item has `id` and `name` use those
-                    <option key={title.id ?? title.name} value={title.name ?? title.title ?? title.id}>
-                      {title.name ?? title.title ?? title.id}
-                    </option>
-                  ))
-                )}
-              </select>
-
+                  name="designation"
+                  value={formData.designation}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                >
+                  <option value="">Select Job Title</option>
+                  {loadingJobTitles ? (
+                    <option value="">Loading job titles...</option>
+                  ) : (
+                    jobTitles.map((title) => (
+                      <option key={title.id ?? title.name} value={title.name ?? title.title ?? title.id}>
+                        {title.name ?? title.title ?? title.id}
+                      </option>
+                    ))
+                  )}
+                </select>
               </div>
 
               <div style={styles.formGroup}>
@@ -990,61 +989,6 @@ const styles = {
     borderBottom: '1px solid #e5e7eb',
     paddingBottom: '8px'
   },
-  checkboxContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    marginBottom: '16px'
-  },
-  checkbox: {
-    marginRight: '8px',
-    width: '16px',
-    height: '16px'
-  },
-  checkboxLabel: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#374151'
-  },
-  cvSearchSection: {
-    marginBottom: '16px'
-  },
-  fileUploadSection: {
-    marginBottom: '16px'
-  },
-  fileUpload: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  },
-  fileInput: {
-    display: 'none'
-  },
-  fileLabel: {
-    padding: '8px 16px',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    background: '#fff',
-    cursor: 'pointer',
-    fontSize: '14px',
-    color: '#374151'
-  },
-  fileName: {
-    fontSize: '14px',
-    color: '#6b7280'
-  },
-  cvActions: {
-    display: 'flex',
-    gap: '12px'
-  },
-  secondaryButton: {
-    padding: '8px 16px',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    background: '#fff',
-    cursor: 'pointer',
-    fontSize: '14px',
-    color: '#374151'
-  },
   form: {
     display: 'flex',
     flexDirection: 'column',
@@ -1096,6 +1040,18 @@ const styles = {
     resize: 'vertical',
     minHeight: '80px'
   },
+  checkbox: {
+    marginRight: '8px',
+    width: '16px',
+    height: '16px'
+  },
+  checkboxLabel: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#374151',
+    display: 'flex',
+    alignItems: 'center'
+  },
   formActions: {
     display: 'flex',
     justifyContent: 'flex-end',
@@ -1124,4 +1080,4 @@ const styles = {
     fontWeight: '600',
     color: '#fff'
   }
-};
+}
