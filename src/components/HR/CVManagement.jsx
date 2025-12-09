@@ -1,6 +1,8 @@
 // src/pages/CVManagement.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, Pencil, Trash2 } from "lucide-react";
+
 import { CV, toUi } from "../../api/cv";
 
 export default function CVManagement() {
@@ -26,7 +28,6 @@ export default function CVManagement() {
       }
     })();
   }, []);
-  
 
   const handleAddNewClick = () => navigate("/cv-management/add");
   const handleEditClick = (cv) => navigate(`/cv-management/edit/${cv.uuid}`);
@@ -44,7 +45,7 @@ export default function CVManagement() {
       alert(e.response?.data?.detail || "Failed to delete CV");
     }
   };
-  
+
   const handleStatusChange = async (uuid, newStatus) => {
     try {
       await CV.update(
@@ -66,10 +67,9 @@ export default function CVManagement() {
     }
   };
 
-  // Helper function to get status styles based on value
   const getStatusStyles = (status) => {
     const statusValue = status?.toLowerCase() || "pending";
-    
+
     const styleMap = {
       pending: {
         backgroundColor: "#fef3c7",
@@ -160,7 +160,16 @@ export default function CVManagement() {
               <th style={styles.tableHeader}>GENDER</th>
               <th style={styles.tableHeader}>STATUS</th>
               <th style={styles.tableHeader}>PHONE</th>
-              <th style={styles.tableHeader}>ACTION</th>
+              {/* ACTION header centered & fixed width */}
+              <th
+                style={{
+                  ...styles.tableHeader,
+                  textAlign: "center",
+                  width: "120px",
+                }}
+              >
+                ACTION
+              </th>
             </tr>
           </thead>
 
@@ -176,19 +185,12 @@ export default function CVManagement() {
             ) : (
               pageItems.map((cv, idx) => {
                 const statusStyles = getStatusStyles(cv.interviewStatus);
-                
+
                 return (
                   <tr key={cv.uuid} style={styles.tableRow}>
-                    {/* SL NO */}
                     <td style={styles.tableCell}>{startIndex + idx + 1}</td>
-
-                    {/* NAME */}
                     <td style={styles.tableCell}>{cv.name}</td>
-
-                    {/* JOB TITLE */}
                     <td style={styles.tableCell}>{cv.jobTitle}</td>
-
-                    {/* CV */}
                     <td style={styles.tableCell}>
                       <button
                         style={styles.viewCvBtn}
@@ -197,18 +199,15 @@ export default function CVManagement() {
                         View CV
                       </button>
                     </td>
-
-                    {/* PLACE */}
                     <td style={styles.tableCell}>{cv.place || "N/A"}</td>
-
-                    {/* GENDER */}
                     <td style={styles.tableCell}>{cv.gender || "N/A"}</td>
 
-                    {/* ✅ STATUS DROPDOWN */}
                     <td style={styles.tableCell}>
                       <select
                         value={cv.interviewStatus || "pending"}
-                        onChange={(e) => handleStatusChange(cv.uuid, e.target.value)}
+                        onChange={(e) =>
+                          handleStatusChange(cv.uuid, e.target.value)
+                        }
                         style={{
                           ...styles.statusDropdown,
                           ...statusStyles,
@@ -221,23 +220,33 @@ export default function CVManagement() {
                       </select>
                     </td>
 
-                    {/* PHONE */}
                     <td style={styles.tableCell}>{cv.phoneNumber || "N/A"}</td>
 
-                    {/* ACTION */}
-                    <td style={styles.tableCell}>
-                      <div style={styles.actionButtons}>
-                        <button onClick={() => handleViewClick(cv)} style={styles.viewBtn}>
-                          View
-                        </button>
-                        <button onClick={() => handleEditClick(cv)} style={styles.editBtn}>
-                          Edit
-                        </button>
+                    {/* ACTION icons – simple, centered, no outer box */}
+                    <td style={styles.actionCell}>
+                      <div style={styles.iconActions}>
                         <button
-                          onClick={() => handleDeleteClick(cv.uuid)}
-                          style={styles.deleteBtn}
+                          title="View"
+                          onClick={() => handleViewClick(cv)}
+                          style={styles.iconBtn}
                         >
-                          Delete
+                          <Eye size={16} />
+                        </button>
+
+                        <button
+                          title="Edit"
+                          onClick={() => handleEditClick(cv)}
+                          style={styles.iconBtn}
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                        <button
+                          title="Delete"
+                          onClick={() => handleDeleteClick(cv.uuid)}
+                          style={{ ...styles.iconBtn, color: "#dc2626" }}
+                        >
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
@@ -267,25 +276,31 @@ export default function CVManagement() {
             Prev
           </button>
           <div style={styles.pageNumbers}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-              <button
-                key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
-                style={{
-                  ...styles.pageNumberBtn,
-                  ...(pageNum === currentPage ? styles.pageNumberBtnActive : {}),
-                }}
-              >
-                {pageNum}
-              </button>
-            ))}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+              (pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  style={{
+                    ...styles.pageNumberBtn,
+                    ...(pageNum === currentPage
+                      ? styles.pageNumberBtnActive
+                      : {}),
+                  }}
+                >
+                  {pageNum}
+                </button>
+              )
+            )}
           </div>
           <button
             onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
             style={{
               ...styles.paginationBtn,
-              ...(currentPage === totalPages ? styles.paginationBtnDisabled : {}),
+              ...(currentPage === totalPages
+                ? styles.paginationBtnDisabled
+                : {}),
             }}
           >
             Next
@@ -387,6 +402,14 @@ const styles = {
     fontSize: "14px",
     color: "#374151",
   },
+  // ACTION cell – fixed width & centered
+  actionCell: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    color: "#374151",
+    textAlign: "center",
+    width: "120px",
+  },
   statusDropdown: {
     padding: "6px 10px",
     borderRadius: "6px",
@@ -406,43 +429,6 @@ const styles = {
     color: "#3b82f6",
     backgroundColor: "#eff6ff",
     border: "1px solid #bfdbfe",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  actionButtons: {
-    display: "flex",
-    gap: "6px",
-  },
-  viewBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#059669",
-    backgroundColor: "#d1fae5",
-    border: "1px solid #a7f3d0",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  editBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "#dbeafe",
-    border: "1px solid #bfdbfe",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  deleteBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#dc2626",
-    backgroundColor: "#fee2e2",
-    border: "1px solid #fecaca",
     borderRadius: "6px",
     cursor: "pointer",
     transition: "all 0.2s",
@@ -509,5 +495,21 @@ const styles = {
     color: "#6b7280",
     fontSize: "16px",
     fontWeight: "500",
+  },
+  // ---- icon styles (simple, no box) ----
+  iconActions: {
+    display: "inline-flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "10px",
+  },
+  iconBtn: {
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 };

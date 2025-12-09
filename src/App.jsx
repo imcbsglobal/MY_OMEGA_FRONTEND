@@ -23,7 +23,7 @@ import SalaryCertificate from "./components/HR/SalaryCertificate";
 import SalaryCertificate_Form from "./components/HR/SalaryCertificate_Form";
 // import SalaryCertificate_View from "./components/HR/SalaryCertificate_View";
 import AttendanceManagement from "./components/HR/AttendanceManagement";
-import AttendanceSummary from './components/HR/AttendanceSummary';
+import MonthlyAttendanceSummary from "./components/HR/AttendanceSummary";
 import PunchInPunchOut from "./components/HR/PunchInPunchOut";
 import LeaveManagement from "./components/HR/LeaveManagement";
 import RequestLeave from "./components/HR/RequestLeave";
@@ -119,7 +119,11 @@ function App() {
 
           {/* Attendance */}
           <Route path="attendance-management" element={<AttendanceManagement />} />
-          <Route path="/attendance-summary" element={<AttendanceSummary />} />
+
+          {/* Monthly Attendance Summary page */}
+          <Route path="monthly-attendance-summary" element={<MonthlyAttendanceSummary />} />
+
+
 
           
 

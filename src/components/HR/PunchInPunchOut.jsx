@@ -25,6 +25,7 @@ const PunchInPunchOut = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [myRecords, setMyRecords] = useState([]);
   const [calendarSummary, setCalendarSummary] = useState({});
+  const [lastPunchTime, setLastPunchTime] = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -238,8 +239,14 @@ const PunchInPunchOut = () => {
         if (punchRecords.length > 0) {
           const lastPunch = punchRecords[punchRecords.length - 1];
           setIsCurrentlyPunchedIn(lastPunch.punch_type === 'in');
+          
+          // Set last punch time
+          if (lastPunch.punch_time) {
+            setLastPunchTime(new Date(lastPunch.punch_time));
+          }
         } else {
           setIsCurrentlyPunchedIn(false);
+          setLastPunchTime(null);
         }
       }
     } catch (error) {
@@ -257,6 +264,18 @@ const PunchInPunchOut = () => {
     return `${hours}:${minutes.toString().padStart(2, '0')}`;
   };
 
+  const calculateTimeSinceLastPunch = () => {
+    if (!lastPunchTime || !isCurrentlyPunchedIn) return null;
+    
+    const now = new Date();
+    const diffMs = now - lastPunchTime;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+    
+    return { hours: diffHours, minutes: diffMinutes, seconds: diffSeconds };
+  };
+
   const handlePunchIn = async () => {
     setLoading(true);
     try {
@@ -266,6 +285,7 @@ const PunchInPunchOut = () => {
         longitude: location.longitude || 76.2711,
       });
       setIsCurrentlyPunchedIn(true);
+      setLastPunchTime(new Date());
       await fetchTodayAttendance();
       await fetchMonthlySummary();
       await fetchMyRecords();
@@ -289,6 +309,7 @@ const PunchInPunchOut = () => {
         note: 'Punch Out'
       });
       setIsCurrentlyPunchedIn(false);
+      setLastPunchTime(null);
       await fetchTodayAttendance();
       await fetchMonthlySummary();
       await fetchMyRecords();
@@ -522,6 +543,49 @@ const PunchInPunchOut = () => {
     );
   };
 
+  const renderTodayPunchRecords = () => {
+    if (!todayStatus.punch_records || todayStatus.punch_records.length === 0) {
+      return <p style={{ color: '#999', fontSize: '14px', textAlign: 'center' }}>No punch records yet</p>;
+    }
+
+    return (
+      <div className="punch-records-list">
+        {todayStatus.punch_records.map((record, index) => (
+          <div key={index} className="punch-record-item">
+            <div className={`punch-record-type ${record.punch_type}`}>
+              {record.punch_type === 'in' ? '👆 IN' : '👇 OUT'}
+            </div>
+            <div className="punch-record-time">
+              {formatTime(new Date(record.punch_time))}
+            </div>
+            <div className="punch-record-note">
+              {record.note || ''}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderCurrentSessionTimer = () => {
+    if (!isCurrentlyPunchedIn || !lastPunchTime) return null;
+    
+    const timeSince = calculateTimeSinceLastPunch();
+    if (!timeSince) return null;
+    
+    return (
+      <div className="current-session-timer">
+        <div className="timer-label">Current Session:</div>
+        <div className="timer-display">
+          {String(timeSince.hours).padStart(2, '0')}:
+          {String(timeSince.minutes).padStart(2, '0')}:
+          {String(timeSince.seconds).padStart(2, '0')}
+        </div>
+        <div className="timer-note">Since {formatTime(lastPunchTime)}</div>
+      </div>
+    );
+  };
+
   const renderMobileHeader = () => {
     return (
       <div className="mobile-header">
@@ -612,7 +676,26 @@ const PunchInPunchOut = () => {
                   {formatHoursMinutes(todayStatus.total_working_hours || 0)}
                 </div>
               </div>
+              {isCurrentlyPunchedIn && (
+                <div className="stat-box">
+                  <div className="stat-box-label">Current Session</div>
+                  <div className="stat-box-value session-timer">
+                    {(() => {
+                      const timeSince = calculateTimeSinceLastPunch();
+                      return timeSince ? 
+                        `${String(timeSince.hours).padStart(2, '0')}:${String(timeSince.minutes).padStart(2, '0')}` : 
+                        '00:00';
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+          
+          <div className="summary-section">
+            <div className="summary-title">Today's Punches</div>
+            {renderTodayPunchRecords()}
+            {renderCurrentSessionTimer()}
           </div>
         </div>
       </div>
@@ -632,6 +715,11 @@ const PunchInPunchOut = () => {
                   <div className="action-screen">
                     <h2 className="action-title">Ready to punch in?</h2>
                     <br />
+                    {lastPunchTime && (
+                      <div className="last-punch-info">
+                        <p>Last punch out: {formatTime(lastPunchTime)}</p>
+                      </div>
+                    )}
                     <div className="action-buttons-single">
                       <button 
                         className="action-btn punch-in-btn" 
@@ -648,6 +736,19 @@ const PunchInPunchOut = () => {
                     <div className="check-icon">✓</div>
                     <h2 className="action-title">You are punched in</h2>
                     <div className="action-subtitle">to {branch}</div>
+                    
+                    <div className="session-timer-display">
+                      <div className="timer-title">Current Session Duration:</div>
+                      <div className="timer-large">
+                        {(() => {
+                          const timeSince = calculateTimeSinceLastPunch();
+                          return timeSince ? 
+                            `${String(timeSince.hours).padStart(2, '0')}:${String(timeSince.minutes).padStart(2, '0')}:${String(timeSince.seconds).padStart(2, '0')}` : 
+                            '00:00:00';
+                        })()}
+                      </div>
+                      <div className="timer-note">Since {formatTime(lastPunchTime)}</div>
+                    </div>
                     
                     <div className="summary-box">
                       <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
@@ -683,6 +784,11 @@ const PunchInPunchOut = () => {
               {!isCurrentlyPunchedIn ? (
                 <div className="mobile-action-screen">
                   <h2 className="mobile-action-title">Ready to punch in?</h2>
+                  {lastPunchTime && (
+                    <div className="mobile-last-punch-info">
+                      <p>Last punch out: {formatTime(lastPunchTime)}</p>
+                    </div>
+                  )}
                   <div className="mobile-action-buttons-single">
                     <button 
                       className="mobile-action-btn punch-in-btn" 
@@ -699,6 +805,19 @@ const PunchInPunchOut = () => {
                   <div className="mobile-check-icon">✓</div>
                   <h2 className="mobile-action-title">You are punched in</h2>
                   <div className="mobile-action-subtitle">to {branch}</div>
+                  
+                  <div className="mobile-session-timer-display">
+                    <div className="mobile-timer-title">Current Session:</div>
+                    <div className="mobile-timer-large">
+                      {(() => {
+                        const timeSince = calculateTimeSinceLastPunch();
+                        return timeSince ? 
+                          `${String(timeSince.hours).padStart(2, '0')}:${String(timeSince.minutes).padStart(2, '0')}` : 
+                          '00:00';
+                      })()}
+                    </div>
+                    <div className="mobile-timer-note">Since {formatTime(lastPunchTime)}</div>
+                  </div>
                   
                   <div className="mobile-summary-box">
                     <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
@@ -728,6 +847,37 @@ const PunchInPunchOut = () => {
                     {formatHoursMinutes(todayStatus.total_working_hours || 0)}
                   </div>
                 </div>
+                {isCurrentlyPunchedIn && (
+                  <div className="mobile-stat-box">
+                    <div className="mobile-stat-box-label">Current Session</div>
+                    <div className="mobile-stat-box-value session-timer">
+                      {(() => {
+                        const timeSince = calculateTimeSinceLastPunch();
+                        return timeSince ? 
+                          `${String(timeSince.hours).padStart(2, '0')}:${String(timeSince.minutes).padStart(2, '0')}` : 
+                          '00:00';
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mobile-punch-records-section">
+                <div className="mobile-summary-title">Today's Punches</div>
+                {renderTodayPunchRecords()}
+                {isCurrentlyPunchedIn && lastPunchTime && (
+                  <div className="mobile-current-session">
+                    <div className="mobile-session-label">Current Session:</div>
+                    <div className="mobile-session-time">
+                      {(() => {
+                        const timeSince = calculateTimeSinceLastPunch();
+                        return timeSince ? 
+                          `${String(timeSince.hours).padStart(2, '0')}:${String(timeSince.minutes).padStart(2, '0')}:${String(timeSince.seconds).padStart(2, '0')}` : 
+                          '00:00:00';
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -861,7 +1011,7 @@ const PunchInPunchOut = () => {
         }
         .summary-stats-grid { 
           display: grid; 
-          grid-template-columns: 1fr; 
+          grid-template-columns: 1fr 1fr; 
           gap: 12px; 
         }
         .stat-box { 
@@ -883,6 +1033,11 @@ const PunchInPunchOut = () => {
         }
         .stat-box-value.worked { 
           color: #E07B7B; 
+        }
+        .stat-box-value.session-timer { 
+          color: #4CAF50; 
+          font-family: monospace; 
+          font-size: 20px; 
         }
         .summary-box { 
           background: white; 
@@ -961,6 +1116,35 @@ const PunchInPunchOut = () => {
           font-size: 16px; 
           color: #999; 
           margin-bottom: 24px; 
+        }
+        .last-punch-info { 
+          margin: 10px 0 20px; 
+          color: #666; 
+          font-size: 14px; 
+        }
+        .session-timer-display { 
+          background: linear-gradient(135deg, #f0f9f0, #e8f5e9); 
+          padding: 20px; 
+          border-radius: 14px; 
+          margin: 20px 0; 
+          border: 2px solid #4CAF50; 
+        }
+        .timer-title { 
+          font-size: 14px; 
+          color: #2e7d32; 
+          margin-bottom: 8px; 
+          font-weight: 600; 
+        }
+        .timer-large { 
+          font-size: 36px; 
+          font-weight: 700; 
+          color: #2e7d32; 
+          font-family: monospace; 
+          margin-bottom: 6px; 
+        }
+        .timer-note { 
+          font-size: 12px; 
+          color: #666; 
         }
         .action-buttons-single { 
           display: flex; 
@@ -1324,6 +1508,83 @@ const PunchInPunchOut = () => {
           background: #E07B7B; 
         }
 
+        /* Punch Records Styling */
+        .punch-records-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .punch-record-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 12px;
+          background: #f9f9f9;
+          border-radius: 8px;
+          border-left: 4px solid #E07B7B;
+        }
+        
+        .punch-record-item:nth-child(even) {
+          border-left-color: #A38B8B;
+        }
+        
+        .punch-record-type {
+          font-weight: 600;
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          background: rgba(224, 123, 123, 0.1);
+        }
+        
+        .punch-record-type.in {
+          color: #E07B7B;
+        }
+        
+        .punch-record-type.out {
+          color: #A38B8B;
+        }
+        
+        .punch-record-time {
+          font-family: monospace;
+          font-weight: 600;
+          color: #333;
+          font-size: 14px;
+        }
+        
+        .punch-record-note {
+          font-size: 11px;
+          color: #999;
+          max-width: 100px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .current-session-timer {
+          margin-top: 16px;
+          padding: 12px;
+          background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+          border-radius: 8px;
+          text-align: center;
+          border: 1px solid #4CAF50;
+        }
+        
+        .timer-label {
+          font-size: 12px;
+          color: #2e7d32;
+          margin-bottom: 4px;
+          font-weight: 600;
+        }
+        
+        .timer-display {
+          font-family: monospace;
+          font-size: 20px;
+          font-weight: 700;
+          color: #2e7d32;
+          margin-bottom: 4px;
+        }
+
         /* Mobile Styles */
         .mobile-container {
           width: 100%;
@@ -1480,6 +1741,40 @@ const PunchInPunchOut = () => {
           margin-bottom: 20px;
         }
         
+        .mobile-last-punch-info {
+          margin: 10px 0 15px;
+          color: #666;
+          font-size: 13px;
+        }
+        
+        .mobile-session-timer-display {
+          background: linear-gradient(135deg, #f0f9f0, #e8f5e9);
+          padding: 16px;
+          border-radius: 12px;
+          margin: 16px 0;
+          border: 2px solid #4CAF50;
+        }
+        
+        .mobile-timer-title {
+          font-size: 13px;
+          color: #2e7d32;
+          margin-bottom: 6px;
+          font-weight: 600;
+        }
+        
+        .mobile-timer-large {
+          font-size: 28px;
+          font-weight: 700;
+          color: #2e7d32;
+          font-family: monospace;
+          margin-bottom: 4px;
+        }
+        
+        .mobile-timer-note {
+          font-size: 11px;
+          color: #666;
+        }
+        
         .mobile-summary-box {
           background: #f9f9f9;
           padding: 16px;
@@ -1545,7 +1840,7 @@ const PunchInPunchOut = () => {
         
         .mobile-summary-stats-grid {
           display: grid;
-          grid-template-columns: 1fr;
+          grid-template-columns: 1fr 1fr;
           gap: 12px;
           margin-bottom: 20px;
         }
@@ -1574,6 +1869,12 @@ const PunchInPunchOut = () => {
           color: #E07B7B;
         }
         
+        .mobile-stat-box-value.session-timer {
+          color: #4CAF50;
+          font-family: monospace;
+          font-size: 18px;
+        }
+        
         .mobile-calendar-section {
           background: white;
           padding: 20px;
@@ -1583,6 +1884,29 @@ const PunchInPunchOut = () => {
         
         .mobile-calendar-container {
           position: relative;
+        }
+        
+        .mobile-current-session {
+          margin-top: 16px;
+          padding: 12px;
+          background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+          border-radius: 8px;
+          text-align: center;
+          border: 1px solid #4CAF50;
+        }
+        
+        .mobile-session-label {
+          font-size: 12px;
+          color: #2e7d32;
+          margin-bottom: 4px;
+          font-weight: 600;
+        }
+        
+        .mobile-session-time {
+          font-family: monospace;
+          font-size: 18px;
+          font-weight: 700;
+          color: #2e7d32;
         }
 
         /* Responsive Breakpoints */
@@ -1600,6 +1924,10 @@ const PunchInPunchOut = () => {
             max-width: 100%;
           }
           
+          .summary-stats-grid {
+            grid-template-columns: 1fr;
+          }
+          
           .mobile-stats-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
@@ -1607,6 +1935,10 @@ const PunchInPunchOut = () => {
           
           .mobile-stat-item {
             padding: 10px;
+          }
+          
+          .mobile-summary-stats-grid {
+            grid-template-columns: 1fr;
           }
         }
 
@@ -1700,6 +2032,18 @@ const PunchInPunchOut = () => {
           .mobile-stat-value {
             font-size: 14px;
           }
+          
+          .punch-record-item {
+            padding: 8px 10px;
+          }
+          
+          .punch-record-time {
+            font-size: 13px;
+          }
+          
+          .punch-record-note {
+            display: none;
+          }
         }
 
         @media (max-width: 480px) {
@@ -1773,6 +2117,14 @@ const PunchInPunchOut = () => {
           .summary-stat-value {
             font-size: 14px;
           }
+          
+          .timer-large {
+            font-size: 28px;
+          }
+          
+          .mobile-timer-large {
+            font-size: 24px;
+          }
         }
 
         @media (max-width: 360px) {
@@ -1803,6 +2155,14 @@ const PunchInPunchOut = () => {
           .calendar-summary-stats {
             grid-template-columns: 1fr;
             gap: 4px;
+          }
+          
+          .timer-large {
+            font-size: 24px;
+          }
+          
+          .mobile-timer-large {
+            font-size: 20px;
           }
         }
 

@@ -136,11 +136,16 @@ export default function CVForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+if (!cvData.name.trim() || !cvData.jobTitleId || !cvData.phoneNumber.trim()) {
+  alert("Please fill Name, Job Title, and Phone Number.");
+  return;
+}
 
-    if (!cvData.name.trim() || !cvData.jobTitleId) {
-      alert("Please fill Name and select a valid Job Title.");
-      return;
-    }
+if (!/^\d{10}$/.test(cvData.phoneNumber)) {
+  alert("Phone number must be exactly 10 digits.");
+  return;
+}
+
 
     try {
       const formattedDob = formatDobForApi(cvData.dob);
@@ -361,15 +366,21 @@ export default function CVForm() {
             </div>
 
             {/* Phone / Email */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Phone Number</label>
-              <input
-                style={styles.input}
-                name="phoneNumber"
-                value={cvData.phoneNumber}
-                onChange={handleInputChange}
-              />
-            </div>
+            {/* ✅ Phone Number (MANDATORY) */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Phone Number *</label>
+                <input
+                  style={styles.input}
+                  name="phoneNumber"
+                  value={cvData.phoneNumber}
+                  onChange={handleInputChange}
+                  required
+                  pattern="[0-9]{10}"
+                  maxLength={10}
+                  placeholder="Enter 10-digit mobile number"
+                />
+              </div>
+
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Email</label>
