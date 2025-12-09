@@ -3,7 +3,7 @@ import {
   ChevronRight, Menu, X, LogOut, LayoutDashboard, Users, Megaphone, 
   Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
   FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
-  ClipboardList, UserPlus, Shield
+  ClipboardList, UserPlus, Shield, Building2
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import api from "../../api/client";
@@ -46,11 +46,6 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, [isMobile]);
 
-  // Close all dropdowns when route changes
-  useEffect(() => {
-    setOpenDropdowns({});
-  }, [location.pathname]);
-
   // Icon mapping for user menu items based on name
   const getIconForMenuItem = (name) => {
     const iconMap = {
@@ -79,6 +74,7 @@ export default function Navbar() {
       'salary certificate': DollarSign,
       'experience certificate': Award,
       'duties and responsibility': ClipboardList,
+      'department': Building2,
     };
 
     const lowerName = name.toLowerCase();
@@ -90,43 +86,12 @@ export default function Navbar() {
     return FileText; // Default icon
   };
 
-  // Filter out Leave Management and Request sections for non-admin users
-  const filterMenuItem = (item) => {
-    if (!item) return null;
-
-    // Remove "Leave Management" and "Request" for non-admin users
-    if (!isAdmin) {
-      const itemName = (item.name || item.title || "").toLowerCase();
-      if (itemName.includes('leave management') || 
-          itemName.includes('request') || 
-          itemName === 'leave list' || 
-          itemName === 'early list' || 
-          itemName === 'late list' ||
-          itemName === 'leave request' ||
-          itemName === 'late request' ||
-          itemName === 'early request') {
-        return null;
-      }
-    }
-
-    return item;
-  };
-
   // Format menu item
   function formatMenuItem(item) {
     if (!item) return null;
 
-    // Filter out unwanted items for non-admin users
-    const filteredItem = filterMenuItem(item);
-    if (!filteredItem) return null;
-
     const name = item.name || item.title || "menu";
     const key = item.key || item.id || name;
-
-    // Filter children recursively
-    const filteredChildren = (item.children || [])
-      .map((child) => formatMenuItem(child))
-      .filter(Boolean);
 
     return {
       id: item.id,
@@ -135,7 +100,7 @@ export default function Navbar() {
       title: name,
       path: item.path || `/${key.toString().toLowerCase().replace(/\s+/g, "-")}`,
       icon: getIconForMenuItem(name),
-      children: filteredChildren,
+      children: (item.children || []).map((child) => formatMenuItem(child)),
       allowed_actions: item.allowed_actions || {
         can_view: item.can_view ?? true,
         can_edit: item.can_edit ?? false,
@@ -153,7 +118,7 @@ export default function Navbar() {
           const response = await api.get("/user-controll/my-menu/");
           console.log("User Menu Response:", response.data);
           const menuArr = response.data?.menu || [];
-          const formatted = menuArr.map((item) => formatMenuItem(item)).filter(Boolean);
+          const formatted = menuArr.map((item) => formatMenuItem(item));
           console.log("Formatted Menu:", formatted);
           setMenuTree(formatted);
           localStorage.setItem("menuTree", JSON.stringify(formatted));
@@ -211,6 +176,7 @@ export default function Navbar() {
             { name: "Leave List", path: "/leave-management/leave-list", icon: FileText },
             { name: "Early List", path: "/leave-management/early-list", icon: Clock },
             { name: "Late List", path: "/leave-management/late-list", icon: Clock },
+       
           ],
         },
         {
@@ -265,8 +231,8 @@ export default function Navbar() {
       icon: Settings,
       hasDropdown: true,
       children: [
+        { name: "Department", path: "/master/department", icon: Building2 },
         { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
-        { name: "List", path: "/master/job-titles/list", icon: FileText },
       ]
     },
   ];
@@ -478,7 +444,6 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Mobile Toggle Button */}
       <div 
         style={styles.mobileToggle}
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -486,15 +451,12 @@ export default function Navbar() {
         {mobileMenuOpen ? <X size={24} color="#1e293b" /> : <Menu size={24} color="#1e293b" />}
       </div>
 
-      {/* Overlay for mobile */}
       <div 
         style={styles.overlay}
         onClick={() => setMobileMenuOpen(false)}
       />
 
-      {/* Sidebar */}
       <aside style={styles.sidebar} ref={sidebarRef}>
-        {/* Header */}
         <div style={styles.header}>
           <div style={styles.logo}>
             <img
@@ -505,7 +467,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Menu Items */}
         <div style={styles.menuContainer}>
           {navItems.length === 0 && !isAdmin && !loading ? (
             <div style={{ padding: "16px", color: "#94a3b8", fontSize: "14px", textAlign: "center" }}>
@@ -516,7 +477,6 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* User Section */}
         <div style={styles.userSection}>
           <div style={styles.userInfo}>
             <img

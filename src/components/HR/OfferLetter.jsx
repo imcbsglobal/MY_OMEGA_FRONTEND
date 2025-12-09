@@ -1,6 +1,7 @@
 // OfferLetter.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import api from "../../api/client";
 import jsPDF from "jspdf";
 
@@ -9,6 +10,8 @@ export default function OfferLetter() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 25;
 
   useEffect(() => {
     loadData();
@@ -27,7 +30,6 @@ export default function OfferLetter() {
         department: it.department,
         salary: it.salary,
         phone: it.candidate_phone,
-        status: it.candidate_status,
         pdf: it.pdf_file,
         cv: it.candidate_cv,
         body: it.body,
@@ -68,7 +70,7 @@ export default function OfferLetter() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this offer letter?")) return;
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
       await api.delete(`/offer-letter/${id}/`);
       setItems((prev) => prev.filter((x) => x.id !== id));
@@ -78,30 +80,50 @@ export default function OfferLetter() {
     }
   };
 
-  const filtered = items.filter((it) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
+ const filtered = items.filter((it) => {
+  if (!search.trim()) return true;
+  const q = search.toLowerCase();
+  return (
+    (it.name || "").toLowerCase().includes(q) ||
+    (it.position || "").toLowerCase().includes(q) ||
+    (it.department || "").toLowerCase().includes(q) ||
+    (it.phone || "").toLowerCase().includes(q)
+  );
+});
+
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const pageItems = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+  useEffect(() => setCurrentPage(1), [search]);
+
+  if (loading) {
     return (
-      (it.name || "").toLowerCase().includes(q) ||
-      (it.position || "").toLowerCase().includes(q) ||
-      (it.department || "").toLowerCase().includes(q) ||
-      (it.phone || "").toLowerCase().includes(q) ||
-      (it.status || "").toLowerCase().includes(q)
+      <div style={{ ...styles.container, textAlign: "center" }}>
+        <p style={{ fontSize: "18px", color: "#6b7280" }}>
+          Loading offer letter data...
+        </p>
+      </div>
     );
-  });
+  }
 
   return (
-    <div style={styles.page}>
+    <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>Offer Letter Management</h2>
 
-        <div style={styles.headerRight}>
-          <input
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={styles.search}
-          />
+        <div style={styles.headerActions}>
+          <div style={styles.searchContainer}>
+            <input
+              type="text"
+              placeholder="Search by name, position, department..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={styles.searchInput}
+            />
+            <span style={styles.searchIcon}>🔍</span>
+          </div>
 
           <button
             style={styles.addButton}
@@ -112,53 +134,61 @@ export default function OfferLetter() {
         </div>
       </div>
 
-      <div style={styles.tableCard}>
+      <div style={styles.tableContainer}>
         <table style={styles.table}>
           <thead>
-            <tr>
-              <th style={styles.th}>SL NO</th>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>Position</th>
-              <th style={styles.th}>Department</th>
-              <th style={styles.th}>Salary</th>
-              <th style={styles.th}>Phone</th>
-              <th style={styles.th}>CV</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Generate</th>
-              <th style={styles.th}>Action</th>
+            <tr style={styles.tableHeaderRow}>
+              <th style={styles.tableHeader}>SL NO</th>
+              <th style={styles.tableHeader}>NAME</th>
+              <th style={styles.tableHeader}>POSITION</th>
+              <th style={styles.tableHeader}>CV</th>
+              <th style={styles.tableHeader}>DEPARTMENT</th>
+              <th style={styles.tableHeader}>SALARY</th>
+              <th style={styles.tableHeader}>PHONE</th>
+              <th style={styles.tableHeader}>GENERATE</th>
+              <th
+                style={{
+                  ...styles.tableHeader,
+                  textAlign: "center",
+                  width: "120px",
+                }}
+              >
+                ACTION
+              </th>
             </tr>
           </thead>
 
           <tbody>
-            {loading ? (
-              <tr><td colSpan="10" style={styles.noData}>Loading...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan="10" style={styles.noData}>No records found</td></tr>
+            {pageItems.length === 0 ? (
+              <tr>
+                <td colSpan="9" style={styles.noResults}>
+                  {search
+                    ? `No results for "${search}"`
+                    : "No offer letter records found"}
+                </td>
+              </tr>
             ) : (
-              filtered.map((item, index) => (
-                <tr key={item.id}>
-                  <td style={styles.td}>{index + 1}</td>
-                  <td style={styles.td}>{item.name}</td>
-                  <td style={styles.td}>{item.position}</td>
-                  <td style={styles.td}>{item.department}</td>
-                  <td style={styles.td}>{item.salary}</td>
-                  <td style={styles.td}>{item.phone}</td>
-                  <td style={styles.td}>
+              pageItems.map((item, index) => (
+                <tr key={item.id} style={styles.tableRow}>
+                  <td style={styles.tableCell}>{startIndex + index + 1}</td>
+                  <td style={styles.tableCell}>{item.name}</td>
+                  <td style={styles.tableCell}>{item.position}</td>
+                  <td style={styles.tableCell}>
                     {item.cv ? (
                       <button
-                        style={styles.cvBtn}
+                        style={styles.viewCvBtn}
                         onClick={() => window.open(item.cv, "_blank")}
                       >
                         View CV
                       </button>
                     ) : (
-                      <span style={{ color: "#aaa" }}>N/A</span>
+                      <span style={{ color: "#9ca3af" }}>N/A</span>
                     )}
                   </td>
-
-                  <td style={styles.td}>{item.status}</td>
-
-                  <td style={styles.td}>
+                  <td style={styles.tableCell}>{item.department}</td>
+                  <td style={styles.tableCell}>{item.salary}</td>
+                  <td style={styles.tableCell}>{item.phone || "N/A"}</td>
+                  <td style={styles.tableCell}>
                     <button
                       style={styles.generateBtn}
                       onClick={() => generateOfferPDF(item)}
@@ -167,27 +197,30 @@ export default function OfferLetter() {
                     </button>
                   </td>
 
-                  <td style={styles.td}>
-                    <div style={styles.actionRow}>
+                  <td style={styles.actionCell}>
+                    <div style={styles.iconActions}>
                       <button
-                        style={styles.viewBtn}
+                        title="View"
                         onClick={() => navigate(`/offer-letter/view/${item.id}`)}
+                        style={styles.iconBtn}
                       >
-                        View
+                        <Eye size={16} />
                       </button>
 
                       <button
-                        style={styles.editBtn}
+                        title="Edit"
                         onClick={() => navigate(`/offer-letter/edit/${item.id}`)}
+                        style={styles.iconBtn}
                       >
-                        Edit
+                        <Pencil size={16} />
                       </button>
 
                       <button
-                        style={styles.deleteBtn}
+                        title="Delete"
                         onClick={() => handleDelete(item.id)}
+                        style={{ ...styles.iconBtn, color: "#dc2626" }}
                       >
-                        Delete
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -198,19 +231,65 @@ export default function OfferLetter() {
         </table>
       </div>
 
-      <div style={styles.footerText}>
-        Showing {filtered.length} of {items.length}
+      <div style={styles.paginationContainer}>
+        <span style={styles.paginationInfo}>
+          Showing {pageItems.length ? startIndex + 1 : 0} to{" "}
+          {Math.min(startIndex + itemsPerPage, filtered.length)} of{" "}
+          {filtered.length} entries
+        </span>
+        <div style={styles.paginationButtons}>
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+            disabled={currentPage === 1}
+            style={{
+              ...styles.paginationBtn,
+              ...(currentPage === 1 ? styles.paginationBtnDisabled : {}),
+            }}
+          >
+            Prev
+          </button>
+          <div style={styles.pageNumbers}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+              (pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  style={{
+                    ...styles.pageNumberBtn,
+                    ...(pageNum === currentPage
+                      ? styles.pageNumberBtnActive
+                      : {}),
+                  }}
+                >
+                  {pageNum}
+                </button>
+              )
+            )}
+          </div>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            style={{
+              ...styles.paginationBtn,
+              ...(currentPage === totalPages
+                ? styles.paginationBtnDisabled
+                : {}),
+            }}
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
 }
+
 const styles = {
-  page: {
+  container: {
     padding: "24px",
     backgroundColor: "#f9fafb",
     minHeight: "100vh",
   },
-
   header: {
     display: "flex",
     justifyContent: "space-between",
@@ -219,21 +298,17 @@ const styles = {
     flexWrap: "wrap",
     gap: "16px",
   },
-
-  title: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
-
-  headerRight: {
+  headerActions: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
   },
-
-  search: {
+  searchContainer: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  searchInput: {
     padding: "12px 40px 12px 16px",
     fontSize: "14px",
     border: "2px solid #e5e7eb",
@@ -244,7 +319,19 @@ const styles = {
     fontWeight: "500",
     color: "#374151",
   },
-
+  searchIcon: {
+    position: "absolute",
+    right: "14px",
+    fontSize: "18px",
+    pointerEvents: "none",
+    color: "#9ca3af",
+  },
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: 0,
+  },
   addButton: {
     padding: "12px 24px",
     fontSize: "14px",
@@ -257,21 +344,20 @@ const styles = {
     transition: "all 0.2s",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   },
-
-  tableCard: {
+  tableContainer: {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     overflow: "hidden",
   },
-
   table: {
     width: "100%",
     borderCollapse: "collapse",
   },
-
-  th: {
+  tableHeaderRow: {
     backgroundColor: "#f3f4f6",
+  },
+  tableHeader: {
     padding: "12px 16px",
     textAlign: "left",
     fontSize: "12px",
@@ -280,23 +366,23 @@ const styles = {
     textTransform: "uppercase",
     borderBottom: "2px solid #e5e7eb",
   },
-
-  td: {
+  tableRow: {
+    borderBottom: "1px solid #e5e7eb",
+    transition: "background-color 0.2s",
+  },
+  tableCell: {
     padding: "12px 16px",
     fontSize: "14px",
     color: "#374151",
-    borderBottom: "1px solid #e5e7eb",
   },
-
-  noData: {
-    padding: "40px",
+  actionCell: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    color: "#374151",
     textAlign: "center",
-    color: "#6b7280",
-    fontSize: "16px",
-    fontWeight: "500",
+    width: "120px",
   },
-
-  cvBtn: {
+  viewCvBtn: {
     padding: "6px 12px",
     fontSize: "13px",
     fontWeight: "500",
@@ -305,8 +391,8 @@ const styles = {
     border: "1px solid #bfdbfe",
     borderRadius: "6px",
     cursor: "pointer",
+    transition: "all 0.2s",
   },
-
   generateBtn: {
     padding: "6px 12px",
     fontSize: "13px",
@@ -316,49 +402,84 @@ const styles = {
     border: "1px solid #bfdbfe",
     borderRadius: "6px",
     cursor: "pointer",
+    transition: "all 0.2s",
   },
-
-  actionRow: {
+  paginationContainer: {
     display: "flex",
-    gap: "6px",
-  },
-
-  viewBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#059669",
-    backgroundColor: "#d1fae5",
-    border: "1px solid #a7f3d0",
-    borderRadius: "6px",
-    cursor: "pointer",
-  },
-
-  editBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "#dbeafe",
-    border: "1px solid #bfdbfe",
-    borderRadius: "6px",
-    cursor: "pointer",
-  },
-
-  deleteBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#dc2626",
-    backgroundColor: "#fee2e2",
-    border: "1px solid #fecaca",
-    borderRadius: "6px",
-    cursor: "pointer",
-  },
-
-  footerText: {
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: "24px",
+    padding: "16px 24px",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  paginationInfo: {
     fontSize: "14px",
     color: "#6b7280",
+  },
+  paginationButtons: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  paginationBtn: {
+    padding: "8px 16px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  paginationBtnDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  pageNumbers: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  pageNumberBtn: {
+    padding: "8px 12px",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    minWidth: "40px",
+  },
+  pageNumberBtnActive: {
+    backgroundColor: "#3b82f6",
+    color: "white",
+    borderColor: "#3b82f6",
+  },
+  noResults: {
+    padding: "40px",
+    textAlign: "center",
+    color: "#6b7280",
+    fontSize: "16px",
+    fontWeight: "500",
+  },
+  iconActions: {
+    display: "inline-flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "10px",
+  },
+  iconBtn: {
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 };

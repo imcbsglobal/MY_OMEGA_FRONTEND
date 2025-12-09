@@ -4,6 +4,8 @@ import api from "../../api/client";
 export default function LeaveList() {
   const [leaveData, setLeaveData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterName, setFilterName] = useState("");
+  const [filterDepartment, setFilterDepartment] = useState("");
 
   const loadLeave = async () => {
     try {
@@ -35,10 +37,36 @@ export default function LeaveList() {
     }
   };
 
+  // Filter logic
+  const filteredData = leaveData.filter((row) => {
+    const matchesName = filterName.trim() === "" || 
+      row.user_name?.toLowerCase().includes(filterName.toLowerCase());
+    const matchesDepartment = filterDepartment.trim() === "" || 
+      row.department?.toLowerCase().includes(filterDepartment.toLowerCase());
+    return matchesName && matchesDepartment;
+  });
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>Leave List</h2>
+        
+        <div style={styles.filterContainer}>
+          <input
+            type="text"
+            placeholder="Filter by name..."
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            style={styles.filterInput}
+          />
+          <input
+            type="text"
+            placeholder="Filter by department..."
+            value={filterDepartment}
+            onChange={(e) => setFilterDepartment(e.target.value)}
+            style={styles.filterInput}
+          />
+        </div>
       </div>
 
       <div style={styles.tableContainer}>
@@ -58,7 +86,7 @@ export default function LeaveList() {
           </thead>
 
           <tbody>
-            {leaveData.map((row, i) => (
+            {filteredData.map((row, i) => (
               <tr key={row.id} style={styles.tableRow}>
                 <td style={styles.tableCell}>{i + 1}</td>
                 <td style={styles.tableCell}>{row.user_name}</td>
@@ -107,13 +135,14 @@ export default function LeaveList() {
           </tbody>
         </table>
 
-        {!loading && leaveData.length === 0 && (
+        {!loading && filteredData.length === 0 && (
           <div style={styles.noResults}>No results found</div>
         )}
       </div>
     </div>
   );
 }
+
 const styles = {
   container: {
     padding: "24px",
@@ -123,6 +152,11 @@ const styles = {
 
   header: {
     marginBottom: "24px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "16px",
   },
 
   title: {
@@ -132,11 +166,29 @@ const styles = {
     margin: 0,
   },
 
-  tableWrapper: {
+  filterContainer: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "center",
+  },
+
+  filterInput: {
+    padding: "10px 14px",
+    fontSize: "14px",
+    border: "2px solid #e2e8f0",
+    borderRadius: "8px",
+    outline: "none",
+    width: "200px",
+    transition: "all 0.3s",
+    fontWeight: "500",
+    color: "#334155",
+  },
+
+  tableContainer: {
     backgroundColor: "#ffffff",
     borderRadius: "12px",
     boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)",
-    padding: "8px 0",
+    overflow: "hidden",
   },
 
   table: {
@@ -170,8 +222,6 @@ const styles = {
     color: "#334155",
   },
 
-  // STATUS PILLS ---------------------------------------------------
-
   statusPending: {
     backgroundColor: "#fef3c7",
     color: "#92400e",
@@ -201,8 +251,6 @@ const styles = {
     fontWeight: "600",
     display: "inline-block",
   },
-
-  // ACTION BUTTONS ------------------------------------------------
 
   actionButtons: {
     display: "flex",

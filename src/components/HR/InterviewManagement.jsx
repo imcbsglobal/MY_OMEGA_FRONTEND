@@ -1,8 +1,9 @@
 // src/pages/InterviewManagement.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { MessageSquare, Pencil, Trash2 } from "lucide-react";
 import api from "../../api/client";
-import { CV, toUi } from "../../api/cv"; // Import the CV API module
+import { CV, toUi } from "../../api/cv";
 
 function getResultStyle(result) {
   const resultStyles = {
@@ -19,7 +20,7 @@ function getResultStyle(result) {
 export default function Interview_List() {
   const navigate = useNavigate();
   const [interviews, setInterviews] = useState([]);
-  const [cvs, setCvs] = useState([]); // State for CVs
+  const [cvs, setCvs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cvLoading, setCvLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,12 +28,10 @@ export default function Interview_List() {
   const itemsPerPage = 25;
   const [updatingIds, setUpdatingIds] = useState(new Set());
 
-  // ✅ Fetch interview data from API
   useEffect(() => {
     const fetchInterviews = async () => {
       try {
         setLoading(true);
-        // Try different interview endpoints
         const endpoints = [
           "/interview-management/",
           "/api/interviews/",
@@ -58,7 +57,6 @@ export default function Interview_List() {
         setInterviews(interviewData);
       } catch (error) {
         console.error("Error fetching interviews:", error);
-        // Don't show alert if it's just no data
         if (error.response?.status !== 404) {
           alert("Failed to load interview data!");
         }
@@ -70,25 +68,22 @@ export default function Interview_List() {
     fetchInterviews();
   }, []);
 
-  // ✅ Fetch CV data using the same method as CVManagement.jsx
   useEffect(() => {
     const fetchCVs = async () => {
       try {
         setCvLoading(true);
         console.log("Fetching CVs...");
         
-        // Method 1: Use the CV API module (from CVManagement.jsx)
         try {
           const data = await CV.list();
           console.log("CVs fetched using CV.list():", data);
           const uiData = data.map(toUi);
           setCvs(uiData);
-          return; // Success, exit early
+          return;
         } catch (moduleErr) {
           console.log("CV module failed:", moduleErr.message);
         }
 
-        // Method 2: Try direct API calls
         const endpoints = [
           "/cv-management/",
           "/api/cv-management/",
@@ -110,7 +105,6 @@ export default function Interview_List() {
           }
         }
 
-        // If all failed, set empty array
         setCvs([]);
       } catch (error) {
         console.error("Error fetching CVs:", error);
@@ -123,14 +117,12 @@ export default function Interview_List() {
     fetchCVs();
   }, []);
 
-  // Function to find CV for a candidate - SIMPLIFIED MATCHING
   const findCandidateCV = (interview) => {
     if (!interview || !cvs.length) return null;
     
     const candidateName = interview.candidate_name || interview.name || "";
     if (!candidateName.trim()) return null;
 
-    // Direct name matching
     const matchedCV = cvs.find(cv => {
       const cvName = cv.name || cv.candidate_name || "";
       return cvName.toLowerCase() === candidateName.toLowerCase();
@@ -139,15 +131,11 @@ export default function Interview_List() {
     return matchedCV;
   };
 
-  // Function to get CV URL from CV object
   const getCVUrl = (cv) => {
     if (!cv) return null;
-    
-    // Check multiple possible URL fields
     return cv.cvAttachmentUrl || cv.cv_attachment_url || cv.url || cv.file_url || cv.attachment;
   };
 
-  // Function to open CV in new tab
   const handleViewCV = (cv) => {
     if (!cv) {
       alert("No CV found for this candidate");
@@ -175,7 +163,6 @@ export default function Interview_List() {
     }
   };
 
-  // --- Update status (PATCH to /{id}/update-status/)
   const updateStatus = async (id, newStatus) => {
     if (!id) return;
     if (!window.confirm(`Change status to "${newStatus}"?`)) return;
@@ -185,7 +172,6 @@ export default function Interview_List() {
     try {
       await api.patch(`/interview-management/${id}/update-status/`, { status: newStatus });
 
-      // ✅ FORCE LOCAL STATE UPDATE (NO REFRESH NEEDED)
       setInterviews((prev) =>
         prev.map((it) =>
           it.id === id ? { ...it, status: newStatus, interview_status: newStatus } : it
@@ -223,6 +209,18 @@ export default function Interview_List() {
     startIndex + itemsPerPage
   );
 
+  useEffect(() => setCurrentPage(1), [searchQuery]);
+
+  if (loading) {
+    return (
+      <div style={{ ...styles.container, textAlign: "center" }}>
+        <p style={{ fontSize: "18px", color: "#6b7280" }}>
+          Loading interview data...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -233,7 +231,7 @@ export default function Interview_List() {
               type="text"
               placeholder="Search by name, job, location..."
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
             />
             <span style={styles.searchIcon}>🔍</span>
@@ -254,18 +252,28 @@ export default function Interview_List() {
               <th style={styles.tableHeader}>SL NO</th>
               <th style={styles.tableHeader}>CANDIDATE</th>
               <th style={styles.tableHeader}>JOB TITLE</th>
-              <th style={styles.tableHeader}>INTERVIEWER</th>
-              <th style={styles.tableHeader}>LOCATION</th>
-              <th style={styles.tableHeader}>STATUS</th>
               <th style={styles.tableHeader}>CV</th>
-              <th style={styles.tableHeader}>ACTION</th>
+              <th style={styles.tableHeader}>LOCATION</th>
+              <th style={styles.tableHeader}>INTERVIEWER</th>
+              <th style={styles.tableHeader}>STATUS</th>
+              <th
+                style={{
+                  ...styles.tableHeader,
+                  textAlign: "center",
+                  width: "120px",
+                }}
+              >
+                ACTION
+              </th>
             </tr>
           </thead>
           <tbody>
             {currentInterviews.length === 0 ? (
               <tr>
                 <td colSpan="8" style={styles.noResults}>
-                  No interview records found
+                  {searchQuery
+                    ? `No results for "${searchQuery}"`
+                    : "No interview records found"}
                 </td>
               </tr>
             ) : (
@@ -282,44 +290,7 @@ export default function Interview_List() {
                     <td style={styles.tableCell}>{startIndex + index + 1}</td>
                     <td style={styles.tableCell}>{interview.candidate_name || interview.name}</td>
                     <td style={styles.tableCell}>{interview.job_title || interview.job_title_name}</td>
-                    <td style={styles.tableCell}>
-                      {interview.interviewer_name || "N/A"}
-                    </td>
-                    <td style={styles.tableCell}>{interview.place || "N/A"}</td>
-
-                    <td style={styles.tableCell}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <select
-                          value={statusValue}
-                          onChange={(e) => updateStatus(id, e.target.value)}
-                          disabled={isUpdating}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: "8px",
-                            border: "1px solid #d1d5db",
-                            fontSize: 13,
-                            fontWeight: 600,
-                            textTransform: "capitalize",
-                          }}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="selected">Selected</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-
-                        <span
-                          style={{
-                            ...styles.statusBadge,
-                            ...getResultStyle(statusValue),
-                            textTransform: "capitalize",
-                          }}
-                        >
-                          {statusValue}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* CV Column */}
+                    
                     <td style={styles.tableCell}>
                       <button
                         onClick={() => handleViewCV(cvData)}
@@ -335,25 +306,52 @@ export default function Interview_List() {
                       </button>
                     </td>
 
+                    <td style={styles.tableCell}>{interview.place || "N/A"}</td>
                     <td style={styles.tableCell}>
-                      <div style={styles.actionButtons}>
+                      {interview.interviewer_name || "N/A"}
+                    </td>
+
+                    <td style={styles.tableCell}>
+                      <select
+                        value={statusValue}
+                        onChange={(e) => updateStatus(id, e.target.value)}
+                        disabled={isUpdating}
+                        style={{
+                          ...styles.statusDropdown,
+                          ...getResultStyle(statusValue),
+                        }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="selected">Selected</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </td>
+
+                    <td style={styles.actionCell}>
+                      <div style={styles.iconActions}>
                         <button
+                          title="Remarks"
                           onClick={() => navigate(`/interview-management/view/${interview.id}`)}
-                          style={styles.viewBtn}
+                          style={styles.iconBtn}
                         >
-                          View
+                          <MessageSquare size={16} />
                         </button>
+
+
                         <button
+                          title="Edit"
                           onClick={() => navigate(`/interview-management/edit/${interview.id}`)}
-                          style={styles.editBtn}
+                          style={styles.iconBtn}
                         >
-                          Edit
+                          <Pencil size={16} />
                         </button>
+
                         <button
+                          title="Delete"
                           onClick={() => handleDeleteClick(interview.id)}
-                          style={styles.deleteBtn}
+                          style={{ ...styles.iconBtn, color: "#dc2626" }}
                         >
-                          Delete
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
@@ -365,53 +363,50 @@ export default function Interview_List() {
         </table>
       </div>
 
-     
-
-      {/* pagination controls */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18 }}>
-        <div style={{ color: "#6b7280" }}>
-          Showing {filteredInterviews.length > 0 ? startIndex + 1 : 0} to {Math.min(startIndex + currentInterviews.length, filteredInterviews.length)} of {filteredInterviews.length} entries
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={styles.paginationContainer}>
+        <span style={styles.paginationInfo}>
+          Showing {currentInterviews.length ? startIndex + 1 : 0} to{" "}
+          {Math.min(startIndex + itemsPerPage, filteredInterviews.length)} of{" "}
+          {filteredInterviews.length} entries
+        </span>
+        <div style={styles.paginationButtons}>
           <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
-            style={styles.paginationBtn}
+            style={{
+              ...styles.paginationBtn,
+              ...(currentPage === 1 ? styles.paginationBtnDisabled : {}),
+            }}
           >
-            Previous
+            Prev
           </button>
-
           <div style={styles.pageNumbers}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-              if (
-                pageNum === 1 ||
-                pageNum === totalPages ||
-                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-              ) {
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    style={{
-                      ...styles.pageNumberBtn,
-                      ...(pageNum === currentPage ? styles.pageNumberBtnActive : {}),
-                    }}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                return <span key={pageNum} style={styles.pageEllipsis}>...</span>;
-              }
-              return null;
-            })}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+              (pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  style={{
+                    ...styles.pageNumberBtn,
+                    ...(pageNum === currentPage
+                      ? styles.pageNumberBtnActive
+                      : {}),
+                  }}
+                >
+                  {pageNum}
+                </button>
+              )
+            )}
           </div>
-
           <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
-            style={styles.paginationBtn}
+            style={{
+              ...styles.paginationBtn,
+              ...(currentPage === totalPages
+                ? styles.paginationBtnDisabled
+                : {}),
+            }}
           >
             Next
           </button>
@@ -512,12 +507,24 @@ const styles = {
     fontSize: "14px",
     color: "#374151",
   },
-  statusBadge: {
-    padding: "4px 12px",
-    borderRadius: "12px",
-    fontSize: "12px",
+  actionCell: {
+    padding: "12px 16px",
+    fontSize: "14px",
+    color: "#374151",
+    textAlign: "center",
+    width: "120px",
+  },
+  statusDropdown: {
+    padding: "6px 10px",
+    borderRadius: "6px",
+    border: "1px solid",
+    fontSize: "13px",
     fontWeight: "600",
-    display: "inline-block",
+    cursor: "pointer",
+    outline: "none",
+    transition: "all 0.2s",
+    width: "100%",
+    maxWidth: "120px",
   },
   viewCvBtn: {
     padding: "6px 12px",
@@ -526,43 +533,6 @@ const styles = {
     color: "#3b82f6",
     backgroundColor: "#eff6ff",
     border: "1px solid #bfdbfe",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  actionButtons: {
-    display: "flex",
-    gap: "6px",
-  },
-  viewBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#059669",
-    backgroundColor: "#d1fae5",
-    border: "1px solid #a7f3d0",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  editBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "#dbeafe",
-    border: "1px solid #bfdbfe",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  deleteBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#dc2626",
-    backgroundColor: "#fee2e2",
-    border: "1px solid #fecaca",
     borderRadius: "6px",
     cursor: "pointer",
     transition: "all 0.2s",
@@ -623,10 +593,6 @@ const styles = {
     color: "white",
     borderColor: "#3b82f6",
   },
-  pageEllipsis: {
-    padding: "8px 4px",
-    color: "#9ca3af",
-  },
   noResults: {
     padding: "40px",
     textAlign: "center",
@@ -634,12 +600,19 @@ const styles = {
     fontSize: "16px",
     fontWeight: "500",
   },
-  debugPanel: {
-    marginTop: "20px",
-    padding: "15px",
-    backgroundColor: "#f8f9fa",
-    border: "1px solid #dee2e6",
-    borderRadius: "5px",
-    fontSize: "14px",
+  iconActions: {
+    display: "inline-flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "10px",
+  },
+  iconBtn: {
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 };

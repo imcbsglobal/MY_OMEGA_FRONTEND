@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Eye } from "lucide-react";
+import { Eye, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
+// Removed modal import - using navigation instead
 
 const ATTENDANCE_TYPES = {
   FULL_DAY: { label: "Full Day", color: "#10b981", icon: "★" },
@@ -383,6 +384,14 @@ export default function AttendanceManagement() {
     <div style={styles.container}>
       <div style={styles.pageHeader}>
         <h1 style={styles.pageTitle}>Attendance Management</h1>
+        <button 
+          onClick={() => navigate('/monthly-attendance-summary')}
+          style={styles.summaryButton}
+          title="View Monthly Attendance Summary"
+        >
+          <FileText size={20} />
+          <span>Attendance Summary</span>
+        </button>
       </div>
 
       <div style={styles.filterSection}>
@@ -537,13 +546,30 @@ const styles = {
     marginBottom: "24px",
     borderBottom: "2px solid #e5e7eb",
     paddingBottom: "12px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   pageTitle: {
     fontSize: "28px",
     fontWeight: "700",
     color: "#000000",
     margin: 0,
-    textAlign: "center",
+  },
+  summaryButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "12px 24px",
+    fontSize: "15px",
+    fontWeight: "600",
+    color: "white",
+    backgroundColor: "#3b82f6",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 2px 4px rgba(59, 130, 246, 0.3)",
   },
   filterSection: {
     backgroundColor: "#ffffff",
@@ -790,14 +816,7 @@ const styles = {
     pointerEvents: "none",
     whiteSpace: "nowrap",
   },
-  tooltipContent: {
+    tooltipContent: {
     lineHeight: "1.6",
-  },
-  noResults: {
-    padding: "40px",
-    textAlign: "center",
-    color: "#6b7280",
-    fontSize: "16px",
-    fontWeight: "500",
   },
 };

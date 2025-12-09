@@ -4,6 +4,8 @@ import api from "../../api/client";
 export default function LateList() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterName, setFilterName] = useState("");
+  const [filterDepartment, setFilterDepartment] = useState("");
 
   const loadLate = async () => {
     try {
@@ -34,9 +36,37 @@ export default function LateList() {
     }
   };
 
+  // Filter logic
+  const filteredData = data.filter((row) => {
+    const matchesName = filterName.trim() === "" || 
+      row.user_name?.toLowerCase().includes(filterName.toLowerCase());
+    const matchesDepartment = filterDepartment.trim() === "" || 
+      row.department?.toLowerCase().includes(filterDepartment.toLowerCase());
+    return matchesName && matchesDepartment;
+  });
+
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Late List</h2>
+      <div style={styles.header}>
+        <h2 style={styles.title}>Late List</h2>
+        
+        <div style={styles.filterContainer}>
+          <input
+            type="text"
+            placeholder="Filter by name..."
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            style={styles.filterInput}
+          />
+          <input
+            type="text"
+            placeholder="Filter by department..."
+            value={filterDepartment}
+            onChange={(e) => setFilterDepartment(e.target.value)}
+            style={styles.filterInput}
+          />
+        </div>
+      </div>
 
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
@@ -54,7 +84,7 @@ export default function LateList() {
           </thead>
 
           <tbody>
-            {data.map((row, i) => (
+            {filteredData.map((row, i) => (
               <tr key={row.id} style={styles.tableRow}>
                 <td style={styles.tableCell}>{i + 1}</td>
                 <td style={styles.tableCell}>{row.user_name}</td>
@@ -104,7 +134,7 @@ export default function LateList() {
           </tbody>
         </table>
 
-        {!loading && data.length === 0 && (
+        {!loading && filteredData.length === 0 && (
           <div style={styles.noResults}>No results found</div>
         )}
       </div>
@@ -112,9 +142,6 @@ export default function LateList() {
   );
 }
 
-// ------------------------------------------------------------
-// STYLES
-// ------------------------------------------------------------
 const styles = {
   container: {
     padding: "24px",
@@ -122,11 +149,38 @@ const styles = {
     minHeight: "100vh",
   },
 
+  header: {
+    marginBottom: "20px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+
   title: {
     fontSize: "28px",
     fontWeight: "700",
     color: "#1e293b",
-    marginBottom: "20px",
+    margin: 0,
+  },
+
+  filterContainer: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "center",
+  },
+
+  filterInput: {
+    padding: "10px 14px",
+    fontSize: "14px",
+    border: "2px solid #e2e8f0",
+    borderRadius: "8px",
+    outline: "none",
+    width: "200px",
+    transition: "all 0.3s",
+    fontWeight: "500",
+    color: "#334155",
   },
 
   tableWrapper: {
