@@ -23,7 +23,9 @@ import SalaryCertificate from "./components/HR/SalaryCertificate";
 import SalaryCertificate_Form from "./components/HR/SalaryCertificate_Form";
 // import SalaryCertificate_View from "./components/HR/SalaryCertificate_View";
 import AttendanceManagement from "./components/HR/AttendanceManagement";
-import MonthlyAttendanceSummary from "./components/HR/AttendanceSummary";
+import AttendanceSummary from "./components/HR/AttendanceSummary";
+
+import TotalSummary from './components/HR/TotalSummary';
 import PunchInPunchOut from "./components/HR/PunchInPunchOut";
 import LeaveManagement from "./components/HR/LeaveManagement";
 import RequestLeave from "./components/HR/RequestLeave";
@@ -35,6 +37,8 @@ import EarlyRequest from "./components/HR/requests/EarlyRequest";
 
 import JobTitles from "./components/master/JobTitles";
 import JobTitleForm from "./components/master/JobTitleForm";
+import Department from "./components/master/Department";
+
 import UserControl from "./components/UserManagement/UserControl";
 import ConfigureAccess from "./components/UserManagement/ConfigureAccess";
 import AddUser from "./components/UserManagement/AddUser";
@@ -118,10 +122,10 @@ function App() {
           {/* <Route path="salary-certificate/view/:id" element={<SalaryCertificate_View />} /> */}
 
           {/* Attendance */}
-          <Route path="attendance-management" element={<AttendanceManagement />} />
+         <Route path="attendance-management" element={<AttendanceManagement />} />
+          <Route path="attendance-summary" element={<AttendanceSummary />} />
+          <Route path="total-summary" element={<TotalSummary />} />
 
-          {/* Monthly Attendance Summary page */}
-          <Route path="monthly-attendance-summary" element={<MonthlyAttendanceSummary />} />
 
 
 
@@ -143,6 +147,8 @@ function App() {
           <Route path="master/job-titles" element={<JobTitles />} />
           <Route path="master/job-titles/new" element={<JobTitleForm />} />
           <Route path="master/job-titles/:id/edit" element={<JobTitleForm />} />
+          <Route path="master/department" element={<Department />} />
+
 
           {/* User Management */}
           <Route path="add-user" element={<AddUser />} />

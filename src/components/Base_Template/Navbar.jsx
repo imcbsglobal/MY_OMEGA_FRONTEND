@@ -5,10 +5,13 @@ import {
   FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
   ClipboardList, UserPlus, Shield, Building2
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
 export default function Navbar() {
+  
+
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const username = user?.name || user?.email || "User";
   const userLevel = user?.user_level || "User";
@@ -45,6 +48,13 @@ export default function Navbar() {
     document.addEventListener("mousedown", onDocumentClick);
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, [isMobile]);
+
+  // Redirect non-admin users to punch-in-out on initial load
+  useEffect(() => {
+    if (!isAdmin && location.pathname === "/") {
+      navigate("/punch-in-out", { replace: true });
+    }
+  }, [isAdmin, location.pathname, navigate]);
 
   // Icon mapping for user menu items based on name
   const getIconForMenuItem = (name) => {
@@ -140,12 +150,26 @@ export default function Navbar() {
     fetchMenus();
   }, [isAdmin]);
 
-  // Toggle dropdown
+  // Toggle dropdown - close others when opening one
   const toggleDropdown = (menuName) => {
-    setOpenDropdowns(prev => ({
-      ...prev,
-      [menuName]: !prev[menuName]
-    }));
+    setOpenDropdowns(prev => {
+      // If clicking the same menu, just toggle it
+      if (prev[menuName]) {
+        return { ...prev, [menuName]: false };
+      }
+      // Otherwise, close all and open the clicked one
+      const newState = {};
+      Object.keys(prev).forEach(key => {
+        // Keep parent dropdowns open if this is a nested item
+        if (menuName.startsWith(key + '-')) {
+          newState[key] = true;
+        } else {
+          newState[key] = false;
+        }
+      });
+      newState[menuName] = true;
+      return newState;
+    });
   };
 
   // Close mobile menu
@@ -176,7 +200,6 @@ export default function Navbar() {
             { name: "Leave List", path: "/leave-management/leave-list", icon: FileText },
             { name: "Early List", path: "/leave-management/early-list", icon: Clock },
             { name: "Late List", path: "/leave-management/late-list", icon: Clock },
-       
           ],
         },
         {
@@ -327,7 +350,7 @@ export default function Navbar() {
       boxShadow: "2px 0 12px rgba(0,0,0,0.08)",
       display: "flex",
       flexDirection: "column",
-      position: isMobile ? "fixed" : "fixed",
+      position: "fixed",
       left: 0,
       top: 0,
       height: "100vh",
@@ -353,8 +376,8 @@ export default function Navbar() {
       overflowY: "auto",
       overflowX: "hidden",
       padding: "12px 0",
-      scrollbarWidth: "none",
-      msOverflowStyle: "none",
+      scrollbarWidth: "thin",
+      scrollbarColor: "#cbd5e1 #f1f5f9",
     },
     menuItem: {
       display: "flex",
@@ -424,6 +447,7 @@ export default function Navbar() {
         <div style={styles.mobileToggle} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           <Menu size={24} color="#1e293b" />
         </div>
+        <div style={styles.overlay} onClick={() => setMobileMenuOpen(false)} />
         <aside style={styles.sidebar} ref={sidebarRef}>
           <div style={styles.header}>
             <div style={styles.logo}>
@@ -433,6 +457,14 @@ export default function Navbar() {
                 style={{ height: "32px", objectFit: "contain" }}
               />
             </div>
+            {isMobile && (
+              <X 
+                size={24} 
+                color="#64748b" 
+                style={{ cursor: "pointer" }}
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            )}
           </div>
           <div style={{ padding: "16px", textAlign: "center", color: "#6b7280" }}>
             Loading menu...
@@ -465,6 +497,14 @@ export default function Navbar() {
               style={{ height: "32px", objectFit: "contain" }}
             />
           </div>
+          {isMobile && (
+            <X 
+              size={24} 
+              color="#64748b" 
+              style={{ cursor: "pointer" }}
+              onClick={() => setMobileMenuOpen(false)}
+            />
+          )}
         </div>
 
         <div style={styles.menuContainer}>

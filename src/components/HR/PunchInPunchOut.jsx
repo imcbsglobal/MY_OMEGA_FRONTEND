@@ -710,64 +710,73 @@ const PunchInPunchOut = () => {
           
           <div className="main-content">
             <div className="content-wrapper">
-              <div className="action-section">
-                {!isCurrentlyPunchedIn ? (
-                  <div className="action-screen">
-                    <h2 className="action-title">Ready to punch in?</h2>
-                    <br />
-                    {lastPunchTime && (
-                      <div className="last-punch-info">
-                        <p>Last punch out: {formatTime(lastPunchTime)}</p>
-                      </div>
-                    )}
-                    <div className="action-buttons-single">
-                      <button 
-                        className="action-btn punch-in-btn" 
-                        onClick={handlePunchIn} 
-                        disabled={loading}
-                      >
-                        <div className="btn-icon">👆</div>
-                        <div className="btn-text">{loading ? 'Processing...' : 'Punch In'}</div>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="action-screen">
-                    <div className="check-icon">✓</div>
-                    <h2 className="action-title">You are punched in</h2>
-                    <div className="action-subtitle">to {branch}</div>
-                    
-                    <div className="session-timer-display">
-                      <div className="timer-title">Current Session Duration:</div>
-                      <div className="timer-large">
-                        {(() => {
-                          const timeSince = calculateTimeSinceLastPunch();
-                          return timeSince ? 
-                            `${String(timeSince.hours).padStart(2, '0')}:${String(timeSince.minutes).padStart(2, '0')}:${String(timeSince.seconds).padStart(2, '0')}` : 
-                            '00:00:00';
-                        })()}
-                      </div>
-                      <div className="timer-note">Since {formatTime(lastPunchTime)}</div>
-                    </div>
-                    
-                    <div className="summary-box">
-                      <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
-                      <p><b>Sessions Today:</b> {Math.ceil((todayStatus.punch_records || []).length / 2)}</p>
-                    </div>
-                    
-                    <div className="action-buttons-single">
-                      <button 
-                        className="action-btn punch-out-btn" 
-                        onClick={handlePunchOut} 
-                        disabled={loading}
-                      >
-                        <div className="btn-icon">👇</div>
-                        <div className="btn-text">{loading ? 'Processing...' : 'Punch Out'}</div>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+             <div className="action-section">
+  <div className="action-screen">
+
+    <div className="action-top">
+      {!isCurrentlyPunchedIn ? (
+        <>
+          <h2 className="action-title">Ready to punch in?</h2>
+
+          {lastPunchTime && (
+            <div className="last-punch-info">
+              Last punch out: {formatTime(lastPunchTime)}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="check-icon">✓</div>
+          <h2 className="action-title">You are punched in</h2>
+          <div className="action-subtitle">to {branch}</div>
+
+          <div className="session-timer-display">
+            <div className="timer-large">
+              {(() => {
+                const t = calculateTimeSinceLastPunch();
+                return t
+                  ? `${String(t.hours).padStart(2, '0')}:${String(t.minutes).padStart(2, '0')}:${String(t.seconds).padStart(2, '0')}`
+                  : '00:00:00';
+              })()}
+            </div>
+            <div className="timer-note">
+              Since {formatTime(lastPunchTime)}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ✅ BUTTON ALWAYS CLOSE TO TEXT */}
+      <div className="action-buttons-single">
+        {!isCurrentlyPunchedIn ? (
+          <button
+            className="action-btn punch-in-btn"
+            onClick={handlePunchIn}
+            disabled={loading}
+          >
+            <div className="btn-icon">👆</div>
+            <div className="btn-text">
+              {loading ? "Processing..." : "Punch In"}
+            </div>
+          </button>
+        ) : (
+          <button
+            className="action-btn punch-out-btn"
+            onClick={handlePunchOut}
+            disabled={loading}
+          >
+            <div className="btn-icon">👇</div>
+            <div className="btn-text">
+              {loading ? "Processing..." : "Punch Out"}
+            </div>
+          </button>
+        )}
+      </div>
+    </div>
+
+  </div>
+</div>
+
               
               <div className="calendar-section">
                 <div className="calendar-container">{renderCalendar()}</div>
@@ -1089,11 +1098,29 @@ const PunchInPunchOut = () => {
           box-shadow: 0 2px 12px rgba(0,0,0,0.06); 
           position: relative; 
         }
-        .action-screen { 
-          text-align: center; 
-          max-width: 500px; 
-          width: 100%; 
-        }
+       .action-screen {
+        width: 100%;
+        max-width: 520px;
+        min-height: 360px;      /* keeps layout stable */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center; /* center everything */
+        text-align: center;
+      }
+        .action-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-buttons-single {
+  margin-top: 24px; /* 👈 keeps button close */
+}
+
+
+
         .check-icon { 
           width: 80px; 
           height: 80px; 
@@ -1150,28 +1177,39 @@ const PunchInPunchOut = () => {
           display: flex; 
           justify-content: center; 
         }
-        .action-btn { 
-          padding: 48px 32px; 
-          border: none; 
-          border-radius: 16px; 
-          cursor: pointer; 
-          transition: all 0.3s; 
-          display: flex; 
-          flex-direction: column; 
-          align-items: center; 
-          gap: 16px; 
-          width: 100%; 
-        }
+       .action-btn {
+        background: linear-gradient(135deg, #f2a1a1, #e98181);
+        border: none;
+        border-radius: 18px;
+
+        width: 280px;       /* ✅ NORMAL WIDTH */
+        height: 160px;      /* ✅ NORMAL HEIGHT */
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
         .action-buttons-single .action-btn { 
-          max-width: 280px; 
+         max-width: 360px;
+        
+        
         }
-        .btn-icon { 
-          font-size: 48px; 
-        }
-        .btn-text { 
-          font-size: 18px; 
-          font-weight: 600; 
-        }
+        .btn-icon {
+        font-size: 30px;  /* was too big before */
+        margin-bottom: 6px;
+      }
+
+      .btn-text {
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+      }
+
         .punch-in-btn { 
           background: linear-gradient(135deg, #E69B9B, #E07B7B); 
           color: white; 
@@ -1201,7 +1239,7 @@ const PunchInPunchOut = () => {
           color: white; 
           padding: 64px; 
           text-align: center; 
-          animation: slideIn 0.4s ease; 
+          animation: slideIn 0.2s ease; 
           z-index: 100; 
         }
         .success-screen.punchin { 

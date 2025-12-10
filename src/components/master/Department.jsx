@@ -1,7 +1,6 @@
 // src/HR/master/Department.jsx
 import React, { useEffect, useState } from "react";
-import { Building2, Plus, Trash2, Edit2, X, Check } from "lucide-react";
-import api from "@/api/client";
+import { Building2, Plus, Trash2, Edit2, X, Check } from "lucide-react";;
 
 export default function Department() {
   const [departments, setDepartments] = useState([]);
