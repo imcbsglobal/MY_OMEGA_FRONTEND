@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Eye, FileText } from "lucide-react";
+import { Eye, FileText, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
-// Removed modal import - using navigation instead
 
 const ATTENDANCE_TYPES = {
   FULL_DAY: { label: "Full Day", color: "#10b981", icon: "★" },
@@ -148,13 +147,14 @@ export default function AttendanceManagement() {
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   const handleSummaryClick = (employee) => {
-    navigate('/attendance-summary', {
-      state: {
-        employee: employee,
-        selectedMonth: selectedMonth
-      }
-    });
-  };
+  navigate("/attendance-summary", {
+    state: {
+      employee,
+      selectedMonth
+    }
+  });
+};
+
 
   const handleAttendanceChange = async (employeeId, date, type) => {
     const key = `${employeeId}-${date}`;
@@ -384,14 +384,6 @@ export default function AttendanceManagement() {
     <div style={styles.container}>
       <div style={styles.pageHeader}>
         <h1 style={styles.pageTitle}>Attendance Management</h1>
-        <button 
-          onClick={() => navigate('/monthly-attendance-summary')}
-          style={styles.summaryButton}
-          title="View Monthly Attendance Summary"
-        >
-          <FileText size={20} />
-          <span>Attendance Summary</span>
-        </button>
       </div>
 
       <div style={styles.filterSection}>
@@ -408,13 +400,23 @@ export default function AttendanceManagement() {
 
           <div style={styles.filterGroup}>
             <label style={styles.filterLabel}>Search by Name</label>
-            <input
-              type="text"
-              placeholder="Enter name"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={styles.searchInput}
-            />
+            <div style={styles.searchRow}>
+              <input
+                type="text"
+                placeholder="Enter name"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={styles.searchInput}
+              />
+              <button 
+                onClick={() => navigate('/total-summary')}
+                style={styles.totalSummaryButton}
+                title="View Total Monthly Summary"
+              >
+                <BarChart3 size={18} />
+                <span>Total Summary</span>
+              </button>
+            </div>
           </div>
 
           <div style={styles.filterGroup}>
@@ -579,9 +581,10 @@ const styles = {
     borderRadius: "8px",
   },
   filterRow: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    display: "flex",
     gap: "20px",
+    marginBottom: "16px",
+    alignItems: "flex-end",
   },
   filterGroup: {
     display: "flex",
@@ -594,6 +597,7 @@ const styles = {
     marginBottom: "8px",
   },
   monthInput: {
+    width: "180px",
     padding: "10px 12px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
@@ -601,7 +605,13 @@ const styles = {
     outline: "none",
     backgroundColor: "#ffffff",
   },
+  searchRow: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "stretch",
+  },
   searchInput: {
+    width: "200px",
     padding: "10px 12px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
@@ -610,6 +620,7 @@ const styles = {
     backgroundColor: "#ffffff",
   },
   selectInput: {
+    width: "180px",
     padding: "10px 12px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
@@ -617,6 +628,23 @@ const styles = {
     outline: "none",
     backgroundColor: "#ffffff",
     cursor: "pointer",
+  },
+  totalSummaryButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "10px 20px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#ffffff",
+    backgroundColor: "#8b5cf6",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 2px 8px rgba(139, 92, 246, 0.3)",
+    whiteSpace: "nowrap",
   },
   legendContainer: {
     display: "flex",
