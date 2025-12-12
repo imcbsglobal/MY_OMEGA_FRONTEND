@@ -4,12 +4,13 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
 const ATTENDANCE_TYPES = {
-  FULL_DAY: { label: "Full Day", color: "#10b981", icon: "★" },
+  PUNCH_IN_ONLY: { label: "Punch In Only", color: "#10b981", icon: "⯨", description: "Half filled green" },
+  FULL_DAY: { label: "Full Day", color: "#10b981", icon: "★", description: "Full green" },
   HALF_DAY: { label: "Half Day", color: "#be185d", icon: "★" },
   VERIFIED_HALF: { label: "Verified Half Day", color: "#be185d", icon: "★" },
   LEAVE: { label: "Leave", color: "#ef4444", icon: "★" },
   HOLIDAY: { label: "Holiday", color: "#fbbf24", icon: "★" },
-  VERIFIED: { label: "Verified Full Day", color: "#3b82f6", icon: "★" },
+  VERIFIED: { label: "Verified Full Day", color: "#3b82f6", icon: "★", description: "Full blue" },
   NOT_MARKED: { label: "Not Marked", color: "#d1d5db", icon: "★" }
 };
 
@@ -25,13 +26,13 @@ export default function AttendanceManagement() {
   const [userStatus, setUserStatus] = useState("Active Users");
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken") || 
-                  localStorage.getItem("access_token") || 
-                  localStorage.getItem("access") ||
-                  localStorage.getItem("token") ||
-                  sessionStorage.getItem("accessToken") ||
-                  sessionStorage.getItem("access_token");
-    
+    const token = localStorage.getItem("accessToken") ||
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("access") ||
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("accessToken") ||
+      sessionStorage.getItem("access_token");
+
     if (!token) {
       console.error("No authentication token found. Please login first.");
     }
@@ -45,10 +46,10 @@ export default function AttendanceManagement() {
     setLoading(true);
     try {
       const [year, month] = selectedMonth.split("-");
-      
+
       const employeesResponse = await api.get("/users/");
       let employeesList = employeesResponse.data;
-      
+
       if (!Array.isArray(employeesList)) {
         employeesList = employeesList.results || employeesList.data || [];
       }
@@ -71,7 +72,7 @@ export default function AttendanceManagement() {
           attendanceList = [];
         }
       }
-      
+
       if (!Array.isArray(attendanceList)) {
         attendanceList = attendanceList.results || attendanceList.data || attendanceList.records || [];
       }
@@ -90,27 +91,47 @@ export default function AttendanceManagement() {
       });
 
       attendanceList.forEach((record) => {
-        const empId = record.user || record.employee_id || record.user_id || record.user?.id || record.employee?.id;
+        const empId =
+          record.user ||
+          record.employee_id ||
+          record.user_id ||
+          record.user?.id ||
+          record.employee?.id;
+
         if (empId && empMap.has(empId)) {
           const emp = empMap.get(empId);
           const date = record.date || record.attendance_date;
+
           if (date) {
-            const formattedDate = typeof date === "string" ? date.slice(0, 10) : date;
+            const formattedDate =
+              typeof date === "string" ? date.slice(0, 10) : date;
+
             emp.records[formattedDate] = {
               ...record,
               attendanceId: record.id,
               punch_in: record.punch_in || record.punch_in_time || record.in_time,
               punch_out: record.punch_out || record.punch_out_time || record.out_time,
               status: record.status || record.attendance_status,
-              verification_status: record.verification_status || record.is_verified,
-              is_verified: record.is_verified || record.verified,
+
+              verification_status:
+                record.verification_status ??
+                record.is_verified ??
+                record.verified ??
+                "unverified",
+
+              is_verified:
+                record.is_verified ??
+                (record.verification_status === "verified") ??
+                record.verified ??
+                false,
+
               date: formattedDate,
             };
           }
         }
       });
 
-      const sortedEmployees = Array.from(empMap.values()).sort((a, b) => 
+      const sortedEmployees = Array.from(empMap.values()).sort((a, b) =>
         (a.name || "").localeCompare(b.name || "")
       );
 
@@ -147,18 +168,17 @@ export default function AttendanceManagement() {
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   const handleSummaryClick = (employee) => {
-  navigate("/attendance-summary", {
-    state: {
-      employee,
-      selectedMonth
-    }
-  });
-};
-
+    navigate("/attendance-summary", {
+      state: {
+        employee,
+        selectedMonth
+      }
+    });
+  };
 
   const handleAttendanceChange = async (employeeId, date, type) => {
     const key = `${employeeId}-${date}`;
-    setSavingCells(prev => ({...prev, [key]: true}));
+    setSavingCells(prev => ({ ...prev, [key]: true }));
 
     try {
       const typeConfig = ATTENDANCE_TYPES[type];
@@ -175,19 +195,16 @@ export default function AttendanceManagement() {
           date: date,
           admin_note: `Marked as leave by admin on ${new Date().toLocaleString()}`
         });
-      } else if (type === 'VERIFIED' || type === 'VERIFIED_HALF') {
-        const statusValue = type === 'VERIFIED' ? 'full' : 'half';
-        
+      } 
+      else if (type === "VERIFIED" || type === "VERIFIED_HALF") {
+        const statusValue = type === "VERIFIED" ? "full" : "half";
+
         if (existingRecord && existingRecord.attendanceId) {
-          const updateData = {
+          await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, {
             status: statusValue,
-            verification_status: 'verified',
-            is_verified: true,
-            admin_note: `Status changed to ${typeConfig.label} by admin on ${new Date().toLocaleString()}`
-          };
-          
-          await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, updateData);
-          
+            admin_note: `Status changed to ${typeConfig.label} on ${new Date().toLocaleString()}`
+          });
+
           try {
             await api.post(`/hr/attendance/${existingRecord.attendanceId}/verify/`, {
               admin_note: `Verified as ${typeConfig.label} on ${new Date().toLocaleString()}`
@@ -196,24 +213,23 @@ export default function AttendanceManagement() {
             console.log("Verify endpoint not available, using patch only:", verifyError.message);
           }
         } else {
+          console.log("Creating new attendance record for verification.", employeeId, date, statusValue);
           const createData = {
             user: employeeId,
             date: date,
             status: statusValue,
-            verification_status: 'verified',
-            is_verified: true,
-            admin_note: `Created as verified ${typeConfig.label} by admin`,
+            admin_note: `Created as verified ${typeConfig.label} by admin`
           };
-          
+
           const response = await api.post("/hr/attendance/", createData);
-          
+
           if (response.data && response.data.id) {
             try {
               await api.post(`/hr/attendance/${response.data.id}/verify/`, {
-                admin_note: `Verified as ${typeConfig.label}`,
+                admin_note: `Verified as ${typeConfig.label}`
               });
             } catch (verifyError) {
-              console.log("Verify endpoint not available, record created as verified:", verifyError.message);
+              console.log("Verify endpoint not available for new record:", verifyError.message);
             }
           }
         }
@@ -231,7 +247,7 @@ export default function AttendanceManagement() {
       alert(errorMessage);
     } finally {
       setSavingCells(prev => {
-        const newState = {...prev};
+        const newState = { ...prev };
         delete newState[key];
         return newState;
       });
@@ -246,19 +262,41 @@ export default function AttendanceManagement() {
     if (!rec) return "NOT_MARKED";
 
     const backendStatus = (rec.status || "").toString().toLowerCase();
-    const verificationStatus = (rec.verification_status || "").toString().toLowerCase();
-    const isVerified = rec.is_verified || verificationStatus === "verified";
+
+    const isVerified =
+      rec.is_verified === true ||
+      rec.verification_status === true ||
+      rec.verification_status === "true" ||
+      rec.verification_status === "verified";
+
+    // Check if punch in exists but punch out doesn't
+    const hasPunchIn = rec.punch_in && rec.punch_in !== "-" && rec.punch_in !== null && rec.punch_in !== "";
+    const hasPunchOut = rec.punch_out && rec.punch_out !== "-" && rec.punch_out !== null && rec.punch_out !== "";
+
+    // First check punch in/out status regardless of backend status
+    if (hasPunchIn && !hasPunchOut) {
+      // User has only punched in, not out yet - show half-filled green
+      return "PUNCH_IN_ONLY";
+    }
 
     if (backendStatus === "full" || backendStatus === "present") {
-      return isVerified ? "VERIFIED" : "FULL_DAY";
-    } else if (backendStatus === "half") {
-      return isVerified ? "VERIFIED_HALF" : "HALF_DAY";
-    } else if (backendStatus === "leave") {
+      // If verified, show blue
+      if (isVerified) return "VERIFIED";
+      
+      // If both punch in and out exist, show full green
+      return "FULL_DAY";
+    } 
+    else if (backendStatus === "half") {
+      // Check if it's actually a half day or just punch-in only
+      if (hasPunchIn && hasPunchOut) {
+        // Both punches exist, it's a genuine half day
+        return isVerified ? "VERIFIED_HALF" : "HALF_DAY";
+      }
+      // If no punch out, it should have been caught above, but as fallback
+      return "HALF_DAY";
+    } 
+    else if (backendStatus === "leave") {
       return "LEAVE";
-    } else if (backendStatus === "wfh" || backendStatus === "work_from_home") {
-      return isVerified ? "WFH" : "WFH";
-    } else if (backendStatus === "absent") {
-      return "NOT_MARKED";
     }
 
     return "NOT_MARKED";
@@ -293,13 +331,35 @@ export default function AttendanceManagement() {
     const [showMenu, setShowMenu] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
     const record = employee.records[date];
+    const menuRef = React.useRef(null);
     
+    const config = ATTENDANCE_TYPES[status] || ATTENDANCE_TYPES.NOT_MARKED;
+
+    // Close menu when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (menuRef.current && !menuRef.current.contains(event.target)) {
+          setShowMenu(false);
+        }
+      };
+
+      if (showMenu) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [showMenu]);
+
     const handleClick = async (type) => {
       setShowMenu(false);
       await handleAttendanceChange(employee.id, date, type);
     };
 
-    const config = ATTENDANCE_TYPES[status] || ATTENDANCE_TYPES.NOT_MARKED;
+    const toggleMenu = () => {
+      setShowMenu(prev => !prev);
+    };
 
     const tooltipContent = record ? (
       <div style={styles.tooltipContent}>
@@ -316,28 +376,50 @@ export default function AttendanceManagement() {
       </div>
     );
 
+    // Render half-filled star for PUNCH_IN_ONLY
+    const renderStar = () => {
+      if (status === "PUNCH_IN_ONLY") {
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" style={{ display: 'block' }}>
+            <defs>
+              <linearGradient id={`half-gradient-${date}`}>
+                <stop offset="50%" stopColor="#10b981" />
+                <stop offset="50%" stopColor="#d1d5db" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+              fill={`url(#half-gradient-${date})`}
+              stroke="none"
+            />
+          </svg>
+        );
+      }
+      return <span style={{ fontSize: '20px' }}>{config.icon}</span>;
+    };
+
     return (
-      <div style={{ position: "relative", display: "inline-block" }}>
+      <div ref={menuRef} style={{ position: "relative", display: "inline-block" }}>
         <button
-          onClick={() => setShowMenu(!showMenu)}
+          onClick={toggleMenu}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
           disabled={saving}
           style={{
             ...styles.starButton,
-            color: config.color,
+            color: status === "PUNCH_IN_ONLY" ? "transparent" : config.color,
             opacity: saving ? 0.5 : 1,
           }}
         >
-          {config.icon}
+          {renderStar()}
         </button>
-        
-        {showTooltip && (
+
+        {showTooltip && !showMenu && (
           <div style={styles.tooltip}>
             {tooltipContent}
           </div>
         )}
-        
+
         {showMenu && (
           <div style={styles.dropdown}>
             <button
@@ -376,8 +458,8 @@ export default function AttendanceManagement() {
   const filteredEmployees = employees.filter(emp => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    return (emp.name || "").toLowerCase().includes(q) || 
-           (emp.userId || "").toLowerCase().includes(q);
+    return (emp.name || "").toLowerCase().includes(q) ||
+      (emp.userId || "").toLowerCase().includes(q);
   });
 
   return (
@@ -408,7 +490,7 @@ export default function AttendanceManagement() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={styles.searchInput}
               />
-              <button 
+              <button
                 onClick={() => navigate('/total-summary')}
                 style={styles.totalSummaryButton}
                 title="View Total Monthly Summary"
@@ -437,7 +519,23 @@ export default function AttendanceManagement() {
       <div style={styles.legendContainer}>
         {Object.entries(ATTENDANCE_TYPES).map(([key, value]) => (
           <div key={key} style={styles.legendItem}>
-            <span style={{ color: value.color, fontSize: 18, marginRight: 8 }}>{value.icon}</span>
+            {key === "PUNCH_IN_ONLY" ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <defs>
+                  <linearGradient id="legend-half-gradient">
+                    <stop offset="50%" stopColor="#10b981" />
+                    <stop offset="50%" stopColor="#d1d5db" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                  fill="url(#legend-half-gradient)"
+                  stroke="none"
+                />
+              </svg>
+            ) : (
+              <span style={{ color: value.color, fontSize: 18, marginRight: 8 }}>{value.icon}</span>
+            )}
             <span style={styles.legendText}>{value.label}</span>
           </div>
         ))}
@@ -454,7 +552,7 @@ export default function AttendanceManagement() {
                 <th style={styles.tableHeader}>Duty Start</th>
                 <th style={styles.tableHeader}>Duty End</th>
                 <th style={styles.tableHeader}>Summary</th>
-                <th colSpan={daysInMonth} style={{...styles.tableHeader, borderRight: 'none', textAlign: 'center'}}>
+                <th colSpan={daysInMonth} style={{ ...styles.tableHeader, borderRight: 'none', textAlign: 'center' }}>
                   Days Of Month
                 </th>
               </tr>
@@ -471,7 +569,7 @@ export default function AttendanceManagement() {
                   return (
                     <th key={day} style={styles.dayHeader}>
                       <div style={styles.dayNumber}>{day}</div>
-                      <div style={{...styles.dayName, color: isSunday ? '#ef4444' : '#6b7280'}}>
+                      <div style={{ ...styles.dayName, color: isSunday ? '#ef4444' : '#6b7280' }}>
                         {getDayName(selectedMonth, day)}
                       </div>
                     </th>
@@ -497,12 +595,12 @@ export default function AttendanceManagement() {
                 filteredEmployees.map((employee, index) => (
                   <tr key={employee.id} style={styles.tableRow}>
                     <td style={styles.stickyCell}>{index + 1}</td>
-                    <td style={{...styles.stickyCell, textAlign: 'left', fontWeight: 500}}>{employee.name}</td>
+                    <td style={{ ...styles.stickyCell, textAlign: 'left', fontWeight: 500 }}>{employee.name}</td>
                     <td style={styles.tableCell}>{employee.userId}</td>
                     <td style={styles.tableCell}>{employee.dutyStart}</td>
                     <td style={styles.tableCell}>{employee.dutyEnd}</td>
                     <td style={styles.tableCell}>
-                      <button 
+                      <button
                         onClick={() => handleSummaryClick(employee)}
                         style={styles.eyeButton}
                         title="View Detailed Summary"
@@ -517,7 +615,7 @@ export default function AttendanceManagement() {
                       const saving = savingCells[key];
                       return (
                         <td key={day} style={styles.tableCell}>
-                          <AttendanceStar 
+                          <AttendanceStar
                             employee={employee}
                             date={date}
                             status={status}
@@ -844,7 +942,7 @@ const styles = {
     pointerEvents: "none",
     whiteSpace: "nowrap",
   },
-    tooltipContent: {
+  tooltipContent: {
     lineHeight: "1.6",
   },
 };
