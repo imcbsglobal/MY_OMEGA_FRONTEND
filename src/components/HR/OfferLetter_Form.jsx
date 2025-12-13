@@ -10,7 +10,9 @@ export default function OfferLetterForm() {
   const [formData, setFormData] = useState({
     candidate: "",
     job_title: "",
+    job_title_id: "",
     department: "",
+    department_id: "",
     joining_date: "",
     salary: "",
     work_start_time: "09:30",
@@ -40,7 +42,7 @@ export default function OfferLetterForm() {
     }
   };
 
-  // ✅ Fetch job titles from master data - USING YOUR ENDPOINT
+  // ✅ Fetch job titles from master data
   const fetchJobTitles = async () => {
     try {
       const res = await api.get("/cv-management/job-titles/");
@@ -52,15 +54,6 @@ export default function OfferLetterForm() {
     } catch (err) {
       console.error("Error fetching job titles from master", err);
       setError("Failed to load job titles from master");
-      // Optional fallback titles
-      const defaultTitles = [
-        "Software Developer",
-        "Senior Software Developer",
-        "Full Stack Developer",
-        "Frontend Developer",
-        "Backend Developer"
-      ];
-      setJobTitles(defaultTitles);
     }
   };
 
@@ -87,6 +80,39 @@ export default function OfferLetterForm() {
       setError("Failed to load candidate details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle job title selection
+  const handleJobTitleChange = (e) => {
+    const selectedJobTitleId = e.target.value;
+    
+    if (!selectedJobTitleId) {
+      // Clear both job title and department if no selection
+      setFormData(prev => ({
+        ...prev,
+        job_title_id: "",
+        job_title: "",
+        department_id: "",
+        department: "",
+      }));
+      return;
+    }
+
+    const selectedJobTitle = jobTitles.find(job => 
+      job.uuid === selectedJobTitleId || job.id.toString() === selectedJobTitleId
+    );
+
+    if (selectedJobTitle) {
+      setFormData(prev => ({
+        ...prev,
+        job_title_id: selectedJobTitleId,
+        job_title: selectedJobTitle.title || "",
+        department_id: selectedJobTitle.department || "",
+        department: selectedJobTitle.department_detail?.name || "No Department",
+      }));
+
+      console.log("Selected job title:", selectedJobTitle);
     }
   };
 
@@ -129,10 +155,17 @@ export default function OfferLetterForm() {
       return;
     }
 
+    if (!formData.job_title_id) {
+      alert("Please select a job title");
+      return;
+    }
+
     const dataToSend = {
       candidate: formData.candidate,
       position: formData.job_title,
       department: formData.department,
+      department_id: formData.department_id,
+      job_title_id: formData.job_title_id,
       salary: Number(formData.salary),
       joining_data: formData.joining_date,
       work_start_time: formData.work_start_time,
@@ -180,7 +213,9 @@ export default function OfferLetterForm() {
 
           {/* Candidate Dropdown */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Select Candidate:</label>
+            <label style={styles.label}>
+              Select Candidate <span style={{ color: "#ef4444" }}>*</span>
+            </label>
             <select
               style={styles.input}
               name="candidate"
@@ -200,39 +235,57 @@ export default function OfferLetterForm() {
 
           {/* ✅ Job Title Dropdown - From Master Data */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Job Title:</label>
+            <label style={styles.label}>
+              Job Title <span style={{ color: "#ef4444" }}>*</span>
+            </label>
             <select
               style={styles.input}
-              name="job_title"
-              value={formData.job_title}
-              onChange={handleChange}
+              name="job_title_id"
+              value={formData.job_title_id}
+              onChange={handleJobTitleChange}
               required
             >
               <option value="">-- Select Job Title --</option>
               {jobTitles.map((item) => (
-                <option key={item.uuid || item.id} value={item.title}>
+                <option 
+                  key={item.uuid || item.id} 
+                  value={item.uuid || item.id}
+                >
                   {item.title}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Department */}
+          {/* ✅ Department - Auto-filled from job title selection */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Department:</label>
-            <input
-              style={styles.input}
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              required
-              placeholder="e.g., Engineering"
-            />
+            <label style={styles.label}>
+              Department <span style={{ color: "#ef4444" }}>*</span>
+            </label>
+            <div style={styles.departmentContainer}>
+              <input
+                style={styles.departmentInput}
+                name="department"
+                value={formData.department}
+                readOnly
+                placeholder="Will be auto-filled from job title"
+              />
+              {formData.department_id && (
+                <div style={styles.departmentBadge}>
+                  ID: {formData.department_id}
+                </div>
+              )}
+            </div>
+            <small style={styles.hint}>
+              Department is automatically set based on the selected job title
+            </small>
           </div>
 
           {/* Joining Date */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Joining Date:</label>
+            <label style={styles.label}>
+              Joining Date <span style={{ color: "#ef4444" }}>*</span>
+            </label>
             <input
               type="date"
               style={styles.input}
@@ -245,7 +298,9 @@ export default function OfferLetterForm() {
 
           {/* Salary */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Salary:</label>
+            <label style={styles.label}>
+              Salary <span style={{ color: "#ef4444" }}>*</span>
+            </label>
             <input
               type="number"
               style={styles.input}
@@ -260,8 +315,8 @@ export default function OfferLetterForm() {
 
           {/* Work Start / End */}
           <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Work Start Time:</label>
+            <div style={{...styles.formGroup, flex: 1}}>
+              <label style={styles.label}>Work Start Time</label>
               <input
                 type="time"
                 style={styles.input}
@@ -271,8 +326,8 @@ export default function OfferLetterForm() {
               />
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>End Time:</label>
+            <div style={{...styles.formGroup, flex: 1}}>
+              <label style={styles.label}>End Time</label>
               <input
                 type="time"
                 style={styles.input}
@@ -285,7 +340,7 @@ export default function OfferLetterForm() {
 
           {/* Notice Period */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Notice Period (days):</label>
+            <label style={styles.label}>Notice Period (days)</label>
             <input
               type="number"
               style={styles.input}
@@ -297,13 +352,22 @@ export default function OfferLetterForm() {
             />
           </div>
 
-          <button
-            type="submit"
-            style={styles.saveBtn}
-            disabled={loading}
-          >
-            {loading ? "Saving..." : "Save"}
-          </button>
+          <div style={styles.buttonContainer}>
+            <button
+              type="button"
+              onClick={() => navigate("/offer-letter")}
+              style={styles.cancelBtn}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={styles.saveBtn}
+              disabled={loading}
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -311,10 +375,17 @@ export default function OfferLetterForm() {
 }
 
 const styles = {
-  pageContainer: { padding: "30px", background: "#f3f4f6", minHeight: "100vh" },
+  pageContainer: { 
+    padding: "30px", 
+    background: "#f3f4f6", 
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center"
+  },
   card: {
     background: "#ffffff",
-    width: "550px",
+    width: "600px",
     margin: "0 auto",
     borderRadius: "12px",
     padding: "35px 40px",
@@ -335,24 +406,90 @@ const styles = {
     marginBottom: "20px",
     color: "#c00",
   },
-  form: { display: "flex", flexDirection: "column", gap: "18px" },
-  formGroup: { display: "flex", flexDirection: "column", gap: "6px" },
-  label: { fontSize: "15px", fontWeight: "600" },
+  form: { 
+    display: "flex", 
+    flexDirection: "column", 
+    gap: "20px" 
+  },
+  formGroup: { 
+    display: "flex", 
+    flexDirection: "column", 
+    gap: "6px" 
+  },
+  label: { 
+    fontSize: "15px", 
+    fontWeight: "600",
+    color: "#374151"
+  },
   input: {
     padding: "12px",
     border: "1px solid #cbd5e1",
     borderRadius: "8px",
     fontSize: "15px",
+    transition: "border-color 0.2s",
+    backgroundColor: "#fff",
   },
-  row: { display: "flex", gap: "15px" },
-  saveBtn: {
-    width: "100%",
+  departmentContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+  departmentInput: {
+    flex: 1,
+    padding: "12px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "8px",
+    fontSize: "15px",
+    backgroundColor: "#f8fafc",
+    color: "#374151",
+    cursor: "not-allowed",
+  },
+  departmentBadge: {
+    backgroundColor: "#dbeafe",
+    color: "#1e40af",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    fontSize: "13px",
+    fontWeight: "500",
+    whiteSpace: "nowrap",
+  },
+  row: { 
+    display: "flex", 
+    gap: "15px",
+  },
+  hint: {
+    fontSize: "13px",
+    color: "#6b7280",
+    marginTop: "4px",
+    fontStyle: "italic",
+  },
+  buttonContainer: {
+    display: "flex",
+    gap: "12px",
+    marginTop: "10px",
+  },
+  cancelBtn: {
+    flex: 1,
     padding: "14px",
-    background: "#0f8a4b",
+    background: "#6b7280",
     color: "#fff",
-    fontSize: "17px",
+    fontSize: "16px",
     fontWeight: "600",
     borderRadius: "8px",
     cursor: "pointer",
+    border: "none",
+    transition: "background-color 0.2s",
+  },
+  saveBtn: {
+    flex: 1,
+    padding: "14px",
+    background: "#2563eb",
+    color: "#fff",
+    fontSize: "16px",
+    fontWeight: "600",
+    borderRadius: "8px",
+    cursor: "pointer",
+    border: "none",
+    transition: "background-color 0.2s",
   },
 };

@@ -8,21 +8,43 @@ export default function JobTitleForm() {
   const isEdit = Boolean(id);
 
   const [title, setTitle] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [loadingDepts, setLoadingDepts] = useState(true);
+
+  // ✅ Fetch departments on mount
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await api.get("cv-management/departments/");
+      const deptData = res.data.data || res.data;
+      setDepartments(Array.isArray(deptData) ? deptData : []);
+    } catch (error) {
+      console.error("Failed to load departments:", error);
+      alert("Could not fetch departments. Please try again.");
+    } finally {
+      setLoadingDepts(false);
+    }
+  };
 
   // ✅ Fetch existing job title if editing
   useEffect(() => {
     if (!isEdit) return;
     const fetchJobTitle = async () => {
       try {
-        const res = await api.get(`/cv-management/job-titles/${id}/`);
-        const jobData = res.data;
+        const res = await api.get(`cv-management/job-titles/${id}/`);
+        const jobData = res.data.data || res.data;
 
         if (!jobData) throw new Error("No job data found");
 
-        // Convert existing title to uppercase when editing
+        // Set existing data
         setTitle(jobData.title ? jobData.title.toUpperCase() : "");
+        setDepartmentId(jobData.department || "");
       } catch (error) {
         console.error("Failed to load job title:", error.response || error);
         alert("Could not fetch job title details.");
@@ -41,29 +63,44 @@ export default function JobTitleForm() {
   // ✅ Save or update job title
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return alert("Please enter a Job Title");
+    
+    if (!departmentId) {
+      alert("Please select a department");
+      return;
+    }
+    
+    if (!title.trim()) {
+      alert("Please enter a Job Title");
+      return;
+    }
 
     setSaving(true);
     try {
-      const payload = { title };
+      const payload = { 
+        title: title.trim(),
+        department: parseInt(departmentId)
+      };
 
       if (isEdit) {
-        await api.put(`/cv-management/job-titles/${id}/`, payload);
+        await api.put(`cv-management/job-titles/${id}/`, payload);
       } else {
-        await api.post("/cv-management/job-titles/", payload);
+        await api.post("cv-management/job-titles/", payload);
       }
 
       alert("Job Title saved successfully!");
       navigate("/master/job-titles");
     } catch (error) {
       console.error("Save failed:", error.response?.data || error);
-      alert("Failed to save job title.");
+      const errorMsg = error.response?.data?.detail || 
+                      error.response?.data?.message || 
+                      "Failed to save job title.";
+      alert(errorMsg);
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  if (loading || loadingDepts) {
     return (
       <div
         style={{
@@ -134,6 +171,49 @@ export default function JobTitleForm() {
             gap: "24px",
           }}
         >
+          {/* Department Selection - FIRST FIELD */}
+          <div>
+            <label
+              htmlFor="department"
+              style={{
+                display: "block",
+                fontWeight: 600,
+                marginBottom: "8px",
+                color: "#374151",
+              }}
+            >
+              Department <span style={{ color: "#ef4444" }}>*</span>
+            </label>
+            <select
+              id="department"
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              required
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                outline: "none",
+                fontSize: "14.5px",
+                color: "#111827",
+                transition: "border-color 0.2s ease",
+                backgroundColor: "#fff",
+                cursor: "pointer",
+              }}
+              onFocus={(e) => (e.target.style.borderColor = "#2563eb")}
+              onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}
+            >
+              <option value="">-- Select Department --</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Job Title Field - SECOND FIELD */}
           <div>
             <label
               htmlFor="jobTitle"
@@ -144,7 +224,7 @@ export default function JobTitleForm() {
                 color: "#374151",
               }}
             >
-              Job Title (UPPERCASE ONLY)
+              Job Title (UPPERCASE ONLY) <span style={{ color: "#ef4444" }}>*</span>
             </label>
             <input
               id="jobTitle"
@@ -152,6 +232,7 @@ export default function JobTitleForm() {
               placeholder="ENTER JOB TITLE (E.G., SALES EXECUTIVE)"
               value={title}
               onChange={handleTitleChange}
+              required
               style={{
                 width: "100%",
                 padding: "12px 14px",
@@ -161,7 +242,7 @@ export default function JobTitleForm() {
                 fontSize: "14.5px",
                 color: "#111827",
                 transition: "border-color 0.2s ease",
-                textTransform: "uppercase", // Visual feedback for uppercase
+                textTransform: "uppercase",
               }}
               onFocus={(e) => (e.target.style.borderColor = "#2563eb")}
               onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}

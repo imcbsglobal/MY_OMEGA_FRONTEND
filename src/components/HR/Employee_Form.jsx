@@ -81,6 +81,7 @@ export default function EmployeeForm() {
         ? res.data 
         : (res.data?.results || res.data?.data || []);
       setJobTitles(data);
+      console.log("Job titles loaded:", data);
     } catch (err) {
       console.error("Failed to fetch job titles:", err);
     } finally {
@@ -162,6 +163,31 @@ export default function EmployeeForm() {
           user: value,
           employee_id: selectedUser.email || selectedUser.username || `EMP${selectedUser.id}`,
           full_name: selectedUser.name || selectedUser.full_name || selectedUser.username || ""
+        }));
+        return;
+      }
+    }
+    
+    // Handle job title selection - auto-fill department
+    if (name === 'designation' && value) {
+      // Find the selected job title from the jobTitles list
+      const selectedJobTitle = jobTitles.find(job => 
+        (job.title === value) || 
+        (job.name === value) || 
+        (job.id?.toString() === value)
+      );
+      
+      if (selectedJobTitle) {
+        console.log("Selected job title:", selectedJobTitle);
+        console.log("Department detail:", selectedJobTitle.department_detail);
+        
+        // Auto-fill department from job title data
+        const departmentName = selectedJobTitle.department_detail?.name || "";
+        
+        setFormData(prev => ({ 
+          ...prev, 
+          [name]: value,
+          department: departmentName
         }));
         return;
       }
@@ -655,13 +681,25 @@ export default function EmployeeForm() {
 
               <div style={styles.formGroup}>
                 <label style={styles.label}>Department</label>
-                <input
-                  type="text"
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
+                <div style={styles.departmentContainer}>
+                  <input
+                    type="text"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    style={styles.departmentInput}
+                    placeholder="Auto-filled from job title"
+                    readOnly
+                  />
+                  {formData.department && (
+                    <div style={styles.departmentBadge}>
+                      Auto-filled
+                    </div>
+                  )}
+                </div>
+                <div style={styles.helperText}>
+                  Department is automatically filled when you select a job title
+                </div>
               </div>
 
               <div style={styles.formGroup}>
@@ -1026,7 +1064,32 @@ const styles = {
     outline: 'none',
     transition: 'border-color 0.2s',
     width: '100%',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    backgroundColor: '#fff',
+  },
+  departmentContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  departmentInput: {
+    flex: 1,
+    padding: '10px 12px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    fontSize: '14px',
+    backgroundColor: '#f8fafc',
+    color: '#374151',
+    cursor: 'not-allowed',
+  },
+  departmentBadge: {
+    backgroundColor: '#dbeafe',
+    color: '#1e40af',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '11px',
+    fontWeight: '600',
+    whiteSpace: 'nowrap',
   },
   textarea: {
     padding: '10px 12px',
@@ -1080,4 +1143,4 @@ const styles = {
     fontWeight: '600',
     color: '#fff'
   }
-}
+};

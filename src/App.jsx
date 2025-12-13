@@ -38,6 +38,8 @@ import EarlyRequest from "./components/HR/requests/EarlyRequest";
 import JobTitles from "./components/master/JobTitles";
 import JobTitleForm from "./components/master/JobTitleForm";
 import Department from "./components/master/Department";
+import LeaveTypeManagement from "./components/master/LeaveTypeManagement.jsx";
+
 
 import UserControl from "./components/UserManagement/UserControl";
 import ConfigureAccess from "./components/UserManagement/ConfigureAccess";
@@ -125,10 +127,6 @@ function App() {
          <Route path="attendance-management" element={<AttendanceManagement />} />
           <Route path="attendance-summary" element={<AttendanceSummary />} />
           <Route path="total-summary" element={<TotalSummary />} />
-
-
-
-
           
 
           {/* Punch In / Out */}
@@ -148,6 +146,7 @@ function App() {
           <Route path="master/job-titles/new" element={<JobTitleForm />} />
           <Route path="master/job-titles/:id/edit" element={<JobTitleForm />} />
           <Route path="master/department" element={<Department />} />
+          <Route path="/master/leave-types" element={<LeaveTypeManagement />} />
 
 
           {/* User Management */}

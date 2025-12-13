@@ -9,8 +9,6 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
 export default function Navbar() {
-  
-
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const username = user?.name || user?.email || "User";
@@ -19,12 +17,18 @@ export default function Navbar() {
 
   const [menuTree, setMenuTree] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [openDropdowns, setOpenDropdowns] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState(null);
+  const [activeNestedSubmenu, setActiveNestedSubmenu] = useState(null);
+  const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 280 });
+  const [nestedSubmenuPosition, setNestedSubmenuPosition] = useState({ top: 0, left: 540 });
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const location = useLocation();
   const sidebarRef = useRef(null);
+  const submenuRef = useRef(null);
+  const nestedSubmenuRef = useRef(null);
 
   // Handle resize
   useEffect(() => {
@@ -41,8 +45,18 @@ export default function Navbar() {
   // Outside click close for mobile
   useEffect(() => {
     const onDocumentClick = (e) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target) && isMobile) {
+      if (
+        sidebarRef.current && 
+        !sidebarRef.current.contains(e.target) && 
+        submenuRef.current &&
+        !submenuRef.current.contains(e.target) &&
+        nestedSubmenuRef.current &&
+        !nestedSubmenuRef.current.contains(e.target) &&
+        isMobile
+      ) {
         setMobileMenuOpen(false);
+        setActiveSubmenu(null);
+        setActiveNestedSubmenu(null);
       }
     };
     document.addEventListener("mousedown", onDocumentClick);
@@ -60,6 +74,8 @@ export default function Navbar() {
   const getIconForMenuItem = (name) => {
     const iconMap = {
       'dashboard': LayoutDashboard,
+      'recruitment': Users,
+      'hr management': Users,
       'hr': Users,
       'administration': Shield,
       'marketing': Megaphone,
@@ -81,6 +97,14 @@ export default function Navbar() {
       'offer letter': FileText,
       'employee management': Users,
       'attendance': Calendar,
+      'attendance management': Calendar,
+      'punch in': Clock,
+      'punch out': Clock,
+      'leave management': ClipboardList,
+      'leave list': FileText,
+      'early list': Clock,
+      'late list': Clock,
+      'request': ClipboardList,
       'salary certificate': DollarSign,
       'experience certificate': Award,
       'duties and responsibility': ClipboardList,
@@ -93,7 +117,7 @@ export default function Navbar() {
         return icon;
       }
     }
-    return FileText; // Default icon
+    return FileText;
   };
 
   // Format menu item
@@ -136,7 +160,7 @@ export default function Navbar() {
           setMenuTree([]);
         }
       } catch (error) {
-        console.error("❌ Failed to load user menu:", error);
+        console.error("⚠️ Failed to load user menu:", error);
         const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
         if (cached.length > 0) {
           setMenuTree(cached);
@@ -150,49 +174,32 @@ export default function Navbar() {
     fetchMenus();
   }, [isAdmin]);
 
-  // Toggle dropdown - close others when opening one
-  const toggleDropdown = (menuName) => {
-    setOpenDropdowns(prev => {
-      // If clicking the same menu, just toggle it
-      if (prev[menuName]) {
-        return { ...prev, [menuName]: false };
-      }
-      // Otherwise, close all and open the clicked one
-      const newState = {};
-      Object.keys(prev).forEach(key => {
-        // Keep parent dropdowns open if this is a nested item
-        if (menuName.startsWith(key + '-')) {
-          newState[key] = true;
-        } else {
-          newState[key] = false;
-        }
-      });
-      newState[menuName] = true;
-      return newState;
-    });
-  };
-
   // Close mobile menu
   const closeMobileMenu = () => {
     if (isMobile) {
       setMobileMenuOpen(false);
     }
+    setActiveSubmenu(null);
+    setActiveNestedSubmenu(null);
   };
 
-  // Admin menu items
+  // Admin menu items with proper structure - UPDATED ATTENDANCE SECTION
   const adminNavItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { 
       name: "HR Management", 
       icon: Users,
-      hasDropdown: true,
       children: [
-        { name: "CV Management", path: "/cv-management", icon: FileText },
-        { name: "Interview Management", path: "/interview-management", icon: Briefcase },
-        { name: "Offer Letter", path: "/offer-letter", icon: FileText },
-        { name: "Employee Management", path: "/employee-management", icon: Users },
-        { name: "Attendance Management", path: "/attendance-management", icon: Calendar },
-        { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
+        { 
+          name: "Recruitment", 
+          icon: Users,
+          children: [
+            { name: "CV Management", path: "/cv-management", icon: FileText },
+            { name: "Interview Management", path: "/interview-management", icon: Briefcase },
+            { name: "Offer Letter", path: "/offer-letter", icon: FileText },
+            { name: "Employee Management", path: "/employee-management", icon: Users },
+          ]
+        },
         {
           name: "Leave Management",
           icon: ClipboardList,
@@ -200,7 +207,7 @@ export default function Navbar() {
             { name: "Leave List", path: "/leave-management/leave-list", icon: FileText },
             { name: "Early List", path: "/leave-management/early-list", icon: Clock },
             { name: "Late List", path: "/leave-management/late-list", icon: Clock },
-          ],
+          ]
         },
         {
           name: "Request",
@@ -209,10 +216,16 @@ export default function Navbar() {
             { name: "Leave Request", path: "/hr/request/leave", icon: FileText },
             { name: "Late Request", path: "/hr/request/late", icon: Clock },
             { name: "Early Request", path: "/hr/request/early", icon: Clock },
-          ],
+          ]
         },
-        { name: "Experience Certificate", path: "/experience-certificate", icon: Award },
-        { name: "Salary Certificate", path: "/salary-certificate", icon: DollarSign },
+      ]
+    },
+    {
+      name: "Attendance",
+      icon: Calendar,
+      children: [
+        { name: "Attendance Management", path: "/attendance-management", icon: Calendar },
+        { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
       ]
     },
     {
@@ -243,7 +256,6 @@ export default function Navbar() {
     { 
       name: "User Management", 
       icon: UserCog,
-      hasDropdown: true,
       children: [
         { name: "Add User", path: "/add-user", icon: UserPlus },
         { name: "User Control", path: "/user-control", icon: Shield },
@@ -252,59 +264,93 @@ export default function Navbar() {
     { 
       name: "Master", 
       icon: Settings,
-      hasDropdown: true,
       children: [
         { name: "Department", path: "/master/department", icon: Building2 },
         { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
+         { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList }, // Add this
       ]
     },
   ];
 
   const navItems = isAdmin ? adminNavItems : menuTree;
 
-  // Render menu items recursively
-  const renderMenuItems = (items, parentKey = "", level = 0) => {
+  // Handle submenu open
+  const handleMenuClick = (item, event, itemKey) => {
+    if (item.children && item.children.length > 0) {
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      const sidebarWidth = isCollapsed ? 70 : 280;
+      setSubmenuPosition({
+        top: rect.top,
+        left: isMobile ? 280 : sidebarWidth
+      });
+      setActiveSubmenu(activeSubmenu === itemKey ? null : itemKey);
+      setActiveNestedSubmenu(null);
+    } else {
+      setActiveSubmenu(null);
+      setActiveNestedSubmenu(null);
+      closeMobileMenu();
+    }
+  };
+
+  // Handle nested submenu open
+  const handleNestedMenuClick = (item, event, itemKey) => {
+    if (item.children && item.children.length > 0) {
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      setNestedSubmenuPosition({
+        top: rect.top,
+        left: submenuPosition.left + 260
+      });
+      setActiveNestedSubmenu(activeNestedSubmenu === itemKey ? null : itemKey);
+    } else {
+      setActiveNestedSubmenu(null);
+      closeMobileMenu();
+    }
+  };
+
+  // Render main menu items
+  const renderMainMenuItems = (items) => {
     return items.map((item, index) => {
-      const itemKey = `${parentKey}-${item.name}-${index}`;
+      const itemKey = `main-${item.name}-${index}`;
       const hasChildren = item.children && item.children.length > 0;
-      const isOpen = openDropdowns[itemKey];
       const isActive = location.pathname === item.path;
       const IconComponent = item.icon;
+      const isSubmenuActive = activeSubmenu === itemKey;
 
       if (hasChildren) {
         return (
-          <div key={itemKey}>
-            <div
-              onClick={() => toggleDropdown(itemKey)}
-              style={{
-                ...styles.menuItem,
-                paddingLeft: `${16 + level * 16}px`,
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
+          <div
+            key={itemKey}
+            onClick={(e) => handleMenuClick(item, e, itemKey)}
+            title={isCollapsed ? item.name : ""}
+            style={{
+              ...styles.menuItem,
+              cursor: "pointer",
+              backgroundColor: isSubmenuActive ? "#fee2e2" : "transparent",
+              color: isSubmenuActive ? "#dc2626" : "#475569",
+              borderLeft: isSubmenuActive ? "3px solid #dc2626" : "3px solid transparent",
+              justifyContent: isCollapsed ? "center" : "flex-start",
+            }}
+            onMouseEnter={(e) => {
+              if (!isSubmenuActive) {
                 e.currentTarget.style.backgroundColor = "#f8fafc";
-              }}
-              onMouseLeave={(e) => {
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isSubmenuActive) {
                 e.currentTarget.style.backgroundColor = "transparent";
-              }}
-            >
-              {IconComponent && <IconComponent size={18} style={{ marginRight: "12px", color: "#64748b" }} />}
-              <span style={{ flex: 1, fontSize: "14px", fontWeight: "500" }}>
-                {item.name}
-              </span>
-              <ChevronRight
-                size={16}
-                style={{
-                  transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s",
-                  color: "#94a3b8"
-                }}
-              />
-            </div>
-            {isOpen && (
-              <div style={{ overflow: "hidden" }}>
-                {renderMenuItems(item.children, itemKey, level + 1)}
-              </div>
+              }
+            }}
+          >
+            {IconComponent && <IconComponent size={18} style={{ marginRight: isCollapsed ? "0" : "12px", color: isSubmenuActive ? "#dc2626" : "#64748b" }} />}
+            {!isCollapsed && (
+              <>
+                <span style={{ flex: 1, fontSize: "14px", fontWeight: "500" }}>
+                  {item.name}
+                </span>
+                <ChevronRight size={16} style={{ color: "#94a3b8" }} />
+              </>
             )}
           </div>
         );
@@ -313,19 +359,21 @@ export default function Navbar() {
       return (
         <NavLink
           key={itemKey}
-          to={item.path || `/${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+          to={item.path}
+          title={isCollapsed ? item.name : ""}
           style={({ isActive }) => ({
             ...styles.menuItem,
-            paddingLeft: `${16 + level * 16}px`,
             textDecoration: "none",
             display: "flex",
             backgroundColor: isActive ? "#fee2e2" : "transparent",
             color: isActive ? "#dc2626" : "#475569",
             borderLeft: isActive ? "3px solid #dc2626" : "3px solid transparent",
+            justifyContent: isCollapsed ? "center" : "flex-start",
           })}
           onClick={closeMobileMenu}
           onMouseEnter={(e) => {
-            if (!e.currentTarget.classList.contains('active')) {
+            const isLinkActive = location.pathname === item.path;
+            if (!isLinkActive) {
               e.currentTarget.style.backgroundColor = "#f8fafc";
             }
           }}
@@ -336,16 +384,168 @@ export default function Navbar() {
             }
           }}
         >
-          {IconComponent && <IconComponent size={18} style={{ marginRight: "12px", color: isActive ? "#dc2626" : "#64748b" }} />}
-          <span style={{ fontSize: "14px", fontWeight: "500" }}>{item.name}</span>
+          {IconComponent && <IconComponent size={18} style={{ marginRight: isCollapsed ? "0" : "12px", color: isActive ? "#dc2626" : "#64748b" }} />}
+          {!isCollapsed && <span style={{ fontSize: "14px", fontWeight: "500" }}>{item.name}</span>}
         </NavLink>
       );
     });
   };
 
+  // Render first level submenu items
+  const renderSubmenuItems = (items, parentKey = "") => {
+    return items.map((item, index) => {
+      const itemKey = `${parentKey}-sub-${item.name}-${index}`;
+      const hasChildren = item.children && item.children.length > 0;
+      const isActive = location.pathname === item.path;
+      const IconComponent = item.icon;
+      const isNestedSubmenuActive = activeNestedSubmenu === itemKey;
+
+      if (hasChildren) {
+        return (
+          <div
+            key={itemKey}
+            onClick={(e) => handleNestedMenuClick(item, e, itemKey)}
+            style={{
+              ...styles.submenuItem,
+              cursor: "pointer",
+              backgroundColor: isNestedSubmenuActive ? "#fee2e2" : "transparent",
+              color: isNestedSubmenuActive ? "#dc2626" : "#475569",
+            }}
+            onMouseEnter={(e) => {
+              if (!isNestedSubmenuActive) {
+                e.currentTarget.style.backgroundColor = "#f8fafc";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isNestedSubmenuActive) {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }
+            }}
+          >
+            {IconComponent && <IconComponent size={16} style={{ marginRight: "10px", color: isNestedSubmenuActive ? "#dc2626" : "#64748b" }} />}
+            <span style={{ flex: 1, fontSize: "13px", fontWeight: "500" }}>
+              {item.name}
+            </span>
+            <ChevronRight size={14} style={{ color: "#94a3b8" }} />
+          </div>
+        );
+      }
+
+      return (
+        <NavLink
+          key={itemKey}
+          to={item.path}
+          style={({ isActive }) => ({
+            ...styles.submenuItem,
+            textDecoration: "none",
+            display: "flex",
+            backgroundColor: isActive ? "#fee2e2" : "transparent",
+            color: isActive ? "#dc2626" : "#475569",
+          })}
+          onClick={closeMobileMenu}
+          onMouseEnter={(e) => {
+            const isLinkActive = location.pathname === item.path;
+            if (!isLinkActive) {
+              e.currentTarget.style.backgroundColor = "#f8fafc";
+            }
+          }}
+          onMouseLeave={(e) => {
+            const isLinkActive = location.pathname === item.path;
+            if (!isLinkActive) {
+              e.currentTarget.style.backgroundColor = "transparent";
+            }
+          }}
+        >
+          {IconComponent && <IconComponent size={16} style={{ marginRight: "10px", color: isActive ? "#dc2626" : "#64748b" }} />}
+          <span style={{ fontSize: "13px", fontWeight: "500" }}>{item.name}</span>
+        </NavLink>
+      );
+    });
+  };
+
+  // Render nested submenu items
+  const renderNestedSubmenuItems = (items) => {
+    return items.map((item, index) => {
+      const itemKey = `nested-${item.name}-${index}`;
+      const isActive = location.pathname === item.path;
+      const IconComponent = item.icon;
+
+      return (
+        <NavLink
+          key={itemKey}
+          to={item.path}
+          style={({ isActive }) => ({
+            ...styles.submenuItem,
+            textDecoration: "none",
+            display: "flex",
+            backgroundColor: isActive ? "#fee2e2" : "transparent",
+            color: isActive ? "#dc2626" : "#475569",
+          })}
+          onClick={closeMobileMenu}
+          onMouseEnter={(e) => {
+            const isLinkActive = location.pathname === item.path;
+            if (!isLinkActive) {
+              e.currentTarget.style.backgroundColor = "#f8fafc";
+            }
+          }}
+          onMouseLeave={(e) => {
+            const isLinkActive = location.pathname === item.path;
+            if (!isLinkActive) {
+              e.currentTarget.style.backgroundColor = "transparent";
+            }
+          }}
+        >
+          {IconComponent && <IconComponent size={16} style={{ marginRight: "10px", color: isActive ? "#dc2626" : "#64748b" }} />}
+          <span style={{ fontSize: "13px", fontWeight: "500" }}>{item.name}</span>
+        </NavLink>
+      );
+    });
+  };
+
+  // Get active submenu content
+  const getActiveSubmenuContent = () => {
+    if (!activeSubmenu) return null;
+
+    const findItem = (items, key) => {
+      for (const item of items) {
+        const itemKey = `main-${item.name}-${items.indexOf(item)}`;
+        if (itemKey === key) return item;
+        
+        if (item.children) {
+          const found = findItem(item.children, key);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const activeItem = findItem(navItems, activeSubmenu);
+    return activeItem?.children || null;
+  };
+
+  // Get active nested submenu content
+  const getActiveNestedSubmenuContent = () => {
+    if (!activeNestedSubmenu || !activeSubmenu) return null;
+
+    const submenuContent = getActiveSubmenuContent();
+    if (!submenuContent) return null;
+
+    for (let i = 0; i < submenuContent.length; i++) {
+      const item = submenuContent[i];
+      const itemKey = `${activeSubmenu}-sub-${item.name}-${i}`;
+      if (itemKey === activeNestedSubmenu) {
+        return item.children || null;
+      }
+    }
+
+    return null;
+  };
+
+  const sidebarWidth = isCollapsed ? 70 : 280;
+
   const styles = {
     sidebar: {
-      width: isMobile ? (mobileMenuOpen ? "280px" : "0") : "280px",
+      width: isMobile ? (mobileMenuOpen ? "280px" : "0") : `${sidebarWidth}px`,
       backgroundColor: "#ffffff",
       boxShadow: "2px 0 12px rgba(0,0,0,0.08)",
       display: "flex",
@@ -358,18 +558,55 @@ export default function Navbar() {
       transition: "all 0.3s ease",
       overflow: "hidden",
     },
+    submenuPanel: {
+      width: "260px",
+      backgroundColor: "#ffffff",
+      boxShadow: "4px 0 16px rgba(0,0,0,0.12)",
+      position: "fixed",
+      top: submenuPosition.top,
+      left: submenuPosition.left,
+      maxHeight: `calc(100vh - ${submenuPosition.top}px)`,
+      overflowY: "auto",
+      zIndex: 1001,
+      borderRadius: "0 8px 8px 0",
+      padding: "8px 0",
+    },
+    nestedSubmenuPanel: {
+      width: "260px",
+      backgroundColor: "#ffffff",
+      boxShadow: "4px 0 16px rgba(0,0,0,0.12)",
+      position: "fixed",
+      top: nestedSubmenuPosition.top,
+      left: nestedSubmenuPosition.left,
+      maxHeight: `calc(100vh - ${nestedSubmenuPosition.top}px)`,
+      overflowY: "auto",
+      zIndex: 1002,
+      borderRadius: "0 8px 8px 0",
+      padding: "8px 0",
+    },
     header: {
       padding: "20px 16px",
       borderBottom: "1px solid #f1f5f9",
       display: "flex",
       alignItems: "center",
-      justifyContent: "space-between",
+      justifyContent: isCollapsed ? "center" : "space-between",
       backgroundColor: "#ffffff",
     },
     logo: {
       display: "flex",
       alignItems: "center",
       gap: "12px",
+    },
+    collapseButton: {
+      backgroundColor: "transparent",
+      border: "none",
+      cursor: "pointer",
+      padding: "8px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "6px",
+      transition: "background-color 0.2s",
     },
     menuContainer: {
       flex: 1,
@@ -387,10 +624,18 @@ export default function Navbar() {
       borderLeft: "3px solid transparent",
       color: "#475569",
     },
+    submenuItem: {
+      display: "flex",
+      alignItems: "center",
+      padding: "10px 16px",
+      transition: "all 0.2s ease",
+      color: "#475569",
+    },
     userSection: {
       padding: "16px",
       borderTop: "1px solid #f1f5f9",
       backgroundColor: "#fafafa",
+      display: isCollapsed ? "none" : "block",
     },
     userInfo: {
       display: "flex",
@@ -418,7 +663,7 @@ export default function Navbar() {
       position: "fixed",
       top: "20px",
       left: "20px",
-      zIndex: 1001,
+      zIndex: 1003,
       backgroundColor: "#ffffff",
       border: "1px solid #e5e7eb",
       borderRadius: "8px",
@@ -437,7 +682,7 @@ export default function Navbar() {
       bottom: 0,
       backgroundColor: "rgba(0,0,0,0.5)",
       zIndex: 999,
-      display: isMobile && mobileMenuOpen ? "block" : "none",
+      display: (isMobile && mobileMenuOpen) || activeSubmenu || activeNestedSubmenu ? "block" : "none",
     },
   };
 
@@ -485,18 +730,42 @@ export default function Navbar() {
 
       <div 
         style={styles.overlay}
-        onClick={() => setMobileMenuOpen(false)}
+        onClick={() => {
+          setMobileMenuOpen(false);
+          setActiveSubmenu(null);
+          setActiveNestedSubmenu(null);
+        }}
       />
 
       <aside style={styles.sidebar} ref={sidebarRef}>
         <div style={styles.header}>
-          <div style={styles.logo}>
-            <img
-              src="/assets/omega-logo.png"
-              alt="Omega"
-              style={{ height: "32px", objectFit: "contain" }}
-            />
-          </div>
+          {!isCollapsed && (
+            <div style={styles.logo}>
+              <img
+                src="/assets/omega-logo.png"
+                alt="Omega"
+                style={{ height: "32px", objectFit: "contain" }}
+              />
+            </div>
+          )}
+          {!isMobile && (
+            <button
+              style={styles.collapseButton}
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f1f5f9"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              <ChevronRight 
+                size={20} 
+                color="#64748b"
+                style={{
+                  transform: isCollapsed ? "rotate(0deg)" : "rotate(180deg)",
+                  transition: "transform 0.3s ease"
+                }}
+              />
+            </button>
+          )}
           {isMobile && (
             <X 
               size={24} 
@@ -510,10 +779,10 @@ export default function Navbar() {
         <div style={styles.menuContainer}>
           {navItems.length === 0 && !isAdmin && !loading ? (
             <div style={{ padding: "16px", color: "#94a3b8", fontSize: "14px", textAlign: "center" }}>
-              No menus assigned. Please contact administrator.
+              {isCollapsed ? "No menu" : "No menus assigned. Please contact administrator."}
             </div>
           ) : (
-            renderMenuItems(navItems)
+            renderMainMenuItems(navItems)
           )}
         </div>
 
@@ -560,6 +829,18 @@ export default function Navbar() {
           </button>
         </div>
       </aside>
+
+      {activeSubmenu && getActiveSubmenuContent() && (
+        <div style={styles.submenuPanel} ref={submenuRef}>
+          {renderSubmenuItems(getActiveSubmenuContent(), activeSubmenu)}
+        </div>
+      )}
+
+      {activeNestedSubmenu && getActiveNestedSubmenuContent() && (
+        <div style={styles.nestedSubmenuPanel} ref={nestedSubmenuRef}>
+          {renderNestedSubmenuItems(getActiveNestedSubmenuContent())}
+        </div>
+      )}
     </>
   );
 }
