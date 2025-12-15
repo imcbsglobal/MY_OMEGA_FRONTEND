@@ -338,13 +338,13 @@ export default function Interview_List() {
                         </button>
 
 
-                        <button
+                        {/* <button
                           title="Edit"
                           onClick={() => navigate(`/interview-management/edit/${interview.id}`)}
                           style={styles.iconBtn}
                         >
                           <Pencil size={16} />
-                        </button>
+                        </button> */}
 
                         <button
                           title="Delete"

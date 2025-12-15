@@ -31,6 +31,10 @@ export default function CVForm() {
     cvFileName: "",
   });
 
+  // ✅ Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+
   useEffect(() => {
     (async () => {
       try {
@@ -50,23 +54,40 @@ export default function CVForm() {
         setCvData(toUi(data));
       } catch (e) {
         console.error(e);
-        alert("CV not found");
+        showError("CV not found");
         navigate("/cv-management");
       }
     })();
   }, [uuid]);
+
+  // ✅ Show custom modal
+  const showError = (message) => {
+    setModalMessage(message);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setModalMessage("");
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCvData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Updated: Handle job title selection from dropdown
+  // ✅ Handle phone number - only allow digits
+  const handlePhoneChange = (e) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
+    if (value.length <= 10) {
+      setCvData((prev) => ({ ...prev, phoneNumber: value }));
+    }
+  };
+
   const handleJobTitleChange = (e) => {
     const selectedValue = e.target.value;
     
     if (!selectedValue) {
-      // If "Select Job Title" is selected
       setCvData(prev => ({ 
         ...prev, 
         jobTitle: "",
@@ -75,7 +96,6 @@ export default function CVForm() {
       return;
     }
     
-    // Find the selected job title object
     const selectedJob = jobTitles.find(job => 
       (job.id && String(job.id) === selectedValue) || 
       (job.name && job.name === selectedValue) ||
@@ -89,7 +109,6 @@ export default function CVForm() {
         jobTitleId: selectedJob.id || null
       }));
     } else {
-      // If not found, just set the text
       setCvData(prev => ({
         ...prev,
         jobTitle: selectedValue,
@@ -102,10 +121,10 @@ export default function CVForm() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 2 * 1024 * 1024; // ✅ 2MB
+    const maxSize = 2 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      alert("❌ File too large. Please reduce the size (Max 2MB).");
+      showError(`❌ File Size Too Large: The file "${file.name}" is ${(file.size / 1024 / 1024).toFixed(2)}MB. Maximum allowed size is 2MB. Please compress or choose a smaller file.`);
       e.target.value = "";
       return;
     }
@@ -119,16 +138,12 @@ export default function CVForm() {
     setCvData((prev) => ({ ...prev, cvFileName: "" }));
   };
 
-  // ✅ Converts "DD-MM-YYYY" → "YYYY-MM-DD" automatically
   const formatDobForApi = (dob) => {
     if (!dob) return "";
-    // Check for DD-MM-YYYY or YYYY-MM-DD
     const parts = dob.split("-");
     if (parts.length === 3) {
       const [a, b, c] = parts;
-      // if first part > 31 → it's already YYYY-MM-DD
-      if (Number(a) > 31) return dob; // Already in correct format
-      // else convert
+      if (Number(a) > 31) return dob;
       return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
     }
     return dob;
@@ -136,24 +151,41 @@ export default function CVForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-if (!cvData.name.trim() || !cvData.jobTitleId || !cvData.phoneNumber.trim()) {
-  alert("Please fill Name, Job Title, and Phone Number.");
-  return;
-}
 
-if (!/^\d{10}$/.test(cvData.phoneNumber)) {
-  alert("Phone number must be exactly 10 digits.");
-  return;
-}
+    // ✅ Validation with VERY specific error messages
+    if (!cvData.name.trim()) {
+      showError("Name is required. Please enter the candidate's full name in the 'Name' field.");
+      return;
+    }
 
+    if (!cvData.jobTitleId) {
+      showError("Job Title is required. Please select a job position from the 'Job Title' dropdown menu.");
+      return;
+    }
+
+    if (!cvData.phoneNumber.trim()) {
+      showError("Phone Number is required. Please enter a valid 10-digit mobile number in the 'Phone Number' field.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(cvData.phoneNumber)) {
+      showError(`Phone Number is invalid. You entered "${cvData.phoneNumber}". Please enter exactly 10 digits (e.g., 9876543210).`);
+      return;
+    }
+
+    // ✅ Very specific date validation
+    if (!cvData.dob || cvData.dob.trim() === "") {
+      showError("Date of Birth is required. Please click on the 'Date of Birth' field and select a date from the calendar.");
+      return;
+    }
+
+    const formattedDob = formatDobForApi(cvData.dob);
+    if (!formattedDob.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      showError(`Date of Birth format is incorrect. The date "${cvData.dob}" could not be processed. Please select a valid date using the calendar picker.`);
+      return;
+    }
 
     try {
-      const formattedDob = formatDobForApi(cvData.dob);
-      if (!formattedDob.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        alert("Invalid date format. Please select a valid date.");
-        return;
-      }
-
       const updatedData = { ...cvData, dob: formattedDob };
 
       if (isEditMode) {
@@ -165,22 +197,22 @@ if (!/^\d{10}$/.test(cvData.phoneNumber)) {
           const json = Object.fromEntries(form.entries());
           await CV.update(uuid, json, false);
         }
-        alert("CV updated successfully!");
+        showError("✅ Success! The CV has been updated successfully in the system.");
       } else {
         const form = toApiPayload(updatedData, uploadedFile);
         await CV.create(form);
-        alert("CV added successfully!");
+        showError("✅ Success! The CV has been added successfully to the database.");
       }
 
-      window.dispatchEvent(new Event("cv-updated"));  // ✅ FORCE SYNC
-      navigate("/cv-management");
+      window.dispatchEvent(new Event("cv-updated"));
+      setTimeout(() => navigate("/cv-management"), 1500);
     } catch (error) {
       console.error("Error saving CV:", error);
       const msg =
         error.response?.data?.message ||
         JSON.stringify(error.response?.data) ||
-        "Failed to save CV";
-      alert(msg);
+        "❌ Failed to save CV. Please check your internet connection and try again.";
+      showError(msg);
     }
   };
 
@@ -293,6 +325,50 @@ if (!/^\d{10}$/.test(cvData.phoneNumber)) {
       borderRadius: "6px",
       cursor: "pointer",
     },
+    // ✅ Modal Styles - Matching your app's design
+    modalOverlay: {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 9999,
+    },
+    modalBox: {
+      backgroundColor: "#fff",
+      borderRadius: "12px",
+      padding: "24px",
+      minWidth: "400px",
+      maxWidth: "500px",
+      boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    },
+    modalTitle: {
+      fontSize: "18px",
+      fontWeight: "600",
+      color: "#111827",
+      marginBottom: "12px",
+    },
+    modalMessage: {
+      fontSize: "14px",
+      color: "#6b7280",
+      marginBottom: "20px",
+      lineHeight: "1.5",
+    },
+    modalButton: {
+      backgroundColor: "#2563eb",
+      color: "#fff",
+      border: "none",
+      padding: "10px 24px",
+      borderRadius: "6px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: "500",
+      width: "100%",
+    },
   };
 
   return (
@@ -324,14 +400,13 @@ if (!/^\d{10}$/.test(cvData.phoneNumber)) {
               />
             </div>
 
-            {/* ✅ Job Title - UPDATED TO DROPDOWN */}
+            {/* Job Title */}
             <div style={styles.formGroup}>
               <label style={styles.label}>Job Title *</label>
               <select
                 style={styles.input}
                 name="jobTitle"
-               value={cvData.jobTitleId || ""}
-
+                value={cvData.jobTitleId || ""}
                 onChange={handleJobTitleChange}
                 required
               >
@@ -365,22 +440,21 @@ if (!/^\d{10}$/.test(cvData.phoneNumber)) {
               </select>
             </div>
 
-            {/* Phone / Email */}
-            {/* ✅ Phone Number (MANDATORY) */}
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Phone Number *</label>
-                <input
-                  style={styles.input}
-                  name="phoneNumber"
-                  value={cvData.phoneNumber}
-                  onChange={handleInputChange}
-                  required
-                  pattern="[0-9]{10}"
-                  maxLength={10}
-                  placeholder="Enter 10-digit mobile number"
-                />
-              </div>
-
+            {/* Phone Number */}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Phone Number *</label>
+              <input
+                style={styles.input}
+                name="phoneNumber"
+                type="tel"
+                inputMode="numeric"
+                value={cvData.phoneNumber}
+                onChange={handlePhoneChange}
+                required
+                maxLength={10}
+                placeholder="Enter 10-digit mobile number"
+              />
+            </div>
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Email</label>
@@ -541,6 +615,19 @@ if (!/^\d{10}$/.test(cvData.phoneNumber)) {
           </div>
         </form>
       </div>
+
+      {/* ✅ Custom Modal */}
+      {showModal && (
+        <div style={styles.modalOverlay} onClick={closeModal}>
+          <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>Validation Alert</h3>
+            <p style={styles.modalMessage}>{modalMessage}</p>
+            <button style={styles.modalButton} onClick={closeModal}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

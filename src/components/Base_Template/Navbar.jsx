@@ -8,7 +8,7 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
-export default function Navbar() {
+export default function Navbar({ onCollapseChange }) {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const username = user?.name || user?.email || "User";
@@ -30,7 +30,6 @@ export default function Navbar() {
   const submenuRef = useRef(null);
   const nestedSubmenuRef = useRef(null);
 
-  // Handle resize
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -42,7 +41,12 @@ export default function Navbar() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Outside click close for mobile
+  useEffect(() => {
+    if (onCollapseChange) {
+      onCollapseChange(isCollapsed);
+    }
+  }, [isCollapsed, onCollapseChange]);
+
   useEffect(() => {
     const onDocumentClick = (e) => {
       if (
@@ -63,14 +67,12 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, [isMobile]);
 
-  // Redirect non-admin users to punch-in-out on initial load
   useEffect(() => {
     if (!isAdmin && location.pathname === "/") {
       navigate("/punch-in-out", { replace: true });
     }
   }, [isAdmin, location.pathname, navigate]);
 
-  // Icon mapping for user menu items based on name
   const getIconForMenuItem = (name) => {
     const iconMap = {
       'dashboard': LayoutDashboard,
@@ -120,7 +122,6 @@ export default function Navbar() {
     return FileText;
   };
 
-  // Format menu item
   function formatMenuItem(item) {
     if (!item) return null;
 
@@ -143,17 +144,14 @@ export default function Navbar() {
     };
   }
 
-  // Fetch menu tree
   useEffect(() => {
     const fetchMenus = async () => {
       setLoading(true);
       try {
         if (!isAdmin) {
           const response = await api.get("/user-controll/my-menu/");
-          console.log("User Menu Response:", response.data);
           const menuArr = response.data?.menu || [];
           const formatted = menuArr.map((item) => formatMenuItem(item));
-          console.log("Formatted Menu:", formatted);
           setMenuTree(formatted);
           localStorage.setItem("menuTree", JSON.stringify(formatted));
         } else {
@@ -164,7 +162,6 @@ export default function Navbar() {
         const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
         if (cached.length > 0) {
           setMenuTree(cached);
-          console.log("Using cached menu");
         }
       } finally {
         setLoading(false);
@@ -174,7 +171,6 @@ export default function Navbar() {
     fetchMenus();
   }, [isAdmin]);
 
-  // Close mobile menu
   const closeMobileMenu = () => {
     if (isMobile) {
       setMobileMenuOpen(false);
@@ -183,7 +179,6 @@ export default function Navbar() {
     setActiveNestedSubmenu(null);
   };
 
-  // Admin menu items with proper structure - UPDATED ATTENDANCE SECTION
   const adminNavItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { 
@@ -228,31 +223,11 @@ export default function Navbar() {
         { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
       ]
     },
-    {
-      name: "Marketing",
-      path: "/under-construction",
-      icon: Megaphone
-    },
-    {
-      name: "Vehicle Management",
-      path: "/under-construction",
-      icon: Car
-    },
-    {
-      name: "Target Management",
-      path: "/under-construction",
-      icon: Target
-    },
-    {
-      name: "Warehouse Management",
-      path: "/under-construction",
-      icon: Warehouse
-    },
-    {
-      name: "Delivery Management",
-      path: "/under-construction",
-      icon: Truck
-    },
+    { name: "Marketing", path: "/under-construction", icon: Megaphone },
+    { name: "Vehicle Management", path: "/under-construction", icon: Car },
+    { name: "Target Management", path: "/under-construction", icon: Target },
+    { name: "Warehouse Management", path: "/under-construction", icon: Warehouse },
+    { name: "Delivery Management", path: "/under-construction", icon: Truck },
     { 
       name: "User Management", 
       icon: UserCog,
@@ -267,14 +242,13 @@ export default function Navbar() {
       children: [
         { name: "Department", path: "/master/department", icon: Building2 },
         { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
-         { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList }, // Add this
+        { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
       ]
     },
   ];
 
   const navItems = isAdmin ? adminNavItems : menuTree;
 
-  // Handle submenu open
   const handleMenuClick = (item, event, itemKey) => {
     if (item.children && item.children.length > 0) {
       event.preventDefault();
@@ -293,7 +267,6 @@ export default function Navbar() {
     }
   };
 
-  // Handle nested submenu open
   const handleNestedMenuClick = (item, event, itemKey) => {
     if (item.children && item.children.length > 0) {
       event.preventDefault();
@@ -309,7 +282,6 @@ export default function Navbar() {
     }
   };
 
-  // Render main menu items
   const renderMainMenuItems = (items) => {
     return items.map((item, index) => {
       const itemKey = `main-${item.name}-${index}`;
@@ -391,7 +363,6 @@ export default function Navbar() {
     });
   };
 
-  // Render first level submenu items
   const renderSubmenuItems = (items, parentKey = "") => {
     return items.map((item, index) => {
       const itemKey = `${parentKey}-sub-${item.name}-${index}`;
@@ -463,7 +434,6 @@ export default function Navbar() {
     });
   };
 
-  // Render nested submenu items
   const renderNestedSubmenuItems = (items) => {
     return items.map((item, index) => {
       const itemKey = `nested-${item.name}-${index}`;
@@ -502,7 +472,6 @@ export default function Navbar() {
     });
   };
 
-  // Get active submenu content
   const getActiveSubmenuContent = () => {
     if (!activeSubmenu) return null;
 
@@ -523,7 +492,6 @@ export default function Navbar() {
     return activeItem?.children || null;
   };
 
-  // Get active nested submenu content
   const getActiveNestedSubmenuContent = () => {
     if (!activeNestedSubmenu || !activeSubmenu) return null;
 
