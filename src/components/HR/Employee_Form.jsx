@@ -435,26 +435,28 @@ export default function EmployeeForm() {
 
               <div>
                 <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
-                  Upload Photo
+                  Upload Photo <span style={{ color: "#dc2626" }}>*</span>
                 </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{
-                    padding: "10px 0",
-                    fontSize: 14,
-                  }}
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        avatar: file,
-                        avatar_preview: URL.createObjectURL(file),
-                      }));
-                    }
-                  }}
-                />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    required={!isEdit}   // 🔥 mandatory only when ADD
+                    style={{
+                      padding: "10px 0",
+                      fontSize: 14,
+                    }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          avatar: file,
+                          avatar_preview: URL.createObjectURL(file),
+                        }));
+                      }
+                    }}
+                  />
+
               </div>
             </div>
           </div>

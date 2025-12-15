@@ -364,15 +364,16 @@ export default function Department() {
           Enter the name of the new department. Department names should be unique and descriptive.
         </p>
         <div style={styles.addSection}>
-          <input
-            type="text"
-            placeholder="Enter department name (e.g., Sales, Marketing, IT)"
-            value={newDepartment}
-            onChange={(e) => setNewDepartment(e.target.value)}
-            onKeyPress={(e) => handleKeyPress(e, "add")}
-            style={styles.input}
-            disabled={loading}
-          />
+         <input
+          type="text"
+          placeholder="ENTER DEPARTMENT NAME (CAPITAL LETTERS ONLY)"
+          value={newDepartment}
+          onChange={(e) => setNewDepartment(e.target.value.toUpperCase())}
+          onKeyPress={(e) => handleKeyPress(e, "add")}
+          style={{ ...styles.input, textTransform: "uppercase" }}
+          disabled={loading}
+        />
+
           <button
             onClick={handleAddDepartment}
             style={{
@@ -442,15 +443,16 @@ export default function Department() {
                     <td style={styles.td}>{index + 1}</td>
                     <td style={styles.td}>
                       {editingId === dept.id ? (
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          onKeyPress={(e) => handleKeyPress(e, "update", dept.id)}
-                          style={styles.editInput}
-                          autoFocus
-                          disabled={loading}
-                        />
+                       <input
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value.toUpperCase())}
+                        onKeyPress={(e) => handleKeyPress(e, "update", dept.id)}
+                        style={{ ...styles.editInput, textTransform: "uppercase" }}
+                        autoFocus
+                        disabled={loading}
+                      />
+
                       ) : (
                         <div style={styles.deptName}>
                           <Building2 size={16} color="#64748b" />
