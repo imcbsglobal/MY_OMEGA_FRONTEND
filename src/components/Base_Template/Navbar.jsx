@@ -3,7 +3,7 @@ import {
   ChevronRight, Menu, X, LogOut, LayoutDashboard, Users, Megaphone, 
   Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
   FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
-  ClipboardList, UserPlus, Shield, Building2
+  ClipboardList, UserPlus, Shield, Building2, PanelLeftClose, PanelLeft
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/client";
@@ -24,6 +24,7 @@ export default function Navbar({ onCollapseChange }) {
   const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 280 });
   const [nestedSubmenuPosition, setNestedSubmenuPosition] = useState({ top: 0, left: 540 });
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showExpandIcon, setShowExpandIcon] = useState(false);
 
   const location = useLocation();
   const sidebarRef = useRef(null);
@@ -192,7 +193,23 @@ export default function Navbar({ onCollapseChange }) {
             { name: "CV Management", path: "/cv-management", icon: FileText },
             { name: "Interview Management", path: "/interview-management", icon: Briefcase },
             { name: "Offer Letter", path: "/offer-letter", icon: FileText },
+            { 
+              name: "Attendance",
+              icon: Calendar,
+              children: [
+                { name: "Attendance Management", path: "/attendance-management", icon: Calendar },
+                { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
+              ]
+            },
+          ]
+        },
+        {
+          name: "HR Master",
+          icon: Settings,
+          children: [
             { name: "Employee Management", path: "/employee-management", icon: Users },
+            { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
+            { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
           ]
         },
         {
@@ -215,14 +232,6 @@ export default function Navbar({ onCollapseChange }) {
         },
       ]
     },
-    {
-      name: "Attendance",
-      icon: Calendar,
-      children: [
-        { name: "Attendance Management", path: "/attendance-management", icon: Calendar },
-        { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
-      ]
-    },
     { name: "Marketing", path: "/under-construction", icon: Megaphone },
     { name: "Vehicle Management", path: "/under-construction", icon: Car },
     { name: "Target Management", path: "/under-construction", icon: Target },
@@ -241,8 +250,6 @@ export default function Navbar({ onCollapseChange }) {
       icon: Settings,
       children: [
         { name: "Department", path: "/master/department", icon: Building2 },
-        { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
-        { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
       ]
     },
   ];
@@ -705,7 +712,20 @@ export default function Navbar({ onCollapseChange }) {
         }}
       />
 
-      <aside style={styles.sidebar} ref={sidebarRef}>
+      <aside 
+        style={styles.sidebar} 
+        ref={sidebarRef}
+        onMouseEnter={() => {
+          if (isCollapsed && !isMobile) {
+            setShowExpandIcon(true);
+          }
+        }}
+        onMouseLeave={() => {
+          if (isCollapsed && !isMobile) {
+            setShowExpandIcon(false);
+          }
+        }}
+      >
         <div style={styles.header}>
           {!isCollapsed && (
             <div style={styles.logo}>
@@ -716,21 +736,17 @@ export default function Navbar({ onCollapseChange }) {
               />
             </div>
           )}
-          {!isMobile && (
+          {!isMobile && !isCollapsed && (
             <button
               style={styles.collapseButton}
               onClick={() => setIsCollapsed(!isCollapsed)}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f1f5f9"}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-              title={isCollapsed ? "Expand" : "Collapse"}
+              title="Collapse"
             >
-              <ChevronRight 
+              <PanelLeftClose 
                 size={20} 
                 color="#64748b"
-                style={{
-                  transform: isCollapsed ? "rotate(0deg)" : "rotate(180deg)",
-                  transition: "transform 0.3s ease"
-                }}
               />
             </button>
           )}
@@ -745,6 +761,33 @@ export default function Navbar({ onCollapseChange }) {
         </div>
 
         <div style={styles.menuContainer}>
+          {isCollapsed && !isMobile && showExpandIcon && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                padding: "12px 0",
+                borderBottom: "1px solid #f1f5f9",
+                marginBottom: "8px"
+              }}
+            >
+              <button
+                style={{
+                  ...styles.collapseButton,
+                  backgroundColor: "transparent"
+                }}
+                onClick={() => setIsCollapsed(false)}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f1f5f9"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                title="Expand"
+              >
+                <PanelLeft 
+                  size={20} 
+                  color="#64748b"
+                />
+              </button>
+            </div>
+          )}
           {navItems.length === 0 && !isAdmin && !loading ? (
             <div style={{ padding: "16px", color: "#94a3b8", fontSize: "14px", textAlign: "center" }}>
               {isCollapsed ? "No menu" : "No menus assigned. Please contact administrator."}
