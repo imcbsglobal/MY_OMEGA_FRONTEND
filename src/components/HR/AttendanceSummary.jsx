@@ -16,7 +16,7 @@ const STATUS_LABELS = {
 const STATUS_COLORS = {
   VERIFIED: "#3b82f6",
   FULL_DAY: "#10b981",
-  VERIFIED_HALF: "#8b5cf6",
+  VERIFIED_HALF: "#8b5cf6", 
   HALF_DAY: "#be185d",
   LEAVE: "#ef4444",
   HOLIDAY: "#fbbf24",
