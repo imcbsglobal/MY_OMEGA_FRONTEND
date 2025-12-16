@@ -103,6 +103,7 @@ export default function Navbar({ onCollapseChange }) {
       'attendance management': Calendar,
       'punch in': Clock,
       'punch out': Clock,
+      'punch in/punch out': Clock,
       'leave management': ClipboardList,
       'leave list': FileText,
       'early list': Clock,
@@ -193,16 +194,10 @@ export default function Navbar({ onCollapseChange }) {
             { name: "CV Management", path: "/cv-management", icon: FileText },
             { name: "Interview Management", path: "/interview-management", icon: Briefcase },
             { name: "Offer Letter", path: "/offer-letter", icon: FileText },
-            { 
-              name: "Attendance",
-              icon: Calendar,
-              children: [
-                { name: "Attendance Management", path: "/attendance-management", icon: Calendar },
-                { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
-              ]
-            },
           ]
         },
+        { name: "Attendance Management", path: "/attendance-management", icon: Calendar },
+        { name: "Punch In/Punch Out", path: "/punch-in-out", icon: Clock },
         {
           name: "HR Master",
           icon: Settings,
