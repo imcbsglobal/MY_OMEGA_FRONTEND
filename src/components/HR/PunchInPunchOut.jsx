@@ -533,12 +533,12 @@ const PunchInPunchOut = () => {
           </div>
         )}
         
-        <div className="calendar-legend">
+        {/* <div className="calendar-legend">
           <div className="legend-item"><div className="legend-color worked-dot"></div><span>Worked</span></div>
           <div className="legend-item"><div className="legend-color leave-dot"></div><span>Leave</span></div>
           <div className="legend-item"><div className="legend-color absent-dot"></div><span>Absent</span></div>
           <div className="legend-item"><div className="legend-color today"></div><span>Today</span></div>
-        </div>
+        </div> */}
       </div>
     );
   };
