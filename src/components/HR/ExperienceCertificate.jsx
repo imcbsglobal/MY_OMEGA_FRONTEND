@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+// Import your API client - adjust the path as needed
 import api from "../../api/client";
 
-export default function ExperienceCertificateList() {
+export default function ExperienceCertificate() {
   const navigate = useNavigate();
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,10 +28,12 @@ export default function ExperienceCertificateList() {
     setLoading(false);
   };
 
+  // FIXED NAVIGATION: Changed from "/hr/experience-certificate/add" to "/experience-certificate/add"
   const handleAddNewClick = () => {
-    navigate('/experience-certificate/add');
+    navigate("/experience-certificate/add");
   };
 
+  // FIXED NAVIGATION: Changed from "/hr/experience-certificate/edit/${id}" to "/experience-certificate/edit/${id}"
   const handleEditClick = (id) => {
     navigate(`/experience-certificate/edit/${id}`);
   };
@@ -48,15 +52,12 @@ export default function ExperienceCertificateList() {
     window.print();
   };
 
-  const handleDownload = () => {
-    alert("Download functionality will be implemented with backend integration");
-  };
-
   const handleDeleteClick = async (id) => {
     if (window.confirm("Are you sure you want to delete this record?")) {
       try {
         await api.delete(`/certificate/experience-certificates/${id}/`);
         setCertificates((prev) => prev.filter((cert) => cert.id !== id));
+        alert("Certificate deleted successfully!");
       } catch (err) {
         console.error("Delete error:", err);
         alert("Failed to delete certificate");
@@ -66,11 +67,11 @@ export default function ExperienceCertificateList() {
 
   const filteredCertificates = certificates.filter(certificate => {
     if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase().trim();
+    const q = searchQuery.toLowerCase().trim();
     return (
-      certificate.emp_name?.toLowerCase().includes(query) ||
-      certificate.emp_designation?.toLowerCase().includes(query) ||
-      certificate.emp_address?.toLowerCase().includes(query)
+      certificate.emp_name?.toLowerCase().includes(q) ||
+      certificate.emp_designation?.toLowerCase().includes(q) ||
+      certificate.emp_address?.toLowerCase().includes(q)
     );
   });
 
@@ -93,6 +94,20 @@ export default function ExperienceCertificateList() {
 
   const handlePageClick = (pageNumber) => {
     setCurrentPage(pageNumber);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const d = new Date(dateString);
+    const day = d.getDate();
+    const month = d.toLocaleString('en-US', { month: 'long' });
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
+  const formatDateShort = (dateString) => {
+    if (!dateString) return new Date().toLocaleDateString('en-GB');
+    return new Date(dateString).toLocaleDateString('en-GB');
   };
 
   if (loading) {
@@ -141,14 +156,14 @@ export default function ExperienceCertificateList() {
           <tbody>
             {currentCertificates.length === 0 ? (
               <tr>
-                <td colSpan="9" style={styles.noResults}>
+                <td colSpan="8" style={styles.noResults}>
                   {searchQuery ? `No results found for "${searchQuery}"` : "No certificate records available"}
                 </td>
               </tr>
             ) : (
-              currentCertificates.map((certificate, index) => (
+              currentCertificates.map((certificate, idx) => (
                 <tr key={certificate.id} style={styles.tableRow}>
-                  <td style={styles.tableCell}>{startIndex + index + 1}</td>
+                  <td style={styles.tableCell}>{startIndex + idx + 1}</td>
                   <td style={styles.tableCell}>{certificate.emp_name}</td>
                   <td style={styles.tableCell}>{certificate.emp_email || "N/A"}</td>
                   <td style={styles.tableCell}>{certificate.emp_designation}</td>
@@ -219,116 +234,100 @@ export default function ExperienceCertificateList() {
         </div>
       </div>
 
-      {/* Generate Certificate Modal */}
       {showGenerateModal && selectedCertificate && (
         <div style={styles.modalOverlay}>
           <div style={styles.generateModal}>
             <div style={styles.modalHeader} className="no-print">
               <h2 style={styles.modalTitle}>Experience Certificate</h2>
-              <div style={styles.modalActions}>
-                  {/* <button onClick={handlePrint} style={styles.printButton}>
-                    🖨️ Print
-                  </button>
-                  <button onClick={handleDownload} style={styles.downloadButton}>
-                    ⬇️ Download
-                  </button> */}
-                <button onClick={handleCloseGenerate} style={styles.closeButton}>
-                  ✕
-                </button>
-              </div>
+              <button onClick={handleCloseGenerate} style={styles.closeButton}>✕</button>
             </div>
 
             <div style={styles.certificateContainer}>
-              <div style={styles.certificateBorder}>
-                {/* Header with Centered Logo */}
+              <div style={styles.certificatePage}>
+                {/* Header */}
                 <div style={styles.certificateHeader}>
-                  <div style={styles.logoSection}>
+                  <div style={styles.headerLeft}>
                     <img 
                       src="/assets/omega-logo.png" 
                       alt="Omega Logo" 
                       style={styles.headerLogo}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
+                      onError={(e) => e.target.style.display = 'none'}
                     />
-                    <div style={{...styles.logoFallback, display: 'none'}}>
-                      <span style={styles.omegaFallbackText}>OMEGA</span>
+                  </div>
+                  <div style={styles.headerRight}>
+                    <h1 style={styles.companyName}>BASIL ENTERPRISES</h1>
+                    <p style={styles.companyAddress}>
+                      Omega Trade centre, Opp City Hospital<br />
+                      Mavoor Road, Kozhikode,<br />
+                      Malappuram Dt Kerala, India
+                    </p>
+                    <div style={styles.contactInfo}>
+                      <span>Mob: 9961 282 899</span>
+                      <span style={{marginLeft: '15px'}}>L-L: 0494 242 5702</span>
                     </div>
+                    <p style={styles.gstInfo}>GSTIN : 32AEKPK8326P1Z8</p>
                   </div>
                 </div>
 
-                {/* Certificate Title */}
-                <div style={styles.titleSection}>
-                  <h1 style={styles.certificateTitle}>Experience Certificate</h1>
-                  <div style={styles.titleUnderline}></div>
+                <div style={styles.blueLine}></div>
+
+                {/* Ref and Date */}
+                <div style={styles.refDateSection}>
+                  <div>REF NO: {selectedCertificate.ref_no || "BE/HR/EXP/2025/123"}</div>
+                  <div>{formatDateShort(selectedCertificate.issue_date)}</div>
                 </div>
 
-                {/* Certificate Body */}
-                <div style={styles.certificateBody}>
+                {/* To Whom */}
+                <div style={styles.toWhomSection}>
+                  <p style={styles.toWhomText}>TO WHOMSOEVER IT MAY CONCERN.</p>
+                </div>
+
+                {/* Watermark */}
+                <div style={styles.watermark}>
+                  <img 
+                    src="/assets/omega-logo.png" 
+                    alt="" 
+                    style={styles.watermarkImage}
+                    onError={(e) => e.target.style.display = 'none'}
+                  />
+                </div>
+
+                {/* Content */}
+                <div style={styles.mainContent}>
+                  <p style={styles.employeeName}>
+                    Mr. {selectedCertificate.emp_name || "EMPLOYEE NAME"}
+                  </p>
+                  
                   <p style={styles.bodyText}>
-                    This is to certify that <strong style={styles.highlight}>{selectedCertificate.emp_name || "Mr./Ms. [Employee Name]"}</strong> has been employed by <strong style={styles.highlight}>OMEGA</strong> as <strong style={styles.highlight}>{selectedCertificate.emp_designation || "[Designation]"}</strong> in <strong style={styles.highlight}>[Department]</strong> during the period of{' '}
-                    <strong style={styles.highlight}>
-                      {selectedCertificate.joining_date 
-                        ? new Date(selectedCertificate.joining_date).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })
-                        : "[Start Date]"
-                      }
-                    </strong> to{' '}
-                    <strong style={styles.highlight}>
-                      {selectedCertificate.end_date 
-                        ? new Date(selectedCertificate.end_date).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })
-                        : "[End Date]"
-                      }
-                    </strong>.
+                    This is to certify that Mr. {selectedCertificate.emp_name || "EMPLOYEE NAME"} was employed with Basil Enterprises as {selectedCertificate.emp_designation || "Business Development Manager"} from {formatDate(selectedCertificate.joining_date)} to {formatDate(selectedCertificate.end_date)}.
                   </p>
 
                   <p style={styles.bodyText}>
-                    His skills and qualifications proved successful with regards to task assigned to him.
-                  </p>
-
-                  <p style={styles.bodyText}>
-                    This certificate was issued to him upon his own request to be submitted to whom it may concern without any liabilities towards others.
+                    During his tenure with us, he demonstrated professionalism and dedication. We wish him success in his future endeavors.
                   </p>
                 </div>
 
-                {/* Signature Section */}
+                {/* Signature */}
                 <div style={styles.signatureSection}>
-                  <p style={styles.dateText}>
-                    Date: {selectedCertificate.issue_date 
-                      ? new Date(selectedCertificate.issue_date).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'numeric',
-                          year: 'numeric'
-                        })
-                      : new Date().toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'numeric',
-                          year: 'numeric'
-                        })
-                    }
+                  <p style={styles.forCompany}>For BASIL ENTERPRISES</p>
+                  <div style={{height: '50px'}}></div>
+                  <p style={styles.authorizedSign}>Authorized Signatory</p>
+                </div>
+
+                {/* Footer */}
+                <div style={styles.footer}>
+                  <div style={styles.blueFooterLine}></div>
+                  <p style={styles.footerText}>
+                    www.myomega.in ~ email: hr@myomega.in
                   </p>
-                  <p style={styles.signatureLabel}>Name: [Authorized Person Name]</p>
-                  <p style={styles.signatureLabel}>Title: Managing Director</p>
-                  <p style={styles.signatureLabel}>Signature: _______________</p>
                 </div>
               </div>
 
-              {/* Bottom Action Buttons */}
+              {/* Print Button */}
               <div style={styles.bottomActions} className="no-print">
                 <button onClick={handlePrint} style={styles.bottomPrintButton}>
                   🖨️ Print Certificate
                 </button>
-                {/* <button onClick={handleDownload} style={styles.bottomDownloadButton}>
-                  ⬇️ Download PDF
-                </button> */}
               </div>
             </div>
           </div>
@@ -339,414 +338,65 @@ export default function ExperienceCertificateList() {
 }
 
 const styles = {
-  container: {
-    padding: "24px",
-    backgroundColor: "#f9fafb",
-    minHeight: "100vh",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "24px",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  headerActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  searchContainer: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-  },
-  searchInput: {
-    padding: "12px 40px 12px 16px",
-    fontSize: "14px",
-    border: "2px solid #e5e7eb",
-    borderRadius: "8px",
-    outline: "none",
-    width: "320px",
-    transition: "all 0.3s",
-    fontWeight: "500",
-    color: "#374151",
-  },
-  searchIcon: {
-    position: "absolute",
-    right: "14px",
-    fontSize: "18px",
-    pointerEvents: "none",
-    color: "#9ca3af",
-  },
-  searchIndicator: {
-    color: "#6b7280",
-    fontStyle: "italic",
-    fontSize: "13px",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
-  addButton: {
-    padding: "12px 24px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-  },
-  tableContainer: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    overflow: "hidden",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
-  tableHeaderRow: {
-    backgroundColor: "#f3f4f6",
-  },
-  tableHeader: {
-    padding: "12px 16px",
-    textAlign: "left",
-    fontSize: "12px",
-    fontWeight: "600",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    borderBottom: "2px solid #e5e7eb",
-  },
-  tableRow: {
-    borderBottom: "1px solid #e5e7eb",
-    transition: "background-color 0.2s",
-  },
-  tableCell: {
-    padding: "12px 16px",
-    fontSize: "14px",
-    color: "#374151",
-  },
-  actionButtons: {
-    display: "flex",
-    gap: "6px",
-  },
-  generateBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#7c3aed",
-    backgroundColor: "#ede9fe",
-    border: "1px solid #ddd6fe",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  editBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#3b82f6",
-    backgroundColor: "#dbeafe",
-    border: "1px solid #bfdbfe",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  deleteBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#dc2626",
-    backgroundColor: "#fee2e2",
-    border: "1px solid #fecaca",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  paginationContainer: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: "24px",
-    padding: "16px 24px",
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-  },
-  paginationInfo: {
-    fontSize: "14px",
-    color: "#6b7280",
-  },
-  paginationButtons: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  paginationBtn: {
-    padding: "8px 16px",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  paginationBtnDisabled: {
-    opacity: 0.5,
-    cursor: "not-allowed",
-  },
-  pageNumbers: {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-  },
-  pageNumberBtn: {
-    padding: "8px 12px",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    minWidth: "40px",
-  },
-  pageNumberBtnActive: {
-    backgroundColor: "#3b82f6",
-    color: "white",
-    borderColor: "#3b82f6",
-  },
-  pageEllipsis: {
-    padding: "8px 4px",
-    color: "#9ca3af",
-  },
-  noResults: {
-    padding: "40px",
-    textAlign: "center",
-    color: "#6b7280",
-    fontSize: "16px",
-    fontWeight: "500",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10000,
-    padding: "20px",
-  },
-  generateModal: {
-    backgroundColor: "white",
-    borderRadius: "16px",
-    width: "95%",
-    maxWidth: "800px",
-    maxHeight: "95vh",
-    overflow: "auto",
-    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "20px 30px",
-    borderBottom: "2px solid #e5e7eb",
-    position: "sticky",
-    top: 0,
-    backgroundColor: "white",
-    zIndex: 10,
-  },
-  modalTitle: {
-    fontSize: "22px",
-    fontWeight: "700",
-    color: "#111827",
-    margin: 0,
-  },
-  modalActions: {
-    display: "flex",
-    gap: "12px",
-    alignItems: "center",
-  },
-  printButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#059669",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-  },
-  downloadButton: {
-    padding: "10px 20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-  },
-  closeButton: {
-    fontSize: "28px",
-    fontWeight: "300",
-    color: "#6b7280",
-    backgroundColor: "transparent",
-    border: "none",
-    cursor: "pointer",
-    padding: "0",
-    width: "36px",
-    height: "36px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "8px",
-    transition: "all 0.2s",
-  },
-  certificateContainer: {
-    padding: "50px 40px",
-    backgroundColor: "#ffffff",
-  },
-  certificateBorder: {
-    maxWidth: "750px",
-    margin: "0 auto",
-    padding: "60px 80px",
-    backgroundColor: "#ffffff",
-  },
-  certificateHeader: {
-    marginBottom: "40px",
-  },
-  logoSection: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: "30px",
-  },
-  headerLogo: {
-    width: "180px",
-    height: "auto",
-    maxHeight: "100px",
-    objectFit: "contain",
-  },
-  logoFallback: {
-    width: "180px",
-    height: "100px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f3f4f6",
-    border: "2px solid #d1d5db",
-    borderRadius: "8px",
-  },
-  omegaFallbackText: {
-    fontSize: "32px",
-    fontWeight: "700",
-    color: "#dc2626",
-    fontStyle: "italic",
-  },
-  titleSection: {
-    textAlign: "center",
-    marginBottom: "50px",
-  },
-  certificateTitle: {
-    fontSize: "22px",
-    fontWeight: "400",
-    color: "#4b5563",
-    margin: "0 0 10px 0",
-    letterSpacing: "1px",
-  },
-  titleUnderline: {
-    width: "80px",
-    height: "2px",
-    backgroundColor: "#d1d5db",
-    margin: "0 auto",
-  },
-  certificateBody: {
-    marginBottom: "60px",
-  },
-  bodyText: {
-    fontSize: "15px",
-    lineHeight: "2",
-    color: "#1f2937",
-    marginBottom: "20px",
-    textAlign: "justify",
-    fontWeight: "400",
-  },
-  highlight: {
-    color: "#000000",
-    fontWeight: "600",
-  },
-  signatureSection: {
-    marginTop: "60px",
-  },
-  dateText: {
-    fontSize: "15px",
-    color: "#1f2937",
-    marginBottom: "10px",
-    fontWeight: "400",
-  },
-  signatureLabel: {
-    fontSize: "15px",
-    color: "#1f2937",
-    margin: "8px 0",
-    fontWeight: "400",
-  },
-  bottomActions: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "20px",
-    marginTop: "40px",
-    paddingTop: "30px",
-    borderTop: "2px solid #e5e7eb",
-  },
-  bottomPrintButton: {
-    padding: "14px 32px",
-    fontSize: "15px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#059669",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-    transition: "all 0.3s",
-    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  bottomDownloadButton: {
-    padding: "14px 32px",
-    fontSize: "15px",
-    fontWeight: "600",
-    color: "white",
-    backgroundColor: "#3b82f6",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-    transition: "all 0.3s",
-    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
+  container: { padding: "24px", backgroundColor: "#f9fafb", minHeight: "100vh" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" },
+  headerActions: { display: "flex", alignItems: "center", gap: "12px" },
+  searchContainer: { position: "relative", display: "flex", alignItems: "center" },
+  searchInput: { padding: "12px 40px 12px 16px", fontSize: "14px", border: "2px solid #e5e7eb", borderRadius: "8px", outline: "none", width: "320px", transition: "all 0.3s", fontWeight: "500", color: "#374151" },
+  searchIcon: { position: "absolute", right: "14px", fontSize: "18px", pointerEvents: "none", color: "#9ca3af" },
+  searchIndicator: { color: "#6b7280", fontStyle: "italic", fontSize: "13px" },
+  title: { fontSize: "28px", fontWeight: "700", color: "#111827", margin: 0 },
+  addButton: { padding: "12px 24px", fontSize: "14px", fontWeight: "600", color: "white", backgroundColor: "#3b82f6", border: "none", borderRadius: "8px", cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
+  tableContainer: { backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" },
+  table: { width: "100%", borderCollapse: "collapse" },
+  tableHeaderRow: { backgroundColor: "#f3f4f6" },
+  tableHeader: { padding: "12px 16px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", borderBottom: "2px solid #e5e7eb" },
+  tableRow: { borderBottom: "1px solid #e5e7eb", transition: "background-color 0.2s" },
+  tableCell: { padding: "12px 16px", fontSize: "14px", color: "#374151" },
+  actionButtons: { display: "flex", gap: "6px" },
+  generateBtn: { padding: "6px 12px", fontSize: "13px", fontWeight: "500", color: "#7c3aed", backgroundColor: "#ede9fe", border: "1px solid #ddd6fe", borderRadius: "6px", cursor: "pointer", transition: "all 0.2s" },
+  editBtn: { padding: "6px 12px", fontSize: "13px", fontWeight: "500", color: "#3b82f6", backgroundColor: "#dbeafe", border: "1px solid #bfdbfe", borderRadius: "6px", cursor: "pointer", transition: "all 0.2s" },
+  deleteBtn: { padding: "6px 12px", fontSize: "13px", fontWeight: "500", color: "#dc2626", backgroundColor: "#fee2e2", border: "1px solid #fecaca", borderRadius: "6px", cursor: "pointer", transition: "all 0.2s" },
+  paginationContainer: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px", padding: "16px 24px", backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
+  paginationInfo: { fontSize: "14px", color: "#6b7280" },
+  paginationButtons: { display: "flex", alignItems: "center", gap: "8px" },
+  paginationBtn: { padding: "8px 16px", fontSize: "14px", fontWeight: "500", color: "#374151", backgroundColor: "white", border: "1px solid #d1d5db", borderRadius: "8px", cursor: "pointer", transition: "all 0.2s" },
+  paginationBtnDisabled: { opacity: 0.5, cursor: "not-allowed" },
+  pageNumbers: { display: "flex", alignItems: "center", gap: "4px" },
+  pageNumberBtn: { padding: "8px 12px", fontSize: "14px", fontWeight: "500", color: "#374151", backgroundColor: "white", border: "1px solid #d1d5db", borderRadius: "6px", cursor: "pointer", transition: "all 0.2s", minWidth: "40px" },
+  pageNumberBtnActive: { backgroundColor: "#3b82f6", color: "white", borderColor: "#3b82f6" },
+  pageEllipsis: { padding: "8px 4px", color: "#9ca3af" },
+  noResults: { padding: "40px", textAlign: "center", color: "#6b7280", fontSize: "16px", fontWeight: "500" },
+  modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 10000, padding: "20px" },
+  generateModal: { backgroundColor: "white", borderRadius: "16px", width: "95%", maxWidth: "210mm", maxHeight: "95vh", overflow: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" },
+  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 30px", borderBottom: "2px solid #e5e7eb", position: "sticky", top: 0, backgroundColor: "white", zIndex: 10 },
+  modalTitle: { fontSize: "22px", fontWeight: "700", color: "#111827", margin: 0 },
+  closeButton: { fontSize: "28px", fontWeight: "300", color: "#6b7280", backgroundColor: "transparent", border: "none", cursor: "pointer", padding: "0", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px", transition: "all 0.2s" },
+  certificateContainer: { padding: "30px", backgroundColor: "#ffffff" },
+  certificatePage: { width: "210mm", minHeight: "297mm", margin: "0 auto", padding: "15mm 20mm", backgroundColor: "#ffffff", boxShadow: "0 0 10px rgba(0,0,0,0.1)", position: "relative", fontFamily: "Arial, sans-serif" },
+  certificateHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px", borderBottom: "1px solid #ddd", paddingBottom: "10px" },
+  headerLeft: { flex: "0 0 auto" },
+  headerLogo: { width: "80px", height: "auto", objectFit: "contain" },
+  headerRight: { flex: 1, textAlign: "right", paddingLeft: "20px" },
+  companyName: { fontSize: "18px", fontWeight: "bold", color: "#000", margin: "0 0 8px 0", letterSpacing: "1px" },
+  companyAddress: { fontSize: "10px", color: "#333", lineHeight: "1.4", margin: "0 0 6px 0" },
+  contactInfo: { fontSize: "10px", color: "#333", marginBottom: "4px" },
+  gstInfo: { fontSize: "9px", color: "#333", margin: 0 },
+  blueLine: { height: "3px", backgroundColor: "#00bcd4", marginBottom: "25px" },
+  refDateSection: { display: "flex", justifyContent: "space-between", marginBottom: "30px", fontSize: "11px", color: "#000", fontWeight: "500" },
+  toWhomSection: { marginBottom: "40px" },
+  toWhomText: { fontSize: "12px", fontWeight: "600", color: "#000", margin: 0, letterSpacing: "0.5px" },
+  watermark: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", opacity: 0.05, pointerEvents: "none", zIndex: 0 },
+  watermarkImage: { width: "400px", height: "auto" },
+  mainContent: { position: "relative", zIndex: 1, marginBottom: "60px", minHeight: "200px" },
+  employeeName: { fontSize: "12px", fontWeight: "600", color: "#000", marginBottom: "20px" },
+  bodyText: { fontSize: "11px", lineHeight: "1.8", color: "#000", textAlign: "justify", marginBottom: "15px" },
+  signatureSection: { marginTop: "80px", position: "relative", zIndex: 1 },
+  forCompany: { fontSize: "11px", fontWeight: "600", color: "#000", marginBottom: "10px" },
+  authorizedSign: { fontSize: "11px", fontWeight: "500", color: "#000" },
+  footer: { position: "absolute", bottom: "15mm", left: "20mm", right: "20mm" },
+  blueFooterLine: { height: "3px", backgroundColor: "#00bcd4", marginBottom: "8px" },
+  footerText: { fontSize: "10px", color: "#000", textAlign: "center", margin: 0 },
+  bottomActions: { display: "flex", justifyContent: "center", alignItems: "center", gap: "20px", marginTop: "30px", paddingTop: "20px", borderTop: "2px solid #e5e7eb" },
+  bottomPrintButton: { padding: "14px 32px", fontSize: "15px", fontWeight: "600", color: "white", backgroundColor: "#059669", border: "none", borderRadius: "10px", cursor: "pointer", transition: "all 0.3s", boxShadow: "0 4px 6px rgba(0,0,0,0.1)", display: "flex", alignItems: "center", gap: "8px" },
 };

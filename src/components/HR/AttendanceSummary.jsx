@@ -143,7 +143,9 @@ export default function AttendanceSummary() {
       else if (status === "VERIFIED_HALF") s.verifiedHalf++;
       else if (status === "HALF_DAY") s.half++;
       else if (status === "LEAVE") s.leave++;
-      else if (status === "NOT_MARKED") s.notMarked++;
+else if (status === "NOT_MARKED") {
+  // do nothing here
+}
 
       s.rows.push({
         date: date.toLocaleDateString("en-IN", {

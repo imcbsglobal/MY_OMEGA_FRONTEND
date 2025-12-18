@@ -3,10 +3,12 @@ import {
   ChevronRight, Menu, X, LogOut, LayoutDashboard, Users, Megaphone, 
   Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
   FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
-  ClipboardList, UserPlus, Shield, Building2, PanelLeftClose, PanelLeft
+  ClipboardList, UserPlus, Shield, Building2, PanelLeftClose, PanelLeft,
+  ChevronDown
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/client";
+
 
 export default function Navbar({ onCollapseChange }) {
   const navigate = useNavigate();
@@ -21,6 +23,7 @@ export default function Navbar({ onCollapseChange }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [activeNestedSubmenu, setActiveNestedSubmenu] = useState(null);
+  const [expandedMobileMenus, setExpandedMobileMenus] = useState([]);
   const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 280 });
   const [nestedSubmenuPosition, setNestedSubmenuPosition] = useState({ top: 0, left: 540 });
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -179,6 +182,7 @@ export default function Navbar({ onCollapseChange }) {
     }
     setActiveSubmenu(null);
     setActiveNestedSubmenu(null);
+    setExpandedMobileMenus([]);
   };
 
   const adminNavItems = [
@@ -205,6 +209,8 @@ export default function Navbar({ onCollapseChange }) {
             { name: "Employee Management", path: "/employee-management", icon: Users },
             { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
             { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
+            { name: "Salary Certificate", path: "/hr/salary-certificate", icon: DollarSign },
+            { name: "Experience Certificate", path: "/hr/experience-certificate", icon: Award },
           ]
         },
         {
@@ -254,12 +260,17 @@ export default function Navbar({ onCollapseChange }) {
   const handleMenuClick = (item, event, itemKey) => {
     if (item.children && item.children.length > 0) {
       event.preventDefault();
-      const rect = event.currentTarget.getBoundingClientRect();
-      const sidebarWidth = isCollapsed ? 70 : 280;
-      setSubmenuPosition({
-        top: rect.top,
-        left: isMobile ? 280 : sidebarWidth
-      });
+      
+      if (!isMobile) {
+        // Desktop behavior - horizontal submenu
+        const rect = event.currentTarget.getBoundingClientRect();
+        const sidebarWidth = isCollapsed ? 70 : 280;
+        setSubmenuPosition({
+          top: rect.top,
+          left: sidebarWidth
+        });
+      }
+      
       setActiveSubmenu(activeSubmenu === itemKey ? null : itemKey);
       setActiveNestedSubmenu(null);
     } else {
@@ -272,16 +283,95 @@ export default function Navbar({ onCollapseChange }) {
   const handleNestedMenuClick = (item, event, itemKey) => {
     if (item.children && item.children.length > 0) {
       event.preventDefault();
-      const rect = event.currentTarget.getBoundingClientRect();
-      setNestedSubmenuPosition({
-        top: rect.top,
-        left: submenuPosition.left + 260
-      });
+      
+      if (!isMobile) {
+        // Desktop behavior - horizontal nested submenu
+        const rect = event.currentTarget.getBoundingClientRect();
+        setNestedSubmenuPosition({
+          top: rect.top,
+          left: submenuPosition.left + 260
+        });
+      }
+      
       setActiveNestedSubmenu(activeNestedSubmenu === itemKey ? null : itemKey);
     } else {
       setActiveNestedSubmenu(null);
       closeMobileMenu();
     }
+  };
+
+  const renderMobileSubmenu = (items, parentKey = "", level = 1) => {
+    return items.map((item, index) => {
+      const itemKey = `${parentKey}-sub-${item.name}-${index}`;
+      const hasChildren = item.children && item.children.length > 0;
+      const isActive = location.pathname === item.path;
+      const IconComponent = item.icon;
+      
+      // Check if this specific item is expanded
+      const isExpanded = expandedMobileMenus.includes(itemKey);
+
+      if (hasChildren) {
+        return (
+          <div key={itemKey}>
+            <div
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Toggle the nested submenu in the array
+                setExpandedMobileMenus(prev => 
+                  prev.includes(itemKey) 
+                    ? prev.filter(key => key !== itemKey)
+                    : [...prev, itemKey]
+                );
+              }}
+              style={{
+                ...styles.mobileSubmenuItem,
+                backgroundColor: isExpanded ? "#fee2e2" : "transparent",
+                color: isExpanded ? "#dc2626" : "#475569",
+                paddingLeft: `${16 + (level * 12)}px`,
+              }}
+            >
+              {IconComponent && <IconComponent size={16} style={{ marginRight: "10px", color: isExpanded ? "#dc2626" : "#64748b" }} />}
+              <span style={{ flex: 1, fontSize: "13px", fontWeight: "500" }}>
+                {item.name}
+              </span>
+              <ChevronDown 
+                size={14} 
+                style={{ 
+                  color: "#94a3b8",
+                  transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s"
+                }} 
+              />
+            </div>
+            {isExpanded && (
+              <div style={{ backgroundColor: level === 1 ? "#f1f5f9" : "#e2e8f0" }}>
+                {renderMobileSubmenu(item.children, itemKey, level + 1)}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <NavLink
+          key={itemKey}
+          to={item.path}
+          style={({ isActive }) => ({
+            ...styles.mobileSubmenuItem,
+            textDecoration: "none",
+            display: "flex",
+            backgroundColor: isActive ? "#fee2e2" : "transparent",
+            color: isActive ? "#dc2626" : "#475569",
+            paddingLeft: `${16 + (level * 12)}px`,
+          })}
+          onClick={closeMobileMenu}
+        >
+          {IconComponent && <IconComponent size={16} style={{ marginRight: "10px", color: isActive ? "#dc2626" : "#64748b" }} />}
+          <span style={{ fontSize: "13px", fontWeight: "500" }}>{item.name}</span>
+        </NavLink>
+      );
+    });
   };
 
   const renderMainMenuItems = (items) => {
@@ -294,37 +384,54 @@ export default function Navbar({ onCollapseChange }) {
 
       if (hasChildren) {
         return (
-          <div
-            key={itemKey}
-            onClick={(e) => handleMenuClick(item, e, itemKey)}
-            title={isCollapsed ? item.name : ""}
-            style={{
-              ...styles.menuItem,
-              cursor: "pointer",
-              backgroundColor: isSubmenuActive ? "#fee2e2" : "transparent",
-              color: isSubmenuActive ? "#dc2626" : "#475569",
-              borderLeft: isSubmenuActive ? "3px solid #dc2626" : "3px solid transparent",
-              justifyContent: isCollapsed ? "center" : "flex-start",
-            }}
-            onMouseEnter={(e) => {
-              if (!isSubmenuActive) {
-                e.currentTarget.style.backgroundColor = "#f8fafc";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isSubmenuActive) {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }
-            }}
-          >
-            {IconComponent && <IconComponent size={18} style={{ marginRight: isCollapsed ? "0" : "12px", color: isSubmenuActive ? "#dc2626" : "#64748b" }} />}
-            {!isCollapsed && (
-              <>
-                <span style={{ flex: 1, fontSize: "14px", fontWeight: "500" }}>
-                  {item.name}
-                </span>
-                <ChevronRight size={16} style={{ color: "#94a3b8" }} />
-              </>
+          <div key={itemKey}>
+            <div
+              onClick={(e) => handleMenuClick(item, e, itemKey)}
+              title={isCollapsed ? item.name : ""}
+              style={{
+                ...styles.menuItem,
+                cursor: "pointer",
+                backgroundColor: isSubmenuActive ? "#fee2e2" : "transparent",
+                color: isSubmenuActive ? "#dc2626" : "#475569",
+                borderLeft: isSubmenuActive ? "3px solid #dc2626" : "3px solid transparent",
+                justifyContent: isCollapsed ? "center" : "flex-start",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSubmenuActive) {
+                  e.currentTarget.style.backgroundColor = "#f8fafc";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSubmenuActive) {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }
+              }}
+            >
+              {IconComponent && <IconComponent size={18} style={{ marginRight: isCollapsed ? "0" : "12px", color: isSubmenuActive ? "#dc2626" : "#64748b" }} />}
+              {!isCollapsed && (
+                <>
+                  <span style={{ flex: 1, fontSize: "14px", fontWeight: "500" }}>
+                    {item.name}
+                  </span>
+                  {isMobile ? (
+                    <ChevronDown 
+                      size={16} 
+                      style={{ 
+                        color: "#94a3b8",
+                        transform: isSubmenuActive ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s"
+                      }} 
+                    />
+                  ) : (
+                    <ChevronRight size={16} style={{ color: "#94a3b8" }} />
+                  )}
+                </>
+              )}
+            </div>
+            {isMobile && isSubmenuActive && item.children && (
+              <div style={{ backgroundColor: "#f8fafc" }}>
+                {renderMobileSubmenu(item.children, itemKey)}
+              </div>
             )}
           </div>
         );
@@ -601,6 +708,14 @@ export default function Navbar({ onCollapseChange }) {
       transition: "all 0.2s ease",
       color: "#475569",
     },
+    mobileSubmenuItem: {
+      display: "flex",
+      alignItems: "center",
+      padding: "10px 16px",
+      transition: "all 0.2s ease",
+      color: "#475569",
+      cursor: "pointer",
+    },
     userSection: {
       padding: "16px",
       borderTop: "1px solid #f1f5f9",
@@ -652,7 +767,7 @@ export default function Navbar({ onCollapseChange }) {
       bottom: 0,
       backgroundColor: "rgba(0,0,0,0.5)",
       zIndex: 999,
-      display: (isMobile && mobileMenuOpen) || activeSubmenu || activeNestedSubmenu ? "block" : "none",
+      display: (isMobile && mobileMenuOpen) || (!isMobile && (activeSubmenu || activeNestedSubmenu)) ? "block" : "none",
     },
   };
 
@@ -691,13 +806,6 @@ export default function Navbar({ onCollapseChange }) {
 
   return (
     <>
-      <div 
-        style={styles.mobileToggle}
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-      >
-        {mobileMenuOpen ? <X size={24} color="#1e293b" /> : <Menu size={24} color="#1e293b" />}
-      </div>
-
       <div 
         style={styles.overlay}
         onClick={() => {
@@ -836,13 +944,13 @@ export default function Navbar({ onCollapseChange }) {
         </div>
       </aside>
 
-      {activeSubmenu && getActiveSubmenuContent() && (
+      {!isMobile && activeSubmenu && getActiveSubmenuContent() && (
         <div style={styles.submenuPanel} ref={submenuRef}>
           {renderSubmenuItems(getActiveSubmenuContent(), activeSubmenu)}
         </div>
       )}
 
-      {activeNestedSubmenu && getActiveNestedSubmenuContent() && (
+      {!isMobile && activeNestedSubmenu && getActiveNestedSubmenuContent() && (
         <div style={styles.nestedSubmenuPanel} ref={nestedSubmenuRef}>
           {renderNestedSubmenuItems(getActiveNestedSubmenuContent())}
         </div>

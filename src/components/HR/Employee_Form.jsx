@@ -1,4 +1,4 @@
-// Employee_Form.jsx
+// Employee_Form.jsx - FIXED EDIT MODE LOADING
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/client";
@@ -100,11 +100,35 @@ export default function EmployeeForm() {
     try {
       const res = await api.get(`/employee-management/employees/${id}/`);
       const data = res.data || {};
+      
+      console.log("=== LOADING EMPLOYEE FOR EDIT ===", JSON.stringify(data, null, 2));
 
       setFormData(prev => ({
         ...prev,
+        // User Info
         user: data.job_info?.user || data.user || "",
         employee_id: data.employee_id || "",
+        
+        // Personal Information - FIXED to check both direct and nested
+        full_name: data.full_name || data.personal_info?.full_name || "",
+        date_of_birth: data.date_of_birth || data.personal_info?.date_of_birth || "",
+        blood_group: data.blood_group || data.personal_info?.blood_group || "",
+        marital_status: data.marital_status || data.personal_info?.marital_status || "",
+        
+        // Contact Information - FIXED to check both direct and nested
+        personal_phone: data.personal_phone || data.contact_info?.personal_phone || "",
+        residential_phone: data.residential_phone || data.contact_info?.residential_phone || "",
+        phone_number: data.phone_number || data.contact_info?.phone_number || "",
+        address: data.address || data.contact_info?.address || "",
+        place: data.place || data.contact_info?.place || "",
+        district: data.district || data.contact_info?.district || "",
+        
+        // Emergency Contact - FIXED
+        emergency_contact_name: data.emergency_contact_name || data.contact_info?.emergency_contact_name || "",
+        emergency_contact_phone: data.emergency_contact_phone || data.contact_info?.emergency_contact_phone || "",
+        emergency_contact_relation: data.emergency_contact_relation || data.contact_info?.emergency_contact_relation || "",
+        
+        // Job Information
         employment_status: data.job_info?.employment_status || data.employment_status || "Permanent",
         employment_type: data.job_info?.employment_type || data.employment_type || "Full-time",
         department: data.job_info?.department || data.department || "",
@@ -116,34 +140,34 @@ export default function EmployeeForm() {
         date_of_leaving: data.job_info?.date_of_leaving || data.date_of_leaving || "",
         probation_end_date: data.job_info?.probation_end_date || data.probation_end_date || "",
         confirmation_date: data.job_info?.confirmation_date || data.confirmation_date || "",
+        organization: data.organization || "",
+        
+        // Salary Information
         basic_salary: data.job_info?.basic_salary || data.basic_salary || "",
         allowances: data.job_info?.allowances || data.allowances || "",
         gross_salary: data.job_info?.gross_salary || data.gross_salary || "",
-        pf_number: data.pf_number || "",
-        esi_number: data.esi_number || "",
-        pan_number: data.pan_number || "",
-        aadhar_number: data.aadhar_number || "",
-        account_holder_name: data.bank_info?.account_holder_name || "",
-        salary_account_number: data.bank_info?.salary_account_number || "",
-        salary_bank_name: data.bank_info?.salary_bank_name || "",
-        salary_ifsc_code: data.bank_info?.salary_ifsc_code || "",
-        salary_branch: data.bank_info?.salary_branch || "",
-        emergency_contact_name: data.contact_info?.emergency_contact_name || "",
-        emergency_contact_phone: data.contact_info?.emergency_contact_phone || "",
-        emergency_contact_relation: data.contact_info?.emergency_contact_relation || "",
-        blood_group: data.blood_group || "",
-        marital_status: data.marital_status || "",
-        notes: data.notes || "",
+        
+        // Bank Details - FIXED
+        account_holder_name: data.account_holder_name || data.bank_info?.account_holder_name || "",
+        salary_account_number: data.salary_account_number || data.bank_info?.salary_account_number || "",
+        salary_bank_name: data.salary_bank_name || data.bank_info?.salary_bank_name || "",
+        salary_ifsc_code: data.salary_ifsc_code || data.bank_info?.salary_ifsc_code || "",
+        salary_branch: data.salary_branch || data.bank_info?.salary_branch || "",
+        
+        // Government IDs - FIXED
+        pf_number: data.pf_number || data.bank_info?.pf_number || "",
+        esi_number: data.esi_number || data.bank_info?.esi_number || "",
+        pan_number: data.pan_number || data.bank_info?.pan_number || "",
+        aadhar_number: data.aadhar_number || data.bank_info?.aadhar_number || "",
+        
+        // Notes
+        notes: data.notes || data.personal_info?.notes || "",
+        
+        // Status
         is_active: data.is_active !== undefined ? data.is_active : true,
-        full_name: data.full_name || "",
-        date_of_birth: data.date_of_birth || "",
-        personal_phone: data.personal_phone || "",
-        residential_phone: data.residential_phone || "",
-        address: data.address || "",
-        place: data.place || "",
-        district: data.district || "",
-        organization: data.organization || "",
-        avatar_preview: data.avatar || null
+        
+        // Avatar
+        avatar_preview: data.avatar_url || data.avatar || null
       }));
     } catch (err) {
       console.error("loadEmployee:", err);
@@ -170,7 +194,6 @@ export default function EmployeeForm() {
     
     // Handle job title selection - auto-fill department
     if (name === 'designation' && value) {
-      // Find the selected job title from the jobTitles list
       const selectedJobTitle = jobTitles.find(job => 
         (job.title === value) || 
         (job.name === value) || 
@@ -181,7 +204,6 @@ export default function EmployeeForm() {
         console.log("Selected job title:", selectedJobTitle);
         console.log("Department detail:", selectedJobTitle.department_detail);
         
-        // Auto-fill department from job title data
         const departmentName = selectedJobTitle.department_detail?.name || "";
         
         setFormData(prev => ({ 
@@ -260,6 +282,7 @@ export default function EmployeeForm() {
       date_of_birth: formData.date_of_birth,
       personal_phone: formData.personal_phone,
       residential_phone: formData.residential_phone,
+      address: formData.address,
       place: formData.place,
       district: formData.district,
       designation: formData.designation,
@@ -289,7 +312,8 @@ export default function EmployeeForm() {
       aadhar_number: formData.aadhar_number,
       notes: formData.notes,
       is_active: formData.is_active,
-      organization: formData.organization || ""
+      organization: formData.organization || "",
+      phone_number: formData.phone_number || formData.personal_phone
     };
 
     Object.keys(fieldsToSubmit).forEach((key) => {
@@ -437,26 +461,25 @@ export default function EmployeeForm() {
                 <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
                   Upload Photo <span style={{ color: "#dc2626" }}>*</span>
                 </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    required={!isEdit}   // 🔥 mandatory only when ADD
-                    style={{
-                      padding: "10px 0",
-                      fontSize: 14,
-                    }}
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          avatar: file,
-                          avatar_preview: URL.createObjectURL(file),
-                        }));
-                      }
-                    }}
-                  />
-
+                <input
+                  type="file"
+                  accept="image/*"
+                  required={!isEdit}
+                  style={{
+                    padding: "10px 0",
+                    fontSize: 14,
+                  }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        avatar: file,
+                        avatar_preview: URL.createObjectURL(file),
+                      }));
+                    }
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -558,6 +581,18 @@ export default function EmployeeForm() {
                   value={formData.residential_phone}
                   onChange={handleChange}
                   style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Address</label>
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  style={styles.textarea}
+                  rows="3"
+                  placeholder="Full residential address"
                 />
               </div>
 
@@ -719,6 +754,18 @@ export default function EmployeeForm() {
               </div>
 
               <div style={styles.formGroup}>
+                <label style={styles.label}>Organization</label>
+                <input
+                  type="text"
+                  name="organization"
+                  value={formData.organization}
+                  onChange={handleChange}
+                  style={styles.input}
+                  placeholder="Organization name"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
                 <label style={styles.label}>Location</label>
                 <input
                   type="text"
@@ -799,196 +846,182 @@ export default function EmployeeForm() {
                   step="0.01"
                 />
               </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Allowances</label>
-                <input
-                  type="number"
-                  name="allowances"
-                  value={formData.allowances}
-                  onChange={handleChange}
-                  style={styles.input}
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Gross Salary</label>
-                <input
-                  type="number"
-                  name="gross_salary"
-                  value={formData.gross_salary}
-                  onChange={handleChange}
-                  style={styles.input}
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-            </div>
+<div style={styles.formGroup}>
+            <label style={styles.label}>Gross Salary</label>
+            <input
+              type="number"
+              name="gross_salary"
+              value={formData.gross_salary}
+              onChange={handleChange}
+              style={styles.input}
+              min="0"
+              step="0.01"
+            />
           </div>
-
-          {/* Bank Information */}
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Bank Details</h3>
-            <div style={styles.grid}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Account Holder Name</label>
-                <input
-                  type="text"
-                  name="account_holder_name"
-                  value={formData.account_holder_name}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Salary Account Number</label>
-                <input
-                  type="text"
-                  name="salary_account_number"
-                  value={formData.salary_account_number}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Bank Name</label>
-                <input
-                  type="text"
-                  name="salary_bank_name"
-                  value={formData.salary_bank_name}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>IFSC Code</label>
-                <input
-                  type="text"
-                  name="salary_ifsc_code"
-                  value={formData.salary_ifsc_code}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Branch</label>
-                <input
-                  type="text"
-                  name="salary_branch"
-                  value={formData.salary_branch}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Government IDs */}
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Government IDs</h3>
-            <div style={styles.grid}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>PF Number</label>
-                <input
-                  type="text"
-                  name="pf_number"
-                  value={formData.pf_number}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>ESI Number</label>
-                <input
-                  type="text"
-                  name="esi_number"
-                  value={formData.esi_number}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>PAN Number</label>
-                <input
-                  type="text"
-                  name="pan_number"
-                  value={formData.pan_number}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Aadhar Number</label>
-                <input
-                  type="text"
-                  name="aadhar_number"
-                  value={formData.aadhar_number}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Additional Information */}
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Additional Information</h3>
-            <div style={styles.grid}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Notes</label>
-                <textarea
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  style={styles.textarea}
-                  rows="4"
-                  placeholder="Additional notes..."
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
-                    onChange={handleChange}
-                    style={styles.checkbox}
-                  />
-                  Active Employee
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Form Actions */}
-          <div style={styles.formActions}>
-            <button 
-              type="button" 
-              onClick={() => navigate("/employee-management")} 
-              style={styles.cancelButton}
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              style={styles.submitButton}
-            >
-              {isEdit ? "Update Employee" : "Create Employee"}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
-    </div>
+
+      {/* Bank Information */}
+      <div style={styles.section}>
+        <h3 style={styles.sectionTitle}>Bank Details</h3>
+        <div style={styles.grid}>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Account Holder Name</label>
+            <input
+              type="text"
+              name="account_holder_name"
+              value={formData.account_holder_name}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Salary Account Number</label>
+            <input
+              type="text"
+              name="salary_account_number"
+              value={formData.salary_account_number}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Bank Name</label>
+            <input
+              type="text"
+              name="salary_bank_name"
+              value={formData.salary_bank_name}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>IFSC Code</label>
+            <input
+              type="text"
+              name="salary_ifsc_code"
+              value={formData.salary_ifsc_code}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Branch</label>
+            <input
+              type="text"
+              name="salary_branch"
+              value={formData.salary_branch}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Government IDs */}
+      <div style={styles.section}>
+        <h3 style={styles.sectionTitle}>Government IDs</h3>
+        <div style={styles.grid}>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>PF Number</label>
+            <input
+              type="text"
+              name="pf_number"
+              value={formData.pf_number}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>ESI Number</label>
+            <input
+              type="text"
+              name="esi_number"
+              value={formData.esi_number}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>PAN Number</label>
+            <input
+              type="text"
+              name="pan_number"
+              value={formData.pan_number}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Aadhar Number</label>
+            <input
+              type="text"
+              name="aadhar_number"
+              value={formData.aadhar_number}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Information */}
+      <div style={styles.section}>
+        <h3 style={styles.sectionTitle}>Additional Information</h3>
+        <div style={styles.grid}>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Notes</label>
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              style={styles.textarea}
+              rows="4"
+              placeholder="Additional notes..."
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                name="is_active"
+                checked={formData.is_active}
+                onChange={handleChange}
+                style={styles.checkbox}
+              />
+              Active Employee
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Form Actions */}
+      <div style={styles.formActions}>
+        <button 
+          type="button" 
+          onClick={() => navigate("/employee-management")} 
+          style={styles.cancelButton}
+        >
+          Cancel
+        </button>
+        <button 
+          type="submit" 
+          style={styles.submitButton}
+        >
+          {isEdit ? "Update Employee" : "Create Employee"}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
   );
 }
 

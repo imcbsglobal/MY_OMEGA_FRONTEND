@@ -18,11 +18,30 @@ export default function EmployeeManagement() {
   const [statusFilter, setStatusFilter] = useState("All Jobs");
   const [organizationFilter, setOrganizationFilter] = useState("All Organizations");
 
+const [selectedEmployee, setSelectedEmployee] = useState(null);
+const [detailLoading, setDetailLoading] = useState(false);
+
   // Fetch employees and job titles
   useEffect(() => {
     loadEmployees();
     loadJobTitles();
+    
   }, [location]);
+
+  async function loadEmployeeDetail(id) {
+  setDetailLoading(true);
+  try {
+    const res = await api.get(`/employee-management/employees/${id}/`);
+    console.log("=== EMPLOYEE DETAIL ===", JSON.stringify(res.data, null, 2));
+    setSelectedEmployee(res.data);
+  } catch (err) {
+    console.error("Failed to load employee detail", err);
+    setSelectedEmployee(null);
+  } finally {
+    setDetailLoading(false);
+  }
+  
+  }
 
   async function loadEmployees() {
     setLoading(true);
@@ -44,24 +63,29 @@ export default function EmployeeManagement() {
 
       console.log("Employee Data Array:", employeeData);
       
-      // Process employees with exact backend field names
+      // Process employees with robust field fallbacks for different backend shapes
       const processedEmployees = employeeData.map((emp, index) => {
-        const id = emp.id || emp.employee_id || index;
-        
+        const id = emp.id || emp.employee_id || emp.user_id || index;
+
+        // Try multiple possible field names the backend might return
+        const email = emp.email || emp.user_email || emp.user?.email || emp.username || emp.user?.username || "";
+        const name = emp.name || emp.full_name || emp.user?.name || emp.user?.full_name || emp.username || `Employee ${index + 1}`;
+        const job_title = emp.designation || emp.job_title || emp.job_info?.designation || emp.job_info?.job_title || "";
+
         return {
           ...emp,
           id,
-          name: emp.full_name || `Employee ${index + 1}`,
-          email: emp.user_email || "",
-          job_title: emp.designation || emp.job_info?.designation || "",
-          personal_phone: emp.personal_phone || "",
+          name,
+          email,
+          job_title,
+          personal_phone: emp.personal_phone || emp.phone || emp.contact || "",
           location: emp.location || emp.job_info?.location || "",
           joining_date: emp.date_of_joining || emp.job_info?.date_of_joining || "",
           duty_time: emp.duty_time || emp.job_info?.duty_time || "",
           department: emp.department || emp.job_info?.department || "",
           employment_status: emp.employment_status || emp.job_info?.employment_status || "",
           is_active: emp.is_active !== undefined ? emp.is_active : true,
-          profile_picture: emp.avatar_url || emp.profile_picture || ""
+          profile_picture: emp.avatar_url || emp.profile_picture || emp.avatar || ""
         };
       });
 
@@ -266,7 +290,10 @@ export default function EmployeeManagement() {
               filtered.map((emp) => (
                 <div
                   key={emp.id}
-                  onClick={() => setSelectedId(emp.id)}
+                  onClick={() => {
+                    setSelectedId(emp.id);
+                    loadEmployeeDetail(emp.id);
+                  }}
                   style={
                     emp.id === selectedId
                       ? { ...S.leftItem, ...S.leftItemActive }
@@ -312,7 +339,7 @@ export default function EmployeeManagement() {
 
         {/* RIGHT DETAILS */}
         <div style={S.right}>
-          {!selectedId || employees.length === 0 ? (
+          {/* {!selectedId || employees.length === 0 ? (
             <div style={S.empty}>
               {employees.length === 0 
                 ? "No employees available" 
@@ -324,7 +351,20 @@ export default function EmployeeManagement() {
               onEdit={() => navigate(`/employee-management/edit/${selectedId}`)}
               onDelete={() => handleDelete(selectedId)}
             />
-          )}
+          )
+          } */}
+          {detailLoading ? (
+  <div style={S.empty}>Loading employee details...</div>
+) : selectedEmployee ? (
+  <EmployeeDetail
+    employee={selectedEmployee}
+    onEdit={() => navigate(`/employee-management/edit/${selectedId}`)}
+    onDelete={() => handleDelete(selectedId)}
+  />
+) : (
+  <div style={S.empty}>Select an employee</div>
+)}
+
         </div>
       </div>
     </div>
@@ -333,28 +373,31 @@ export default function EmployeeManagement() {
 
 /* Right Side Detail Card */
 function EmployeeDetail({ employee, onEdit, onDelete }) {
+  console.log("=== RENDERING EMPLOYEE DETAIL ===", employee.phone_number);
   if (!employee) {
     return <div style={S.empty}>Employee not found</div>;
   }
 
-  const firstLetter = employee.name ? employee.name.charAt(0).toUpperCase() : "?";
+  const displayName = employee.name || employee.full_name || employee.user?.name || employee.user?.full_name || employee.user?.username || employee.username || employee.profile?.name || employee.profile?.full_name || "Unknown";
+  const displayEmail = employee.email || employee.user?.email || employee.user_email || employee.contact_email || employee.work_email || employee.username || "No email";
+  const firstLetter = displayName ? displayName.charAt(0).toUpperCase() : "?";
 
   return (
     <div style={S.detailCard}>
       <div style={S.detailHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {employee.avatar_url || employee.profile_picture ? (
+          {employee.avatar_url || employee.profile_picture || employee.avatar ? (
             <img
-              src={employee.avatar_url || employee.profile_picture}
-              alt={employee.name}
+              src={employee.avatar_url || employee.profile?.picture || employee.profile_picture || employee.avatar}
+              alt={displayName}
               style={S.detailProfilePicture}
             />
           ) : (
             <div style={S.detailAvatar}>{firstLetter}</div>
           )}
           <div>
-            <div style={S.detailName}>{employee.name || "Unknown"}</div>
-            <div style={S.detailEmail}>{employee.email || "No email"}</div>
+            <div style={S.detailName}>{displayName}</div>
+            <div style={S.detailEmail}>{displayEmail}</div>
             <div style={S.detailId}>Employee ID: {employee.employee_id || "N/A"}</div>
             <div style={{
               ...S.badge,
@@ -383,8 +426,6 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
           <Info label="Duty Time" value={employee.duty_time || employee.job_info?.duty_time} />
           <Info label="Reporting Manager" value={employee.reporting_manager || employee.job_info?.reporting_manager} />
           <Info label="Date of Joining" value={employee.date_of_joining || employee.job_info?.date_of_joining} />
-          <Info label="Date of Leaving" value={employee.date_of_leaving || employee.job_info?.date_of_leaving} />
-          <Info label="Probation End Date" value={employee.probation_end_date || employee.job_info?.probation_end_date} />
           <Info label="Confirmation Date" value={employee.confirmation_date || employee.job_info?.confirmation_date} />
         </div>
       </div>
@@ -393,7 +434,6 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
         <div style={S.sectionTitle}>Salary Information</div>
         <div style={S.grid}>
           <Info label="Basic Salary" value={employee.basic_salary || employee.job_info?.basic_salary} />
-          <Info label="Allowances" value={employee.allowances || employee.job_info?.allowances} />
           <Info label="Gross Salary" value={employee.gross_salary || employee.job_info?.gross_salary} />
         </div>
       </div>
@@ -401,9 +441,9 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
       <div style={S.section}>
         <div style={S.sectionTitle}>Contact Details</div>
         <div style={S.grid}>
-          <Info label="Personal Phone" value={employee.personal_phone} />
-          <Info label="Emergency Contact Name" value={employee.contact_info?.emergency_contact_name} />
-          <Info label="Emergency Contact Phone" value={employee.contact_info?.emergency_contact_phone} />
+          <Info label="Personal Phone" value={ employee.phone_number} />
+          <Info label="Emergency Contact Name" value={employee.contact_info.emergency_contact_name} />
+          <Info label="Emergency Contact Phone" value={employee.contact_info.emergency_contact_phone} />
           <Info label="Emergency Contact Relation" value={employee.contact_info?.emergency_contact_relation} />
         </div>
       </div>
@@ -537,7 +577,7 @@ const S = {
     color: "#374151", 
     fontSize: 14,
   },
-  leftList: { maxHeight: "calc(70vh - 200px)", overflowY: "auto" },
+  leftList: { maxHeight: "calc(700px)", overflowY: "auto" },
   leftItem: { padding: 12, borderBottom: "1px solid #f1f5f9", cursor: "pointer", transition: "background 0.2s" },
   leftItemActive: { background: "#eef2ff" },
   leftRow: { display: "flex", alignItems: "center", gap: 10 },

@@ -111,17 +111,17 @@ function App() {
           <Route path="employee-management/edit/:id" element={<Employee_Form />} />
           <Route path="employee-management/view/:id" element={<Employee_View />} />
 
-          {/* Experience Certificate */}
-          <Route path="experience-certificate" element={<ExperienceCertificate />} />
-          <Route path="experience-certificate/add" element={<ExperienceCertificate_Form />} />
-          <Route path="experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
-          {/* <Route path="experience-certificate/view/:id" element={<ExperienceCertificate_View />} /> */}
+          {/* Experience Certificate - Updated with /hr/ prefix */}
+          <Route path="hr/experience-certificate" element={<ExperienceCertificate />} />
+          <Route path="hr/experience-certificate/add" element={<ExperienceCertificate_Form />} />
+          <Route path="hr/experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
+          {/* <Route path="hr/experience-certificate/view/:id" element={<ExperienceCertificate_View />} /> */}
 
-          {/* Salary Certificate */}
-          <Route path="salary-certificate" element={<SalaryCertificate />} />
-          <Route path="salary-certificate/add" element={<SalaryCertificate_Form />} />
-          <Route path="salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
-          {/* <Route path="salary-certificate/view/:id" element={<SalaryCertificate_View />} /> */}
+          {/* Salary Certificate - Updated with /hr/ prefix */}
+          <Route path="hr/salary-certificate" element={<SalaryCertificate />} />
+          <Route path="hr/salary-certificate/add" element={<SalaryCertificate_Form />} />
+          <Route path="hr/salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
+          {/* <Route path="hr/salary-certificate/view/:id" element={<SalaryCertificate_View />} /> */}
 
           {/* Attendance */}
          <Route path="attendance-management" element={<AttendanceManagement />} />
