@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
 
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 // Import your API client - adjust the path as needed
 import api from "../../api/client";
 
 export default function ExperienceCertificate() {
+  const navigate = useNavigate();
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -26,14 +28,14 @@ export default function ExperienceCertificate() {
     setLoading(false);
   };
 
+  // FIXED NAVIGATION: Changed from "/hr/experience-certificate/add" to "/experience-certificate/add"
   const handleAddNewClick = () => {
-    // Navigate to add form
-    alert('Navigate to /experience-certificate/add');
+    navigate("/experience-certificate/add");
   };
 
+  // FIXED NAVIGATION: Changed from "/hr/experience-certificate/edit/${id}" to "/experience-certificate/edit/${id}"
   const handleEditClick = (id) => {
-    // Navigate to edit form
-    alert(`Navigate to /experience-certificate/edit/${id}`);
+    navigate(`/experience-certificate/edit/${id}`);
   };
 
   const handleGenerateClick = (certificate) => {
@@ -277,7 +279,7 @@ export default function ExperienceCertificate() {
 
                 {/* To Whom */}
                 <div style={styles.toWhomSection}>
-                  <p style={styles.toWhomText}>TO WHOMOSVER IT MAY CONCERN.</p>
+                  <p style={styles.toWhomText}>TO WHOMSOEVER IT MAY CONCERN.</p>
                 </div>
 
                 {/* Watermark */}
@@ -297,11 +299,11 @@ export default function ExperienceCertificate() {
                   </p>
                   
                   <p style={styles.bodyText}>
-                    This is certify that Mr. /so Mr. A. JOHN, /so Mr. A. JOHN, was Basil Enterprises as the {selectedCertificate.emp_designation || "Business Development Manager"} as the dalyess employed with from {formatDate(selectedCertificate.joining_date)} to {selectedCertificate.emp_designation || "Manager"} from {formatDate(selectedCertificate.joining_date)}, to {formatDate(selectedCertificate.end_date)}.
+                    This is to certify that Mr. {selectedCertificate.emp_name || "EMPLOYEE NAME"} was employed with Basil Enterprises as {selectedCertificate.emp_designation || "Business Development Manager"} from {formatDate(selectedCertificate.joining_date)} to {formatDate(selectedCertificate.end_date)}.
                   </p>
 
                   <p style={styles.bodyText}>
-                    During his teniure provides 12 Paidra dedication of proficiency. We wish the future endadours.
+                    During his tenure with us, he demonstrated professionalism and dedication. We wish him success in his future endeavors.
                   </p>
                 </div>
 
@@ -309,14 +311,14 @@ export default function ExperienceCertificate() {
                 <div style={styles.signatureSection}>
                   <p style={styles.forCompany}>For BASIL ENTERPRISES</p>
                   <div style={{height: '50px'}}></div>
-                  <p style={styles.authorizedSign}>Authorized Signistary</p>
+                  <p style={styles.authorizedSign}>Authorized Signatory</p>
                 </div>
 
                 {/* Footer */}
                 <div style={styles.footer}>
                   <div style={styles.blueFooterLine}></div>
                   <p style={styles.footerText}>
-                    www.myomega.in ~ email: hr@myomeja
+                    www.myomega.in ~ email: hr@myomega.in
                   </p>
                 </div>
               </div>

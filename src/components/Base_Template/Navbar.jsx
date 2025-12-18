@@ -209,6 +209,8 @@ export default function Navbar({ onCollapseChange }) {
             { name: "Employee Management", path: "/employee-management", icon: Users },
             { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
             { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
+            { name: "Salary Certificate", path: "/hr/salary-certificate", icon: DollarSign },
+            { name: "Experience Certificate", path: "/hr/experience-certificate", icon: Award },
           ]
         },
         {
@@ -804,13 +806,6 @@ export default function Navbar({ onCollapseChange }) {
 
   return (
     <>
-      <div 
-        style={styles.mobileToggle}
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-      >
-        {mobileMenuOpen ? <X size={24} color="#1e293b" /> : <Menu size={24} color="#1e293b" />}
-      </div>
-
       <div 
         style={styles.overlay}
         onClick={() => {

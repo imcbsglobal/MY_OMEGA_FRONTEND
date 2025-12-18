@@ -50,7 +50,7 @@ export default function SalaryCertificateForm() {
     } catch (error) {
       console.error("Error loading certificate:", error);
       alert("Certificate not found");
-      navigate("/salary-certificate");
+      navigate("/hr/salary-certificate");
     }
   };
 
@@ -81,11 +81,15 @@ export default function SalaryCertificateForm() {
         await api.post("/certificate/salary-certificates/", payload);
         alert("Salary Certificate created!");
       }
-      navigate("/salary-certificate");
+      navigate("/hr/salary-certificate");
     } catch (err) {
       console.error("Error saving:", err);
       alert("Failed to save salary certificate.");
     }
+  };
+
+  const handleCancel = () => {
+    navigate("/hr/salary-certificate");
   };
 
   return (
@@ -95,41 +99,47 @@ export default function SalaryCertificateForm() {
           {isEditMode ? "Update Salary Certificate" : "Add Salary Certificate"}
         </h2>
 
-        {/* Employee Dropdown */}
-        <label style={styles.label}>Employee Name:</label>
-        <select
-          name="employee"
-          value={form.employee}
-          onChange={handleChange}
-          style={styles.input}
-        >
-          <option value="">Select Employee</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.name} ({emp.job_title})
-            </option>
-          ))}
-        </select>
+        <form onSubmit={handleSubmit}>
+          {/* Employee Dropdown */}
+          <label style={styles.label}>Employee Name:</label>
+          <select
+            name="employee"
+            value={form.employee}
+            onChange={handleChange}
+            style={styles.input}
+            required
+          >
+            <option value="">Select Employee</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name} ({emp.job_title})
+              </option>
+            ))}
+          </select>
 
-        {/* Salary Input */}
-        <label style={styles.label}>Salary:</label>
-        <input
-          name="salary"
-          type="number"
-          placeholder="Enter salary"
-          value={form.salary}
-          onChange={handleChange}
-          style={styles.input}
-        />
+          {/* Salary Input */}
+          <label style={styles.label}>Salary:</label>
+          <input
+            name="salary"
+            type="number"
+            placeholder="Enter salary"
+            value={form.salary}
+            onChange={handleChange}
+            style={styles.input}
+            required
+          />
 
-        {/* Buttons */}
-        <button style={styles.saveBtn} onClick={handleSubmit}>
-          {isEditMode ? "Update" : "Save"}
-        </button>
+          {/* Buttons */}
+          <div style={styles.buttonGroup}>
+            <button type="submit" style={styles.saveBtn}>
+              {isEditMode ? "Update" : "Save"}
+            </button>
 
-        <button style={styles.backBtn} onClick={() => navigate("/salary-certificate")}>
-          Back
-        </button>
+            <button type="button" onClick={handleCancel} style={styles.backBtn}>
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -144,58 +154,67 @@ const styles = {
     justifyContent: "center",
     alignItems: "flex-start",
     paddingTop: "40px",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#f9fafb",
   },
   card: {
-    width: "400px",
+    width: "500px",
     backgroundColor: "#ffffff",
-    padding: "30px",
+    padding: "32px",
     borderRadius: "12px",
     boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
   },
   heading: {
     textAlign: "center",
     fontSize: "22px",
-    fontWeight: "700",
-    marginBottom: "20px",
-    color: "#333",
+    fontWeight: "600",
+    marginBottom: "24px",
+    color: "#111827",
   },
   label: {
+    display: "block",
     fontSize: "14px",
-    fontWeight: "600",
-    marginTop: "12px",
-    marginBottom: "6px",
-    color: "#333",
+    fontWeight: "500",
+    marginTop: "16px",
+    marginBottom: "8px",
+    color: "#374151",
   },
   input: {
     width: "100%",
-    padding: "10px",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-    marginBottom: "15px",
+    padding: "12px 14px",
+    borderRadius: "8px",
+    border: "1px solid #d1d5db",
     fontSize: "14px",
+    outline: "none",
+    transition: "border-color 0.2s",
+    boxSizing: "border-box",
+  },
+  buttonGroup: {
+    display: "flex",
+    gap: "12px",
+    marginTop: "24px",
   },
   saveBtn: {
-    width: "100%",
-    padding: "12px",
-    backgroundColor: "#0d7641",
+    flex: 1,
+    padding: "14px",
+    backgroundColor: "#3b82f6",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
-    marginBottom: "10px",
+    transition: "background-color 0.2s",
   },
   backBtn: {
-    width: "100%",
-    padding: "10px",
-    backgroundColor: "#dddddd",
-    color: "#333",
+    flex: 1,
+    padding: "14px",
+    backgroundColor: "#e5e7eb",
+    color: "#374151",
     border: "none",
-    borderRadius: "6px",
-    fontSize: "14px",
+    borderRadius: "8px",
+    fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
+    transition: "background-color 0.2s",
   },
 };
