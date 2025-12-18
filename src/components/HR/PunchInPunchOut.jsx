@@ -2213,6 +2213,40 @@ const PunchInPunchOut = () => {
             min-height: 44px;
           }
         }
+          /* ✅ FIX calendar overflow on mobile */
+        @media (max-width: 768px) {
+          .mobile-calendar-container {
+            width: 100%;
+            overflow-x: hidden;   /* 🔒 prevents overflow */
+          }
+
+          .calendar {
+            width: 100%;
+            max-width: 100%;
+          }
+
+          .calendar-grid {
+            width: 100%;
+            max-width: 100%;
+          }
+        }
+
+        @media (max-width: 480px) {
+      .calendar-grid {
+        gap: 2px;   /* tighter spacing */
+      }
+
+      .calendar-day {
+        font-size: 11px;
+        aspect-ratio: 1 / 1;
+      }
+
+      .calendar-day-name {
+        font-size: 10px;
+      }
+    }
+
+
       `}</style>
     </div>
   );
