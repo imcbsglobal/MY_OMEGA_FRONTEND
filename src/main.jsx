@@ -9,3 +9,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>,
 )
+
+import { registerSW } from "virtual:pwa-register";
+
+const updateSW = registerSW({
+  onNeedRefresh() {
+    console.log("New version available");
+  },
+  onOfflineReady() {
+    console.log("App ready to work offline");
+  },
+});

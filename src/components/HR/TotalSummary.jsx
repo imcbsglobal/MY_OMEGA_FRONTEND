@@ -185,44 +185,7 @@ export default function TotalSummary() {
         <h2 style={styles.monthTitle}>{getMonthName(selectedMonth)}</h2>
       </div>
 
-      <div style={styles.statsGrid}>
-        <StatCard 
-          icon={Users} 
-          label="Total Employees" 
-          value={stats.totalEmployees} 
-          color="#3b82f6" 
-        />
-        <StatCard 
-          icon={Clock} 
-          label="Total Present Days" 
-          value={stats.totalPresent} 
-          color="#10b981" 
-        />
-        <StatCard 
-          icon={Clock} 
-          label="Total Half Days" 
-          value={stats.totalHalfDay} 
-          color="#be185d" 
-        />
-        <StatCard 
-          icon={Clock} 
-          label="Total Leaves" 
-          value={stats.totalLeave} 
-          color="#ef4444" 
-        />
-        <StatCard 
-          icon={Clock} 
-          label="Total Absent" 
-          value={stats.totalAbsent} 
-          color="#d1d5db" 
-        />
-        <StatCard 
-          icon={Users} 
-          label="Average Attendance" 
-          value={`${stats.avgAttendance}%`} 
-          color="#8b5cf6" 
-        />
-      </div>
+    
 
       <div style={styles.tableContainer}>
         <div style={styles.tableHeader}>
