@@ -2245,7 +2245,133 @@ const PunchInPunchOut = () => {
         font-size: 10px;
       }
     }
+/* âœ… FIX calendar overflow on mobile */
+        @media (max-width: 768px) {
+          .mobile-calendar-section {
+            padding: 16px;
+            width: 100%;
+            overflow-x: hidden;
+          }
 
+          .mobile-calendar-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+
+          .calendar {
+            width: 100%;
+            max-width: 100%;
+          }
+
+          .calendar-header {
+            margin-bottom: 12px;
+          }
+
+          .calendar-title {
+            font-size: 16px;
+          }
+
+          .calendar-summary-stats {
+            padding: 10px;
+            gap: 6px;
+            margin-bottom: 12px;
+          }
+
+          .summary-stat-label {
+            font-size: 10px;
+          }
+
+          .summary-stat-value {
+            font-size: 14px;
+          }
+
+          .calendar-days-header {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+          }
+
+          .calendar-day-name {
+            font-size: 10px;
+            padding: 6px 0;
+          }
+
+          .calendar-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+          }
+
+          .calendar-day {
+            font-size: 12px;
+            padding: 0;
+            min-height: 40px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+          }
+
+          .day-status-dots {
+            margin-top: 2px;
+            gap: 2px;
+          }
+
+          .status-dot {
+            width: 4px;
+            height: 4px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .mobile-calendar-section {
+            padding: 12px;
+          }
+
+          .calendar-grid {
+            gap: 1px;
+          }
+
+          .calendar-day {
+            font-size: 11px;
+            min-height: 36px;
+          }
+
+          .calendar-day-name {
+            font-size: 9px;
+            padding: 4px 0;
+          }
+
+          .calendar-summary-stats {
+            padding: 8px;
+            gap: 4px;
+          }
+
+          .summary-stat-label {
+            font-size: 9px;
+          }
+
+          .summary-stat-value {
+            font-size: 12px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .calendar-day {
+            font-size: 10px;
+            min-height: 32px;
+          }
+
+          .calendar-day-name {
+            font-size: 8px;
+          }
+
+          .calendar-summary-stats {
+            grid-template-columns: 1fr;
+            gap: 4px;
+          }
+        }
 
       `}</style>
     </div>
