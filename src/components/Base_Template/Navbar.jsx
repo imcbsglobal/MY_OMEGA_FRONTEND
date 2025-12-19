@@ -9,7 +9,6 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
-
 export default function Navbar({ onCollapseChange }) {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -806,6 +805,13 @@ export default function Navbar({ onCollapseChange }) {
 
   return (
     <>
+      <div 
+        style={styles.mobileToggle}
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+      >
+        {mobileMenuOpen ? <X size={24} color="#1e293b" /> : <Menu size={24} color="#1e293b" />}
+      </div>
+
       <div 
         style={styles.overlay}
         onClick={() => {

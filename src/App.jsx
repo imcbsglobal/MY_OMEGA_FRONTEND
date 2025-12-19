@@ -18,10 +18,8 @@ import Employee_Form from "./components/HR/Employee_Form";
 import Employee_View from "./components/HR/Employee_View";
 import ExperienceCertificate from "./components/HR/ExperienceCertificate";
 import ExperienceCertificate_Form from "./components/HR/ExperienceCertificate_Form";
-// import ExperienceCertificate_View from "./components/HR/ExperienceCertificate_View";
 import SalaryCertificate from "./components/HR/SalaryCertificate";
 import SalaryCertificate_Form from "./components/HR/SalaryCertificate_Form";
-// import SalaryCertificate_View from "./components/HR/SalaryCertificate_View";
 import AttendanceManagement from "./components/HR/AttendanceManagement";
 import AttendanceSummary from "./components/HR/AttendanceSummary";
 
@@ -111,17 +109,17 @@ function App() {
           <Route path="employee-management/edit/:id" element={<Employee_Form />} />
           <Route path="employee-management/view/:id" element={<Employee_View />} />
 
-          {/* Experience Certificate - Updated with /hr/ prefix */}
-          <Route path="hr/experience-certificate" element={<ExperienceCertificate />} />
+             <Route path="hr/experience-certificate" element={<ExperienceCertificate />} />
           <Route path="hr/experience-certificate/add" element={<ExperienceCertificate_Form />} />
           <Route path="hr/experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
           {/* <Route path="hr/experience-certificate/view/:id" element={<ExperienceCertificate_View />} /> */}
 
-          {/* Salary Certificate - Updated with /hr/ prefix */}
+       
+          {/* Salary Certificate */}
           <Route path="hr/salary-certificate" element={<SalaryCertificate />} />
-          <Route path="hr/salary-certificate/add" element={<SalaryCertificate_Form />} />
-          <Route path="hr/salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
-          {/* <Route path="hr/salary-certificate/view/:id" element={<SalaryCertificate_View />} /> */}
+        <Route path="hr/salary-certificate/add" element={<SalaryCertificate_Form />} />
+        <Route path="hr/salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
+
 
           {/* Attendance */}
          <Route path="attendance-management" element={<AttendanceManagement />} />

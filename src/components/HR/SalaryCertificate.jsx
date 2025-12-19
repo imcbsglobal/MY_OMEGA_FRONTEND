@@ -182,12 +182,12 @@ export default function SalaryCertificate() {
             <span style={S.searchIcon}>🔍</span>
           </div>
 
-          <button
-            onClick={() => navigate("/salary-certificate/add")}
-            style={S.addButton}
-          >
-            + Add New
-          </button>
+        <button
+  onClick={() => navigate("/salary-certificate/add")}
+  style={S.addButton}
+>
+  + Add New
+</button>
         </div>
       </div>
 
