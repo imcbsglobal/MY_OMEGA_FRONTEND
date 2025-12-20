@@ -9,49 +9,96 @@ export default function SalaryCertificateForm() {
 
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     employee: "",
     salary: "",
   });
 
-  // Load Employees
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        // Load employees
-        const employeesRes = await api.get("/certificate/employees/");
-        if (employeesRes?.data?.success) {
-          setEmployees(employeesRes.data.data || []);
-        }
+    loadEmployees();
+    if (isEditMode) {
+      loadCertificateData();
+    } else {
+      setLoading(false);
+    }
+  }, [id]);
 
-        // If edit mode, load existing certificate
-        if (isEditMode) {
-          const certificateRes = await api.get(`/certificate/salary-certificates/${id}/`);
-          if (certificateRes?.data?.success) {
-            const certificate = certificateRes.data.data;
-            setForm({
-              employee: certificate.employee?.toString() || "",
-              salary: certificate.salary?.toString() || "",
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error loading data:", err);
-        setError("Failed to load data. Please try again.");
-        if (isEditMode) {
-          alert("Certificate not found");
-          navigate("/salary-certificate");
-        }
-      } finally {
-        setLoading(false);
+  const loadEmployees = async () => {
+    try {
+      // Use the same endpoint as Employee Management
+      const res = await api.get("/employee-management/employees/");
+      console.log("=== SALARY CERT - EMPLOYEES RESPONSE ===", res.data);
+      
+      // Extract employee array (handle multiple response structures)
+      let employeeData = [];
+      if (Array.isArray(res.data)) {
+        employeeData = res.data;
+      } else if (res?.data?.data && Array.isArray(res.data.data)) {
+        employeeData = res.data.data;
+      } else if (res?.data?.results && Array.isArray(res.data.results)) {
+        employeeData = res.data.results;
       }
-    };
 
-    loadData();
-  }, [id, isEditMode, navigate]);
+      console.log("Employee Data Array:", employeeData);
+      
+      // Process employees with same logic as EmployeeManagement.jsx
+      const processedEmployees = employeeData.map((emp, index) => {
+        const empId = emp.id || emp.employee_id || emp.user_id || index;
+        const empName = emp.name || emp.full_name || emp.user?.name || emp.user?.full_name || emp.username || emp.user?.username || `Employee ${index + 1}`;
+        const jobTitle = emp.designation || emp.job_title || emp.job_info?.designation || emp.job_info?.job_title || "No Title";
+        const employeeIdDisplay = emp.employee_id || "N/A";
+
+        return {
+          id: empId,
+          name: empName,
+          job_title: jobTitle,
+          employee_id: employeeIdDisplay,
+          // Keep original data for reference
+          original: emp
+        };
+      });
+
+      console.log("Processed Employees:", processedEmployees);
+      setEmployees(processedEmployees);
+      
+    } catch (err) {
+      console.error("Failed to load employees:", err);
+      console.error("Error details:", err.response?.data || err.message);
+      alert("Failed to load employees. Check console for details.");
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCertificateData = async () => {
+    try {
+      const res = await api.get(`/certificate/salary-certificates/${id}/`);
+      console.log("Certificate Response:", res);
+      
+      if (res?.data?.data) {
+        const c = res.data.data;
+        setForm({
+          employee: c.employee,
+          salary: c.salary,
+        });
+      } else if (res?.data) {
+        const c = res.data;
+        setForm({
+          employee: c.employee,
+          salary: c.salary,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading certificate:", error);
+      console.error("Error details:", error.response?.data || error.message);
+      alert("Certificate not found. Check console for details.");
+      navigate("/hr/salary-certificate");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -60,46 +107,46 @@ export default function SalaryCertificateForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
 
     if (!form.employee || !form.salary) {
-      setError("Please fill all required fields.");
-      return;
-    }
-
-    const salaryValue = parseFloat(form.salary);
-    if (isNaN(salaryValue) || salaryValue <= 0) {
-      setError("Salary must be a valid number greater than zero.");
+      alert("Please fill all fields.");
       return;
     }
 
     const payload = {
-      employee: parseInt(form.employee, 10),
-      salary: salaryValue,
+      employee: Number(form.employee),
+      salary: Number(form.salary),
     };
 
+    console.log("Submitting payload:", payload);
+
     try {
+      let res;
       if (isEditMode) {
-        await api.put(`/certificate/salary-certificates/${id}/`, payload);
-        alert("Salary Certificate updated successfully!");
+        res = await api.put(`/certificate/salary-certificates/${id}/`, payload);
+        alert("Salary Certificate updated!");
       } else {
-        await api.post("/certificate/salary-certificates/", payload);
-        alert("Salary Certificate created successfully!");
+        res = await api.post("/certificate/salary-certificates/", payload);
+        alert("Salary Certificate created!");
       }
-      navigate("/salary-certificate");
+      console.log("Response:", res);
+      navigate("/hr/salary-certificate");
     } catch (err) {
-      console.error("Error saving certificate:", err);
-      const errorMsg = err.response?.data?.message || "Failed to save salary certificate.";
-      setError(errorMsg);
-      alert(errorMsg);
+      console.error("Error saving:", err);
+      console.error("Error details:", err.response?.data || err.message);
+      alert(`Failed to save salary certificate. ${err.response?.data?.message || err.message || 'Please try again.'}`);
     }
+  };
+
+  const handleCancel = () => {
+    navigate("/hr/salary-certificate");
   };
 
   if (loading) {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <div style={styles.loading}>Loading...</div>
+          <p style={{ textAlign: "center", color: "#666" }}>Loading...</p>
         </div>
       </div>
     );
@@ -112,76 +159,53 @@ export default function SalaryCertificateForm() {
           {isEditMode ? "Update Salary Certificate" : "Add Salary Certificate"}
         </h2>
 
-        {error && (
-          <div style={styles.errorMessage}>
-            {error}
+        {employees.length === 0 && !loading && (
+          <div style={styles.warningBox}>
+            <p style={styles.warningText}>⚠️ No employees found. Please add employees first.</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Employee Dropdown */}
-          <label style={styles.label}>
-            Employee Name: *
-          </label>
+          <label style={styles.label}>Employee Name: *</label>
           <select
             name="employee"
             value={form.employee}
             onChange={handleChange}
             style={styles.input}
             required
+            disabled={employees.length === 0}
           >
             <option value="">Select Employee</option>
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
-                {emp.name} ({emp.designation || emp.job_title})
+                {emp.name} - {emp.job_title} (ID: {emp.employee_id})
               </option>
             ))}
           </select>
 
-          {/* Salary Input */}
-          <label style={styles.label}>
-            Salary: *
-          </label>
-          <div style={styles.inputGroup}>
-            <span style={styles.currencySymbol}>₹</span>
-            <input
-              name="salary"
-              type="number"
-              placeholder="Enter salary amount"
-              value={form.salary}
-              onChange={handleChange}
-              style={{ ...styles.input, paddingLeft: '40px' }}
-              min="0"
-              step="0.01"
-              required
-            />
-          </div>
-          <small style={styles.hint}>Enter amount in Indian Rupees (INR)</small>
+          <label style={styles.label}>Salary: *</label>
+          <input
+            name="salary"
+            type="number"
+            placeholder="Enter salary"
+            value={form.salary}
+            onChange={handleChange}
+            style={styles.input}
+            required
+          />
 
-          {/* Buttons */}
           <div style={styles.buttonGroup}>
-            <button
-              type="submit"
+            <button 
+              type="submit" 
               style={styles.saveBtn}
+              disabled={employees.length === 0}
             >
-              {isEditMode ? "Update Certificate" : "Create Certificate"}
+              {isEditMode ? "Update" : "Save"}
             </button>
 
-            <button
-              type="button"
-              style={styles.backBtn}
-              onClick={() => navigate("/salary-certificate")}
-            >
+            <button type="button" onClick={handleCancel} style={styles.backBtn}>
               Cancel
             </button>
-          </div>
-
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>
-              <strong>Note:</strong> 
-              <br />• The certificate will be automatically generated with today's date.
-              <br />• Your name will be recorded as the generator.
-            </p>
           </div>
         </form>
       </div>
@@ -189,7 +213,6 @@ export default function SalaryCertificateForm() {
   );
 }
 
-// =============== STYLES ===============
 const styles = {
   container: {
     width: "100%",
@@ -197,70 +220,63 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "flex-start",
-    padding: "40px 20px",
-    backgroundColor: "#f5f7fa",
+    paddingTop: "40px",
+    backgroundColor: "#f9fafb",
   },
   card: {
-    width: "100%",
-    maxWidth: "500px",
+    width: "500px",
     backgroundColor: "#ffffff",
-    padding: "40px",
+    padding: "32px",
     borderRadius: "12px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
   },
   heading: {
     textAlign: "center",
-    fontSize: "24px",
-    fontWeight: "700",
-    marginBottom: "30px",
-    color: "#1a1a1a",
+    fontSize: "22px",
+    fontWeight: "600",
+    marginBottom: "24px",
+    color: "#111827",
+  },
+  warningBox: {
+    backgroundColor: "#fef3c7",
+    border: "1px solid #fbbf24",
+    borderRadius: "8px",
+    padding: "12px",
+    marginBottom: "20px",
+  },
+  warningText: {
+    color: "#92400e",
+    fontSize: "14px",
+    margin: 0,
+    textAlign: "center",
   },
   label: {
     display: "block",
     fontSize: "14px",
-    fontWeight: "600",
-    marginTop: "20px",
+    fontWeight: "500",
+    marginTop: "16px",
     marginBottom: "8px",
-    color: "#333",
+    color: "#374151",
   },
   input: {
     width: "100%",
-    padding: "12px 16px",
+    padding: "12px 14px",
     borderRadius: "8px",
     border: "1px solid #d1d5db",
-    marginBottom: "5px",
     fontSize: "14px",
-    backgroundColor: "#fff",
+    outline: "none",
     transition: "border-color 0.2s",
-  },
-  inputGroup: {
-    position: "relative",
-    width: "100%",
-  },
-  currencySymbol: {
-    position: "absolute",
-    left: "16px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#374151",
-  },
-  hint: {
-    fontSize: "12px",
-    color: "#6b7280",
-    marginBottom: "15px",
-    display: "block",
+    boxSizing: "border-box",
   },
   buttonGroup: {
     display: "flex",
     gap: "12px",
-    marginTop: "30px",
+    marginTop: "24px",
   },
   saveBtn: {
     flex: 1,
     padding: "14px",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#3b82f6",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
@@ -272,41 +288,13 @@ const styles = {
   backBtn: {
     flex: 1,
     padding: "14px",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#e5e7eb",
     color: "#374151",
-    border: "1px solid #d1d5db",
+    border: "none",
     borderRadius: "8px",
     fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  errorMessage: {
-    backgroundColor: "#fee2e2",
-    color: "#dc2626",
-    padding: "12px 16px",
-    borderRadius: "8px",
-    marginBottom: "20px",
-    fontSize: "14px",
-    border: "1px solid #fecaca",
-  },
-  loading: {
-    textAlign: "center",
-    padding: "40px",
-    color: "#6b7280",
-    fontSize: "16px",
-  },
-  infoBox: {
-    marginTop: "25px",
-    padding: "15px",
-    backgroundColor: "#f0f9ff",
-    borderRadius: "8px",
-    border: "1px solid #bae6fd",
-  },
-  infoText: {
-    fontSize: "13px",
-    color: "#0369a1",
-    margin: "0",
-    lineHeight: "1.5",
+    transition: "background-color 0.2s",
   },
 };

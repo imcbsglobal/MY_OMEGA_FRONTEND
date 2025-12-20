@@ -1,4 +1,4 @@
-// OfferLetter_View.jsx - UPDATED VERSION WITH ASSET LOGO
+// OfferLetter_View.jsx - COMPLETE UPDATED VERSION WITH HEADER/FOOTER
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/client";
@@ -63,9 +63,7 @@ export default function OfferLetterView() {
 
   const totalSalary = 
     (Number(record.basic_pay) || 0) +
-    (Number(record.dearness_allowance) || 0) +
     (Number(record.house_rent_allowance) || 0) +
-    (Number(record.special_allowance) || 0) +
     (Number(record.conveyance_earnings) || 0);
 
   return (
@@ -86,47 +84,37 @@ export default function OfferLetterView() {
           </div>
         </div>
 
-        {/* Letter Container */}
+        {/* PAGE 1 */}
         <div style={styles.letterContainer}>
-          {/* Header with Logo and Company Info */}
+          {/* Header */}
           <div style={styles.header}>
             <div style={styles.logoSection}>
               <img 
                 src="/assets/omega-logo.png" 
                 alt="Omega Logo" 
                 style={styles.logo}
-                onError={(e) => {
-                  // Fallback to SVG if image fails to load
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'block';
-                }}
               />
-              <svg width="75" height="75" viewBox="0 0 100 100" style={{ display: 'none' }}>
-                <circle cx="50" cy="50" r="48" fill="#dc2626" />
-                <text x="50" y="58" fontFamily="Arial, sans-serif" fontSize="42" fontWeight="bold" fill="white" textAnchor="middle">Ω</text>
-                <text x="50" y="78" fontFamily="Arial, sans-serif" fontSize="12" fontStyle="italic" fill="white" textAnchor="middle">omega</text>
-              </svg>
             </div>
             
             <div style={styles.companySection}>
               <h1 style={styles.companyName}>BASIL ENTERPRISES</h1>
               <p style={styles.companyAddress}>
                 Omega Trade centre, Opp City Hospital<br />
-                Mukkam road, Thiruvambady<br />
-                Kozhikode DT Kerala, India - 676101
+                Madrasa road, Tirur - 676101<br />
+                Malappuram Dt Kerala, India
               </p>
             </div>
             
             <div style={styles.contactSection}>
-              <p style={styles.gstInfo}>GSTIN: 32AEYPA3249P1Z0</p>
+              <p style={styles.gstin}>GSTIN : 32AEYPA3249P1ZO</p>
               <p style={styles.contactInfo}>
-                Mob: 9961 282 899<br />
-                L-L: 0494 242 5702
+                Mob | 9961 282 899<br />
+                L-L | 0494 242 5702
               </p>
             </div>
           </div>
 
-          {/* Blue Separator Bar */}
+          {/* Blue Line */}
           <div style={styles.blueLine}></div>
 
           {/* Letter Body */}
@@ -136,112 +124,258 @@ export default function OfferLetterView() {
               <div style={styles.toBlock}>
                 <p style={styles.toLabel}>To</p>
                 <p style={styles.candidateName}>Mr. {record.candidate_name}</p>
-                <p style={styles.contactDetail}>Ph: {record.candidate_phone || "+91 9744735456"}</p>
-                <p style={styles.contactDetail}>Email: {record.candidate_email || "bxs95@gmail.com"}</p>
-                <p style={styles.subjectLine}>
-                  <strong>Subject:</strong> Offer of Employment for the Position of {record.position}
-                </p>
               </div>
               <div style={styles.dateBlock}>
                 {formatDate(new Date())}
               </div>
             </div>
 
-            {/* Greeting and Introduction */}
-            <div style={styles.contentSection}>
-              <p style={styles.greeting}>Dear {record.candidate_name?.split(' ')[0]?.toUpperCase() || 'CANDIDATE'},</p>
+            <div style={styles.contactDetails}>
+              <p style={styles.contactDetail}>Ph: {record.candidate_phone || "+91 9744735456"}</p>
+              <p style={styles.contactDetail}>Gmail: {record.candidate_email || "candidate@gmail.com"}</p>
+              <p style={styles.subjectLine}>Subject: Offer of Employment – {record.position}</p>
+            </div>
+
+            {/* Title */}
+            <div style={styles.titleSection}>
+              <h2 style={styles.letterTitle}>JOB OFFER LETTER</h2>
+            </div>
+
+            {/* Greeting */}
+            <p style={styles.greeting}>Dear Mr. {record.candidate_name},</p>
+
+            {/* Introduction */}
+            <p style={styles.bodyText}>
+              We are pleased to offer you employment with Basil Enterprises for the position of <strong>{record.position}</strong> in our Sales Department. Your skills and experience are a valuable addition to our team.
+            </p>
+
+            <p style={styles.bodyText}>
+              Your appointment will be governed by the terms and conditions detailed in your employment contract and company policies. The key details of your offer are as follows:
+            </p>
+
+            {/* Salary Box */}
+            <div style={styles.salaryBox}>
+              <div style={styles.designationRow}>
+                <strong>Designation :</strong> {record.position}
+              </div>
               
-              <p style={styles.bodyText}>
-                We are pleased to offer you employment with Basil Enterprises for the position of <strong>{record.position}</strong> in our {record.department} Department. Your skills and experience are a valuable addition to our team.
+              <table style={styles.salaryTable}>
+                <tbody>
+                  <tr>
+                    <td style={styles.salaryLabel}>Basic Pay</td>
+                    <td style={styles.salaryValue}>{record.basic_pay || 15000}</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.salaryLabel}>House Rent Allowance (HRA)</td>
+                    <td style={styles.salaryValue}>{record.house_rent_allowance || 8000}</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.salaryLabel}>Incentives against Parameters</td>
+                    <td style={styles.salaryValue}>{record.conveyance_earnings || 10000}</td>
+                  </tr>
+                  <tr style={styles.totalRow}>
+                    <td style={styles.salaryLabel}>Total Gross Earnings</td>
+                    <td style={styles.salaryValue}>{totalSalary}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Incentives Section */}
+            <div style={styles.incentivesSection}>
+              <p style={styles.sectionTitle}>Incentives parameters monthly are</p>
+              
+              <table style={styles.incentivesTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.tableHeader}>Incentives parameters</th>
+                    <th style={styles.tableHeader}>Daily Target</th>
+                    <th style={styles.tableHeader}>Monthly Target</th>
+                    <th style={styles.tableHeader}>Incentives</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={styles.tableCell}>NO.OF SHOP VISIT</td>
+                    <td style={styles.tableCell}>20</td>
+                    <td style={styles.tableCell}>500</td>
+                    <td style={styles.tableCell}>2,500</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.tableCell}>TOTAL BOXES</td>
+                    <td style={styles.tableCell}>55</td>
+                    <td style={styles.tableCell}>1375</td>
+                    <td style={styles.tableCell}>3,000</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.tableCell}>NEW SHOP</td>
+                    <td style={styles.tableCell}>-</td>
+                    <td style={styles.tableCell}>10</td>
+                    <td style={styles.tableCell}>2,000</td>
+                  </tr>
+                  <tr>
+                    <td style={styles.tableCell}>FOCUS CATAGORY</td>
+                    <td style={styles.tableCell}>20</td>
+                    <td style={styles.tableCell}>500</td>
+                    <td style={styles.tableCell}>2,500</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p style={styles.incentiveNote}>Must achieve 70% target to get incentive</p>
+
+              <p style={styles.dearnessTitle}>Dearness Allowance:</p>
+              <p style={styles.allowanceText}>
+                • Headquarters - ₹100<br />
+                • Outstation - ₹1000 ( with stay ₹800+200 ); Without stay - ₹200.
+              </p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={styles.footer}>
+            <p style={styles.footerText}>www.myomega.in  -  email: hr@myomega</p>
+          </div>
+        </div>
+
+        {/* PAGE 2 */}
+        <div style={styles.letterContainer} className="page-break">
+          {/* Header */}
+          <div style={styles.header}>
+            <div style={styles.logoSection}>
+              <img 
+                src="/assets/omega-logo.png" 
+                alt="Omega Logo" 
+                style={styles.logo}
+              />
+            </div>
+            
+            <div style={styles.companySection}>
+              <h1 style={styles.companyName}>BASIL ENTERPRISES</h1>
+              <p style={styles.companyAddress}>
+                Omega Trade centre, Opp City Hospital<br />
+                Madrasa road, Tirur - 676101<br />
+                Malappuram Dt Kerala, India
+              </p>
+            </div>
+            
+            <div style={styles.contactSection}>
+              <p style={styles.gstin}>GSTIN : 32AEYPA3249P1ZO</p>
+              <p style={styles.contactInfo}>
+                Mob | 9961 282 899<br />
+                L-L | 0494 242 5702
+              </p>
+            </div>
+          </div>
+
+          {/* Blue Line */}
+          <div style={styles.blueLine}></div>
+
+          {/* Letter Body - Page 2 */}
+          <div style={styles.letterBody}>
+            <ol style={styles.termsList}>
+              <li style={styles.termItem}>
+                <strong>Company Rules and Regulations:</strong> The Company's rules and regulations are subject to change from time to time. The rules mentioned at present may not be permanent, and updates may be implemented as per management's discretion. All employees are required to comply with the latest policies as communicated by the Company.
+              </li>
+              <li style={styles.termItem}>
+                You are required to adhere to the rules and standards of this office, including behavior, dress code, and punctuality.
+              </li>
+              <li style={styles.termItem}>
+                Salary will be released on 5<sup>th</sup> of every month.
+              </li>
+              <li style={styles.termItem}>
+                If an employee resigns, they must complete the required notice period as per Company policy. Upon successful completion of the notice period, the Company will provide both the final salary and the experience certificate. If the notice period is not completed The final salary will be paid only for the days worked and will be processed at the end of the month If an employee has not completed the notice period but still requests the experience certificate, they must pay an amount equivalent to one month's salary to the Company.
+              </li>
+              <li style={styles.termItem}>
+                <strong>LEAVE AND ATTENDANCE POLICY</strong><br />
+                The HR team maintains all records regarding leave and attendance. Monitoring: The Company monitors requests for early leave and late arrivals. Salary Deductions: If late arrival or early leave requests are frequent or continuous, the Company may deduct a half-day or full-salary based on time calculations.
+              </li>
+              <li style={styles.termItem}>
+                <strong>Harassment Policy:</strong> The company has a zero-tolerance policy for abuse, harassment, or misconduct toward any colleague, regardless of gender. Violations of the harassment policy will result in immediate disciplinary action and may include legal proceedings.
+              </li>
+              <li style={styles.termItem}>
+                If the employee resign within 6 months of receiving your uniform, the cost of the uniform will be deducted from your final month's salary.
+              </li>
+            </ol>
+          </div>
+
+          {/* Footer */}
+          <div style={styles.footer}>
+            <p style={styles.footerText}>www.myomega.in  -  email: hr@myomega</p>
+          </div>
+        </div>
+
+        {/* PAGE 3 */}
+        <div style={styles.letterContainer} className="page-break">
+          {/* Header */}
+          <div style={styles.header}>
+            <div style={styles.logoSection}>
+              <img 
+                src="/assets/omega-logo.png" 
+                alt="Omega Logo" 
+                style={styles.logo}
+              />
+            </div>
+            
+            <div style={styles.companySection}>
+              <h1 style={styles.companyName}>BASIL ENTERPRISES</h1>
+              <p style={styles.companyAddress}>
+                Omega Trade centre, Opp City Hospital<br />
+                Madrasa road, Tirur - 676101<br />
+                Malappuram Dt Kerala, India
+              </p>
+            </div>
+            
+            <div style={styles.contactSection}>
+              <p style={styles.gstin}>GSTIN : 32AEYPA3249P1ZO</p>
+              <p style={styles.contactInfo}>
+                Mob | 9961 282 899<br />
+                L-L | 0494 242 5702
+              </p>
+            </div>
+          </div>
+
+          {/* Blue Line */}
+          <div style={styles.blueLine}></div>
+
+          {/* Letter Body - Page 3 */}
+          <div style={styles.letterBody}>
+            <ul style={styles.leaveBullets}>
+              <li style={styles.bulletItem}>The leave calendar is from April to March of a year.</li>
+              <li style={styles.bulletItem}>The organization provides 12 Paid Leaves (PLs) for its regular employees.</li>
+              <li style={styles.bulletItem}>Paid Leaves can be taken after the completion of probation period and on confirmation.</li>
+              <li style={styles.bulletItem}>3 days per year. Sick leave may be availed on medical grounds with supporting medical certificate. For ESI-covered staff → No statutory sick leave required.</li>
+            </ul>
+
+            {/* Acceptance Section */}
+            <div style={styles.acceptanceSection}>
+              <h3 style={styles.acceptanceTitle}>ACCEPTANCE OF OFFER:</h3>
+              <p style={styles.acceptanceText}>
+                I, <strong>{record.candidate_name?.toUpperCase()}</strong>, here by accept the above offer of employment with <strong>BASIL ENTERPRISES</strong> under the terms and conditions mentioned in this letter.
               </p>
 
-              <p style={styles.bodyText}>
-                Your appointment will be governed by the terms and conditions detailed in your employment contract and company policies. The key details of your offer are as follows:
-              </p>
-
-              {/* Position and Salary Box */}
-              <div style={styles.offerBox}>
-                <p style={styles.positionLine}>
-                  • •  <strong>Position:</strong> {record.position}
-                </p>
-
-                <table style={styles.salaryTable}>
-                  <tbody>
-                    <tr>
-                      <td style={styles.salaryLabel}>Basic Pay</td>
-                      <td style={styles.salaryAmount}>{record.basic_pay || 20000}</td>
-                    </tr>
-                    <tr>
-                      <td style={styles.salaryLabel}>Dearness Allowance (DA)</td>
-                      <td style={styles.salaryAmount}>{record.dearness_allowance || 6000}</td>
-                    </tr>
-                    <tr>
-                      <td style={styles.salaryLabel}>House Rent Allowance (HRA)</td>
-                      <td style={styles.salaryAmount}>{record.house_rent_allowance || 8000}</td>
-                    </tr>
-                    <tr>
-                      <td style={styles.salaryLabel}>Conveyance Allowance</td>
-                      <td style={styles.salaryAmount}>{record.conveyance_earnings || 4000}</td>
-                    </tr>
-                    <tr>
-                      <td style={styles.salaryLabel}>Special Allowance</td>
-                      <td style={styles.salaryAmount}>{record.special_allowance || 2000}</td>
-                    </tr>
-                    <tr>
-                      <td style={styles.totalLabel}>Total Gross Earnings</td>
-                      <td style={styles.totalAmount}>{totalSalary}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div style={styles.signatureFields}>
+                <div style={styles.sigRow}>
+                  <span style={styles.sigLabel}>Employee Signature:</span>
+                  <div style={styles.sigLine}></div>
+                </div>
+                <div style={styles.sigRow}>
+                  <span style={styles.sigLabel}>Date:</span>
+                  <div style={styles.sigLine}></div>
+                </div>
               </div>
 
-              {/* Terms and Conditions - Numbered List */}
-              <ol style={styles.termsList}>
-                <li style={styles.termItem}>
-                  <strong>Probation Period:</strong> You will be on probation for a period of six (6) months from your date of joining.
-                </li>
-                <li style={styles.termItem}>
-                  <strong>Working Hours:</strong> As per company norms
-                </li>
-                <li style={styles.termItem}>
-                  The leave calendar is from April to March of a year.
-                </li>
-                <li style={styles.termItem}>
-                  The organization provides 12 Paid Leaves (PL) for its regular employees.
-                </li>
-                <li style={styles.termItem}>
-                  Paid Leaves can be taken after the completion of probation period and on confirmation.
-                </li>
-                <li style={styles.termItem}>
-                  3 days per year; sick leave may be availed on medical grounds with supporting medical certificate. For ESI-covered staff → no statutory sick leave required.
-                </li>
-                <li style={styles.termItem}>
-                  <strong>Proposed Joining Date:</strong> You are requested to confirm joining date within 5 days from the date of this offer letter.
-                </li>
-              </ol>
-
-              <p style={styles.bodyText}>
-                We look forward to your positive response and to welcoming you to our team.
-              </p>
-
-              <p style={styles.bodyText}>
-                Please sign and return a copy of this letter to indicate your acceptance of this offer.
-              </p>
-
-              {/* Signature Section */}
-              <div style={styles.signatureArea}>
-                <div style={styles.signatureLeft}>
-                  <p style={styles.regardsText}>Yours sincerely,</p>
-                  <div style={styles.signatureLine}></div>
-                  <p style={styles.signatureName}>For Basil Enterprises</p>
-                  <p style={styles.signatureRole}>HR Department</p>
+              {/* Bottom Signatures */}
+              <div style={styles.bottomSignatures}>
+                <div style={styles.sigBlock}>
+                  <div style={styles.sigSpace}></div>
+                  <div style={styles.sigName}>HR Manager</div>
+                  <div style={styles.sigCompany}>Basil Enterprises</div>
                 </div>
-
-                <div style={styles.signatureRight}>
-                  <p style={styles.acceptText}>I accept the above terms and conditions</p>
-                  <div style={styles.signatureLine}></div>
-                  <p style={styles.signatureName}>{record.candidate_name}</p>
-                  <p style={styles.signatureRole}>Date: ______________</p>
+                <div style={styles.sigBlock}>
+                  <div style={styles.sigSpace}></div>
+                  <div style={styles.sigName}>Sales Director</div>
+                  <div style={styles.sigCompany}>Basil Enterprises</div>
                 </div>
               </div>
             </div>
@@ -264,6 +398,10 @@ export default function OfferLetterView() {
           body {
             margin: 0;
             padding: 0;
+          }
+
+          .page-break {
+            page-break-before: always;
           }
           
           @page {
@@ -356,214 +494,294 @@ const styles = {
   letterContainer: {
     maxWidth: "210mm",
     minHeight: "297mm",
-    margin: "0 auto",
+    margin: "0 auto 20px",
     backgroundColor: "white",
     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
     position: "relative",
   },
+  // Header Section
   header: {
     display: "grid",
-    gridTemplateColumns: "90px 1fr 150px",
-    padding: "20px 30px 15px",
+    gridTemplateColumns: "100px 1fr 180px",
+    padding: "25px 30px 15px",
     gap: "15px",
     alignItems: "start",
+    borderBottom: "1px solid #e5e7eb",
   },
   logoSection: {
     display: "flex",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   logo: {
-    width: "75px",
-    height: "75px",
+    width: "90px",
+    height: "auto",
     objectFit: "contain",
   },
   companySection: {
     textAlign: "center",
+    paddingTop: "5px",
   },
   companyName: {
-    fontSize: "20px",
+    fontSize: "22px",
     fontWeight: "700",
-    color: "#0ea5e9",
-    margin: "0 0 6px 0",
-    letterSpacing: "2.5px",
+    color: "#06b6d4",
+    margin: "0 0 8px 0",
+    letterSpacing: "3px",
   },
   companyAddress: {
     fontSize: "10px",
-    lineHeight: "1.4",
+    lineHeight: "1.5",
     color: "#374151",
-    margin: 0,
+    margin: "0",
   },
   contactSection: {
     textAlign: "right",
+    fontSize: "10px",
+    paddingTop: "5px",
   },
-  gstInfo: {
-    fontSize: "9.5px",
-    margin: "0 0 6px 0",
-    color: "#374151",
-    fontWeight: "500",
+  gstin: {
+    fontWeight: "600",
+    marginBottom: "8px",
+    color: "#111827",
   },
   contactInfo: {
-    fontSize: "10.5px",
-    lineHeight: "1.5",
+    lineHeight: "1.6",
     color: "#374151",
-    margin: 0,
   },
+  // Blue Line
   blueLine: {
-    height: "5px",
-    backgroundColor: "#0ea5e9",
+    height: "4px",
+    backgroundColor: "#06b6d4",
     width: "100%",
   },
+  // Letter Body
   letterBody: {
-    padding: "25px 35px 50px",
+    padding: "25px 35px 60px",
   },
   toDateSection: {
     display: "flex",
     justifyContent: "space-between",
-    marginBottom: "20px",
-    paddingBottom: "12px",
-    borderBottom: "1px solid #d1d5db",
+    marginBottom: "12px",
+    fontSize: "11px",
   },
   toBlock: {
-    fontSize: "11px",
+    lineHeight: "1.6",
   },
   toLabel: {
     margin: "0 0 4px 0",
     fontWeight: "600",
-    color: "#111827",
   },
   candidateName: {
     margin: "4px 0 6px 0",
     fontWeight: "600",
     fontSize: "12px",
-    color: "#111827",
-  },
-  contactDetail: {
-    margin: "2px 0",
-    color: "#4b5563",
-  },
-  subjectLine: {
-    margin: "10px 0 0 0",
-    fontSize: "11px",
-    lineHeight: "1.5",
   },
   dateBlock: {
     fontSize: "11px",
     fontWeight: "600",
-    color: "#111827",
   },
-  contentSection: {
+  contactDetails: {
     fontSize: "11px",
+    marginBottom: "15px",
     lineHeight: "1.6",
-    color: "#1f2937",
+  },
+  contactDetail: {
+    margin: "3px 0",
+    color: "#374151",
+  },
+  subjectLine: {
+    marginTop: "8px",
+    fontSize: "11px",
+  },
+  titleSection: {
+    textAlign: "center",
+    margin: "20px 0",
+  },
+  letterTitle: {
+    fontSize: "15px",
+    fontWeight: "700",
+    color: "#111827",
+    margin: "0",
   },
   greeting: {
-    margin: "0 0 12px 0",
+    margin: "15px 0 12px 0",
     fontWeight: "600",
-    fontSize: "11.5px",
+    fontSize: "11px",
   },
   bodyText: {
     margin: "0 0 12px 0",
+    fontSize: "11px",
+    lineHeight: "1.6",
     textAlign: "justify",
+    color: "#1f2937",
   },
-  offerBox: {
+  // Salary Box
+  salaryBox: {
+    margin: "15px 0 20px 0",
     border: "2px solid #111827",
-    padding: "14px",
-    margin: "15px 0 18px",
-    backgroundColor: "#fafafa",
+    padding: "15px",
   },
-  positionLine: {
-    margin: "0 0 10px 0",
-    fontSize: "11.5px",
+  designationRow: {
+    fontSize: "11px",
+    fontWeight: "600",
+    marginBottom: "10px",
   },
   salaryTable: {
     width: "100%",
     borderCollapse: "collapse",
+    fontSize: "11px",
   },
   salaryLabel: {
-    padding: "4px 6px",
-    fontSize: "10.5px",
-    borderBottom: "1px solid #d1d5db",
-    textAlign: "left",
-  },
-  salaryAmount: {
-    padding: "4px 6px",
-    fontSize: "10.5px",
-    borderBottom: "1px solid #d1d5db",
-    textAlign: "right",
+    padding: "4px 8px",
+    border: "1px solid #000",
     fontWeight: "500",
   },
-  totalLabel: {
-    padding: "6px 6px",
-    fontSize: "11px",
-    fontWeight: "700",
-    borderTop: "2px solid #111827",
-    backgroundColor: "#f3f4f6",
-  },
-  totalAmount: {
-    padding: "6px 6px",
-    fontSize: "11px",
-    fontWeight: "700",
+  salaryValue: {
+    padding: "4px 8px",
+    border: "1px solid #000",
     textAlign: "right",
-    borderTop: "2px solid #111827",
+    fontWeight: "600",
+  },
+  totalRow: {
+    fontWeight: "700",
+    backgroundColor: "#f9fafb",
+  },
+  // Incentives Section
+  incentivesSection: {
+    margin: "20px 0",
+  },
+  sectionTitle: {
+    fontSize: "11px",
+    fontWeight: "600",
+    margin: "0 0 5px 0",
+  },
+  incentivesTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    margin: "10px 0",
+    fontSize: "10px",
+  },
+  tableHeader: {
+    padding: "6px 8px",
+    border: "1px solid #000",
+    fontWeight: "700",
+    textAlign: "center",
     backgroundColor: "#f3f4f6",
   },
+  tableCell: {
+    padding: "6px 8px",
+    border: "1px solid #000",
+    textAlign: "center",
+  },
+  incentiveNote: {
+    fontSize: "11px",
+    fontWeight: "600",
+    margin: "8px 0",
+  },
+  dearnessTitle: {
+    fontSize: "11px",
+    fontWeight: "600",
+    margin: "15px 0 8px 0",
+  },
+  allowanceText: {
+    fontSize: "11px",
+    lineHeight: "1.6",
+    marginLeft: "20px",
+  },
+  // Terms Section
   termsList: {
-    margin: "15px 0",
-    paddingLeft: "20px",
+    margin: "15px 0 15px 18px",
+    paddingLeft: "0",
+    listStylePosition: "outside",
   },
   termItem: {
+    marginBottom: "10px",
+    fontSize: "11px",
+    lineHeight: "1.6",
+    textAlign: "justify",
+    color: "#1f2937",
+  },
+  leaveBullets: {
+    margin: "10px 0 10px 20px",
+    paddingLeft: "0",
+  },
+  bulletItem: {
     marginBottom: "8px",
-    lineHeight: "1.5",
-  },
-  signatureArea: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "30px",
-    marginTop: "40px",
-  },
-  signatureLeft: {
-    textAlign: "left",
-  },
-  signatureRight: {
-    textAlign: "left",
-  },
-  regardsText: {
-    margin: "0 0 30px 0",
     fontSize: "11px",
+    lineHeight: "1.6",
+    textAlign: "justify",
   },
-  acceptText: {
-    margin: "0 0 30px 0",
-    fontSize: "11px",
-    fontWeight: "600",
+  // Acceptance Section
+  acceptanceSection: {
+    margin: "30px 0 0 0",
+    paddingTop: "20px",
   },
-  signatureLine: {
-    borderBottom: "1px solid #111827",
-    width: "170px",
-    marginBottom: "5px",
-  },
-  signatureName: {
-    margin: "0 0 3px 0",
-    fontWeight: "600",
-    fontSize: "11.5px",
+  acceptanceTitle: {
+    fontSize: "12px",
+    fontWeight: "700",
+    marginBottom: "10px",
     color: "#111827",
   },
-  signatureRole: {
-    margin: 0,
-    fontSize: "10px",
-    color: "#6b7280",
+  acceptanceText: {
+    fontSize: "11px",
+    lineHeight: "1.6",
+    marginBottom: "20px",
+    color: "#1f2937",
   },
+  signatureFields: {
+    margin: "25px 0 40px 0",
+  },
+  sigRow: {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: "30px",
+    fontSize: "11px",
+  },
+  sigLabel: {
+    width: "150px",
+    fontWeight: "600",
+  },
+  sigLine: {
+    flex: 1,
+    borderBottom: "1px solid #111827",
+    height: "1px",
+  },
+  // Bottom Signatures
+  bottomSignatures: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "40px",
+    marginTop: "50px",
+  },
+  sigBlock: {
+    textAlign: "center",
+  },
+  sigSpace: {
+    height: "50px",
+    marginBottom: "10px",
+  },
+  sigName: {
+    fontSize: "11px",
+    fontWeight: "700",
+    marginBottom: "3px",
+  },
+  sigCompany: {
+    fontSize: "11px",
+    color: "#4b5563",
+  },
+  // Footer
   footer: {
     position: "absolute",
     bottom: "0",
     left: "0",
     right: "0",
-    backgroundColor: "#0ea5e9",
-    padding: "7px 0",
+    backgroundColor: "#06b6d4",
+    padding: "8px 0",
     textAlign: "center",
   },
   footerText: {
-    margin: 0,
+    margin: "0",
     color: "white",
     fontSize: "10px",
     fontWeight: "500",

@@ -9,118 +9,160 @@ export default function ExperienceCertificateForm() {
 
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const [form, setForm] = useState({
+  const [certificateData, setCertificateData] = useState({
     employee: "",
     offer_letter: "",
     joining_date: "",
+    end_date: "",
   });
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        
-        // Load employees
-        const employeesRes = await api.get("/certificate/employees/");
-        if (employeesRes?.data?.success) {
-          setEmployees(employeesRes.data.data || []);
-        }
+    loadEmployees();
+    if (isEditMode) {
+      loadCertificateData();
+    } else {
+      setLoading(false);
+    }
+  }, [id]);
 
-        // If edit mode, load existing certificate
-        if (isEditMode) {
-          const certificateRes = await api.get(`/certificate/experience-certificates/${id}/`);
-          if (certificateRes?.data?.success) {
-            const certificate = certificateRes.data.data;
-            setForm({
-              employee: certificate.employee?.toString() || "",
-              offer_letter: certificate.offer_letter?.toString() || "",
-              joining_date: certificate.joining_date || "",
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error loading data:", err);
-        setError("Failed to load data. Please try again.");
-        if (isEditMode) {
-          alert("Certificate not found");
-          navigate("/experience-certificate");
-        }
-      } finally {
-        setLoading(false);
+  const loadEmployees = async () => {
+    try {
+      // Use the same endpoint as Employee Management
+      const res = await api.get("/employee-management/employees/");
+      console.log("=== EXPERIENCE CERT - EMPLOYEES RESPONSE ===", res.data);
+      
+      // Extract employee array (handle multiple response structures)
+      let employeeData = [];
+      if (Array.isArray(res.data)) {
+        employeeData = res.data;
+      } else if (res?.data?.data && Array.isArray(res.data.data)) {
+        employeeData = res.data.data;
+      } else if (res?.data?.results && Array.isArray(res.data.results)) {
+        employeeData = res.data.results;
       }
-    };
 
-    loadData();
-  }, [id, isEditMode, navigate]);
+      console.log("Employee Data Array:", employeeData);
+      
+      // Process employees with same logic as EmployeeManagement.jsx
+      const processedEmployees = employeeData.map((emp, index) => {
+        const empId = emp.id || emp.employee_id || emp.user_id || index;
+        const empName = emp.name || emp.full_name || emp.user?.name || emp.user?.full_name || emp.username || emp.user?.username || `Employee ${index + 1}`;
+        const jobTitle = emp.designation || emp.job_title || emp.job_info?.designation || emp.job_info?.job_title || "No Title";
+        const employeeIdDisplay = emp.employee_id || "N/A";
+
+        return {
+          id: empId,
+          name: empName,
+          job_title: jobTitle,
+          employee_id: employeeIdDisplay,
+          // Keep original data for reference
+          original: emp
+        };
+      });
+
+      console.log("Processed Employees:", processedEmployees);
+      setEmployees(processedEmployees);
+      
+    } catch (err) {
+      console.error("Error loading employees:", err);
+      console.error("Error details:", err.response?.data || err.message);
+      alert("Failed to load employees. Check console for details.");
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCertificateData = async () => {
+    try {
+      const res = await api.get(`/certificate/experience-certificates/${id}/`);
+      console.log("Certificate Response:", res);
+      
+      if (res?.data?.data) {
+        const cert = res.data.data;
+        setCertificateData({
+          employee: cert.employee || "",
+          offer_letter: cert.offer_letter || "",
+          joining_date: cert.joining_date || "",
+          end_date: cert.end_date || "",
+        });
+      } else if (res?.data) {
+        const cert = res.data;
+        setCertificateData({
+          employee: cert.employee || "",
+          offer_letter: cert.offer_letter || "",
+          joining_date: cert.joining_date || "",
+          end_date: cert.end_date || "",
+        });
+      }
+    } catch (err) {
+      console.error("Error loading certificate:", err);
+      console.error("Error details:", err.response?.data || err.message);
+      alert("Certificate not found. Check console for details.");
+      navigate("/experience-certificate");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setCertificateData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
 
-    if (!form.employee) {
-      setError("Please select an employee.");
+    if (!certificateData.employee) {
+      alert("Please select an employee");
       return;
     }
 
-    // Validate joining date if provided
-    if (form.joining_date) {
-      const joiningDate = new Date(form.joining_date);
-      const today = new Date();
-      if (joiningDate > today) {
-        setError("Joining date cannot be in the future.");
-        return;
-      }
-    }
-
-    // Prepare payload based on API requirements
     const payload = {
-      employee: parseInt(form.employee, 10),
+      employee: Number(certificateData.employee),
     };
 
-    // Add either offer_letter or joining_date (or both)
-    if (form.offer_letter) {
-      payload.offer_letter = parseInt(form.offer_letter, 10);
+    if (certificateData.offer_letter) {
+      payload.offer_letter = Number(certificateData.offer_letter);
     }
     
-    if (form.joining_date) {
-      payload.joining_date = form.joining_date;
+    if (certificateData.joining_date) {
+      payload.joining_date = certificateData.joining_date;
+    }
+    
+    if (certificateData.end_date) {
+      payload.end_date = certificateData.end_date;
     }
 
-    // If neither is provided, show error
-    if (!form.offer_letter && !form.joining_date) {
-      setError("Please provide either Offer Letter ID or Joining Date.");
-      return;
-    }
+    console.log("Submitting payload:", payload);
 
     try {
+      let res;
       if (isEditMode) {
-        await api.put(`/certificate/experience-certificates/${id}/`, payload);
-        alert("Experience Certificate updated successfully!");
+        res = await api.put(`/certificate/experience-certificates/${id}/`, payload);
+        alert("Certificate updated successfully!");
       } else {
-        await api.post("/certificate/experience-certificates/", payload);
-        alert("Experience Certificate created successfully!");
+        res = await api.post("/certificate/experience-certificates/", payload);
+        alert("Certificate created successfully!");
       }
+      console.log("Response:", res);
       navigate("/experience-certificate");
     } catch (err) {
       console.error("Error saving certificate:", err);
-      const errorMsg = err.response?.data?.message || "Failed to save experience certificate.";
-      setError(errorMsg);
-      alert(errorMsg);
+      console.error("Error details:", err.response?.data || err.message);
+      alert(`Failed to save certificate. ${err.response?.data?.message || err.message || 'Please try again.'}`);
     }
+  };
+
+  const handleCancel = () => {
+    navigate("/experience-certificate");
   };
 
   if (loading) {
     return (
       <div style={styles.container}>
         <div style={styles.formCard}>
-          <div style={styles.loading}>Loading...</div>
+          <p style={{ textAlign: "center", color: "#666" }}>Loading...</p>
         </div>
       </div>
     );
@@ -130,112 +172,88 @@ export default function ExperienceCertificateForm() {
     <div style={styles.container}>
       <div style={styles.formCard}>
         <h2 style={styles.formTitle}>
-          {isEditMode ? "Edit Experience Certificate" : "Create Experience Certificate"}
+          {isEditMode ? "Edit Experience Certificate" : "Add Experience Certificate"}
         </h2>
 
-        {error && (
-          <div style={styles.errorMessage}>
-            {error}
+        {employees.length === 0 && !loading && (
+          <div style={styles.warningBox}>
+            <p style={styles.warningText}>⚠️ No employees found. Please add employees first.</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* Employee Selection */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              Employee Name: *
-            </label>
+            <label style={styles.label}>Employee Name: *</label>
             <select
               style={styles.select}
               name="employee"
-              value={form.employee}
+              value={certificateData.employee}
               onChange={handleInputChange}
               required
+              disabled={employees.length === 0}
             >
               <option value="">Select Employee</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.id}>
-                  {emp.name} - {emp.designation || emp.job_title} ({emp.department})
+                  {emp.name} - {emp.job_title} (ID: {emp.employee_id})
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Joining Date */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              Joining Date: *
-            </label>
+            <label style={styles.label}>Start Date (Joining Date):</label>
             <input
               style={styles.input}
               type="date"
               name="joining_date"
-              value={form.joining_date}
+              value={certificateData.joining_date}
               onChange={handleInputChange}
-              required
             />
-            <small style={styles.hint}>
-              Select the employee's joining date. Cannot be in the future.
-            </small>
           </div>
 
-          {/* End Date (Optional - not in API but useful for certificate) */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              End Date (Optional):
-            </label>
+            <label style={styles.label}>End Date:</label>
             <input
               style={styles.input}
               type="date"
               name="end_date"
-              placeholder="dd-mm-yyyy"
+              value={certificateData.end_date}
               onChange={handleInputChange}
             />
-            <small style={styles.hint}>
-              Optional: For experience period end date. Leave empty for "till date".
-            </small>
           </div>
 
-          {/* Offer Letter ID (Optional) */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              Offer Letter ID (Optional):
-            </label>
+            <label style={styles.label}>Offer Letter ID (Optional):</label>
             <input
               style={styles.input}
               type="number"
               name="offer_letter"
-              value={form.offer_letter}
+              value={certificateData.offer_letter}
               onChange={handleInputChange}
               placeholder="Enter offer letter ID"
-              min="1"
             />
             <small style={styles.hint}>
-              Optional: If you have an offer letter reference number.
+              Leave empty if you want to use the Start Date above
             </small>
           </div>
 
-          {/* Submit Buttons */}
           <div style={styles.buttonGroup}>
-            <button type="submit" style={styles.submitBtn}>
-              {isEditMode ? "Update Certificate" : "Create Certificate"}
+            <button 
+              type="submit" 
+              style={styles.submitBtn}
+              disabled={employees.length === 0}
+            >
+              {isEditMode ? "Update" : "Add"}
             </button>
-            <button
-              type="button"
+            
+            <button 
+              type="button" 
+              onClick={handleCancel} 
               style={styles.cancelBtn}
-              onClick={() => navigate("/experience-certificate")}
             >
               Cancel
             </button>
-          </div>
-
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>
-              <strong>Note:</strong>
-              <br />• The certificate will be automatically generated with today's issue date.
-              <br />• Your name will be recorded as the generator.
-              <br />• If an offer letter ID is provided, the joining date from the offer letter will be used.
-            </p>
           </div>
         </form>
       </div>
@@ -255,16 +273,29 @@ const styles = {
   formCard: {
     backgroundColor: "white",
     borderRadius: "12px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-    padding: "40px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    padding: "32px",
     maxWidth: "500px",
     width: "100%",
   },
   formTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: "30px",
+    fontSize: "22px",
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: "24px",
+    textAlign: "center",
+  },
+  warningBox: {
+    backgroundColor: "#fef3c7",
+    border: "1px solid #fbbf24",
+    borderRadius: "8px",
+    padding: "12px",
+    marginBottom: "20px",
+  },
+  warningText: {
+    color: "#92400e",
+    fontSize: "14px",
+    margin: 0,
     textAlign: "center",
   },
   form: {
@@ -279,11 +310,11 @@ const styles = {
   },
   label: {
     fontSize: "14px",
-    fontWeight: "600",
+    fontWeight: "500",
     color: "#333",
   },
   select: {
-    padding: "12px 16px",
+    padding: "12px 14px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
     borderRadius: "8px",
@@ -293,7 +324,7 @@ const styles = {
     transition: "border-color 0.2s",
   },
   input: {
-    padding: "12px 16px",
+    padding: "12px 14px",
     fontSize: "14px",
     border: "1px solid #d1d5db",
     borderRadius: "8px",
@@ -308,7 +339,7 @@ const styles = {
   buttonGroup: {
     display: "flex",
     gap: "12px",
-    marginTop: "10px",
+    marginTop: "8px",
   },
   submitBtn: {
     flex: 1,
@@ -316,7 +347,7 @@ const styles = {
     fontSize: "16px",
     fontWeight: "600",
     color: "white",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#3b82f6",
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
@@ -328,38 +359,10 @@ const styles = {
     fontSize: "16px",
     fontWeight: "600",
     color: "#374151",
-    backgroundColor: "#f3f4f6",
-    border: "1px solid #d1d5db",
+    backgroundColor: "#e5e7eb",
+    border: "none",
     borderRadius: "8px",
     cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  errorMessage: {
-    backgroundColor: "#fee2e2",
-    color: "#dc2626",
-    padding: "12px 16px",
-    borderRadius: "8px",
-    fontSize: "14px",
-    border: "1px solid #fecaca",
-    marginBottom: "10px",
-  },
-  loading: {
-    textAlign: "center",
-    padding: "40px",
-    color: "#6b7280",
-    fontSize: "16px",
-  },
-  infoBox: {
-    marginTop: "20px",
-    padding: "15px",
-    backgroundColor: "#f0f9ff",
-    borderRadius: "8px",
-    border: "1px solid #bae6fd",
-  },
-  infoText: {
-    fontSize: "13px",
-    color: "#0369a1",
-    margin: "0",
-    lineHeight: "1.5",
+    transition: "background-color 0.2s",
   },
 };

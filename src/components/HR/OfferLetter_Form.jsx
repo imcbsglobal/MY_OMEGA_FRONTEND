@@ -164,13 +164,13 @@ export default function OfferLetterForm() {
   };
 
   const calculateTotalSalary = () => {
-    const basic = parseFloat(formData.basic_pay) || 0;
-    const da = parseFloat(formData.dearness_allowance) || 0;
-    const hra = parseFloat(formData.house_rent_allowance) || 0;
-    const special = parseFloat(formData.special_allowance) || 0;
-    const conveyance = parseFloat(formData.conveyance_earnings) || 0;
-    return basic + da + hra + special + conveyance;
-  };
+  const basic = Number(formData.basic_pay) || 0;
+  const hra = Number(formData.house_rent_allowance) || 0;
+  const incentive = Number(formData.dearness_allowance) || 0;
+
+  return basic + hra + incentive;
+};
+
 
   useEffect(() => {
     fetchCandidates();
@@ -180,18 +180,19 @@ export default function OfferLetterForm() {
     }
   }, [id]);
 
-  useEffect(() => {
-    const total = calculateTotalSalary();
-    if (total > 0) {
-      setFormData(prev => ({ ...prev, salary: total.toString() }));
-    }
-  }, [
-    formData.basic_pay,
-    formData.dearness_allowance,
-    formData.house_rent_allowance,
-    formData.special_allowance,
-    formData.conveyance_earnings
-  ]);
+ useEffect(() => {
+  if (!isEdit) {
+    setFormData(prev => ({
+      ...prev,
+      salary: calculateTotalSalary().toString()
+    }));
+  }
+}, [
+  formData.basic_pay,
+  formData.house_rent_allowance,
+  formData.dearness_allowance
+]);
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -244,34 +245,34 @@ export default function OfferLetterForm() {
     const conveyance_earnings = parseFloat(formData.conveyance_earnings) || 0;
     const salary = parseFloat(formData.salary) || 0;
 
-    const dataToSend = {
-      candidate: formData.candidate,
-      position: formData.job_title || "",
-      department: formData.department || "",
-      department_id: formData.department_id || "",
-      job_title_id: formData.job_title_id || "",
-      salary: salary,
-      basic_pay: basic_pay,
-      dearness_allowance: dearness_allowance,
-      house_rent_allowance: house_rent_allowance,
-      special_allowance: special_allowance,
-      conveyance_earnings: conveyance_earnings,
-      joining_data: formData.joining_date,
-      work_start_time: formData.work_start_time || "09:30:00",
-      work_end_time: formData.work_end_time || "17:30:00",
-      notice_period: parseInt(formData.notice_period, 10) || 30,
-      subject: formData.subject || "Job Offer Letter",
-      body: formData.body || "Dear Candidate,",
-      terms_condition: formData.terms_condition || "As per company policy",
-    };
+   const dataToSend = {
+  candidate: formData.candidate,
+  position: formData.job_title,
+  department: formData.department,
+  job_title_id: formData.job_title_id,
+  department_id: formData.department_id,
+
+  basic_pay: Number(formData.basic_pay) || 0,
+  house_rent_allowance: Number(formData.house_rent_allowance) || 0,
+  dearness_allowance: Number(formData.dearness_allowance) || 0,
+  salary: calculateTotalSalary(),
+
+  joining_data: formData.joining_date,
+  work_start_time: formData.work_start_time,
+  work_end_time: formData.work_end_time,
+  notice_period: Number(formData.notice_period) || 30,
+
+  subject: formData.subject,
+  body: formData.body,
+  terms_condition: formData.terms_condition,
+};
+
 
     console.log("=== SUBMITTING OFFER LETTER ===");
     console.log("Salary breakdown being sent:", {
       basic_pay,
       dearness_allowance,
       house_rent_allowance,
-      special_allowance,
-      conveyance_earnings,
       salary
     });
     console.log("Full data payload:", JSON.stringify(dataToSend, null, 2));
@@ -472,7 +473,7 @@ export default function OfferLetterForm() {
               </div>
 
               <div style={styles.field}>
-                <label style={styles.label}>Dearness Allowance (DA)</label>
+                <label style={styles.label}>Incentive Against Parameters</label>
                 <input 
                   type="number" 
                   style={styles.input} 
@@ -498,7 +499,7 @@ export default function OfferLetterForm() {
                   step="0.01"
                 />
               </div>
-
+{/* 
               <div style={styles.field}>
                 <label style={styles.label}>Special Allowance</label>
                 <input 
@@ -511,9 +512,9 @@ export default function OfferLetterForm() {
                   min="0"
                   step="0.01"
                 />
-              </div>
+              </div> */}
 
-              <div style={styles.field}>
+              {/* <div style={styles.field}>
                 <label style={styles.label}>Conveyance Earnings</label>
                 <input 
                   type="number" 
@@ -525,7 +526,7 @@ export default function OfferLetterForm() {
                   min="0"
                   step="0.01"
                 />
-              </div>
+              </div> */}
 
               <div style={styles.totalBox}>
                 <span style={styles.totalLabel}>Total Salary</span>
