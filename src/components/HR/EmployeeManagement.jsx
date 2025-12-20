@@ -462,10 +462,11 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
       <div style={S.section}>
         <div style={S.sectionTitle}>Personal Information</div>
         <div style={S.grid}>
-          <Info label="PF Number" value={employee.pf_number} />
-          <Info label="ESI Number" value={employee.esi_number} />
-          <Info label="PAN Number" value={employee.pan_number} />
-          <Info label="Aadhar Number" value={employee.aadhar_number} />
+          <Info label="PF Number" value={employee.bank_info?.pf_number} />
+
+          <Info label="ESI Number" value={employee.bank_info?.esi_number} />
+          <Info label="PAN Number" value={employee.bank_info?.pan_number} />
+          <Info label="Aadhar Number" value={employee.bank_info?.aadhar_number} />
           <Info label="Blood Group" value={employee.blood_group} />
           <Info label="Marital Status" value={employee.marital_status} />
           <Info label="Notes" value={employee.notes} />

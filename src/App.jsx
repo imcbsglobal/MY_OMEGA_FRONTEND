@@ -50,7 +50,7 @@ import EarlyList from './components/HR/EarlyList';
 import LateList from './components/HR/LateList';
 import UnderConstruction from './components/HR/UnderConstruction';
 
-// ✅ NEW — Break List
+// ✅ NEW – Break List
 import BreakList from "./components/HR/BreakList";
 
 function PrivateRoute({ children }) {
@@ -109,20 +109,28 @@ function App() {
           <Route path="employee-management/edit/:id" element={<Employee_Form />} />
           <Route path="employee-management/view/:id" element={<Employee_View />} />
 
-             <Route path="hr/experience-certificate" element={<ExperienceCertificate />} />
+          {/* ✅ FIXED: Experience Certificate Routes */}
+          <Route path="experience-certificate" element={<ExperienceCertificate />} />
+          <Route path="experience-certificate/add" element={<ExperienceCertificate_Form />} />
+          <Route path="experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
+          
+          {/* Legacy routes for backward compatibility */}
+          <Route path="hr/experience-certificate" element={<ExperienceCertificate />} />
           <Route path="hr/experience-certificate/add" element={<ExperienceCertificate_Form />} />
           <Route path="hr/experience-certificate/edit/:id" element={<ExperienceCertificate_Form />} />
-          {/* <Route path="hr/experience-certificate/view/:id" element={<ExperienceCertificate_View />} /> */}
 
-       
-          {/* Salary Certificate */}
+          {/* ✅ FIXED: Salary Certificate Routes */}
+          <Route path="salary-certificate" element={<SalaryCertificate />} />
+          <Route path="salary-certificate/add" element={<SalaryCertificate_Form />} />
+          <Route path="salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
+          
+          {/* Legacy routes for backward compatibility */}
           <Route path="hr/salary-certificate" element={<SalaryCertificate />} />
-        <Route path="hr/salary-certificate/add" element={<SalaryCertificate_Form />} />
-        <Route path="hr/salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
-
+          <Route path="hr/salary-certificate/add" element={<SalaryCertificate_Form />} />
+          <Route path="hr/salary-certificate/edit/:id" element={<SalaryCertificate_Form />} />
 
           {/* Attendance */}
-         <Route path="attendance-management" element={<AttendanceManagement />} />
+          <Route path="attendance-management" element={<AttendanceManagement />} />
           <Route path="attendance-summary" element={<AttendanceSummary />} />
           <Route path="total-summary" element={<TotalSummary />} />
           
@@ -160,7 +168,7 @@ function App() {
           <Route path="/leave-management/early-list" element={<EarlyList />} />
           <Route path="/leave-management/late-list" element={<LateList />} />
 
-          {/* ✅ NEW — Break List Route */}
+          {/* ✅ NEW – Break List Route */}
           <Route path="/leave-management/break-list" element={<BreakList />} />
 
           <Route path="*" element={<UnderConstruction />} />
@@ -170,5 +178,4 @@ function App() {
     </Router>
   );
 }
-
 export default App;
