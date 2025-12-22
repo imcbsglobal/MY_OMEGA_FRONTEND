@@ -8,7 +8,7 @@ const api = axios.create({
   },
 });
 
-// ✅ CORRECT: send token only for protected APIs
+// ✅ Request interceptor – always attach token
 api.interceptors.request.use(
   (config) => {
     const token =
@@ -16,12 +16,7 @@ api.interceptors.request.use(
       localStorage.getItem("access") ||
       localStorage.getItem("token");
 
-    // 🚫 DO NOT send token for login or refresh APIs
-    if (
-      token &&
-      !config.url.includes("/login") &&
-      !config.url.includes("/token")
-    ) {
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -30,13 +25,16 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-
-// Error logger
+// ✅ Response interceptor – handle token expiry
 api.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    console.error("API Error:", err.response?.data || err.message);
-    return Promise.reject(err);
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Token expired or invalid
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
   }
 );
 

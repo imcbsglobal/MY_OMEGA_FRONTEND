@@ -54,17 +54,15 @@ import UnderConstruction from './components/HR/UnderConstruction';
 import BreakList from "./components/HR/BreakList";
 
 function PrivateRoute({ children }) {
-  const isAuthenticated =
-    localStorage.getItem("isAuthenticated") === "true" &&
-    !!localStorage.getItem("accessToken");
+  const isAuthenticated = !!localStorage.getItem("accessToken");
 
   if (!isAuthenticated) {
-    localStorage.clear();
     return <Navigate to="/login" replace />;
   }
 
   return children;
 }
+
 
 function App() {
   return (
