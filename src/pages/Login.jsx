@@ -12,6 +12,13 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
+  if (localStorage.getItem("accessToken")) {
+    navigate("/", { replace: true });
+  }
+}, [navigate]);
+
+
+  useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
     };
@@ -259,29 +266,8 @@ localStorage.setItem("isAuthenticated", "true");
               </button>
             </form>
 
-            {/* Footer Links */}
-            <div style={styles.footer} className="login-footer">
-              <a 
-                href="#" 
-                style={styles.forgotPassword}
-                className="login-forgot-password"
-                onMouseEnter={(e) => e.target.style.textDecoration = "underline"}
-                onMouseLeave={(e) => e.target.style.textDecoration = "none"}
-              >
-                Forgot Password?
-              </a>
-              <p style={styles.signupText} className="login-signup-text">
-                Need an account?{" "}
-                <a 
-                  href="#" 
-                  style={styles.signupLink}
-                  onMouseEnter={(e) => e.target.style.textDecoration = "underline"}
-                  onMouseLeave={(e) => e.target.style.textDecoration = "none"}
-                >
-                  SIGN UP
-                </a>
-              </p>
-            </div>
+            
+          
           </div>
         </div>
       </div>
