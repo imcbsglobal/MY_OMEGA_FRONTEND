@@ -8,22 +8,28 @@ const api = axios.create({
   },
 });
 
-// ✅ Always send the correct token
-api.interceptors.request.use((config) => {
-  const token =
-  localStorage.getItem("accessToken") ||
-  localStorage.getItem("access") ||
-  localStorage.getItem("token");
-// <-- Your login saves this
+// ✅ CORRECT: send token only for protected APIs
+api.interceptors.request.use(
+  (config) => {
+    const token =
+      localStorage.getItem("accessToken") ||
+      localStorage.getItem("access") ||
+      localStorage.getItem("token");
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  } else {
-    console.warn("⚠ No auth token found in localStorage");
-  }
+    // 🚫 DO NOT send token for login or refresh APIs
+    if (
+      token &&
+      !config.url.includes("/login") &&
+      !config.url.includes("/token")
+    ) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  return config;
-});
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 
 // Error logger
 api.interceptors.response.use(
