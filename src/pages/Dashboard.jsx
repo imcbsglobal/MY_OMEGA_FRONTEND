@@ -183,8 +183,10 @@ export default function Dashboard() {
 const page = {
   background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
   minHeight: "100vh",
-  padding: "24px",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  padding: "clamp(16px, 4vw, 24px)", // ✅ responsive padding
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  overflowX: "hidden", // ✅ hard stop for horizontal scroll
 };
 
 const header = {
@@ -208,10 +210,11 @@ const headerSubtitle = {
 
 const statsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", // ✅ was 260
   gap: "20px",
   marginBottom: "24px",
 };
+
 
 const statCard = {
   background: "#ffffff",
@@ -361,17 +364,24 @@ const period = {
 
 const bottomGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", // ✅ FIXED
   gap: "20px",
+  width: "100%",
+  maxWidth: "100%",
 };
+
 
 const panel = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
   borderRadius: "16px",
-  padding: "24px",
+  padding: "20px",
   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+  width: "100%",
+  maxWidth: "100%",
+  boxSizing: "border-box",
 };
+
 
 const panelTitle = {
   fontSize: "17px",
@@ -394,6 +404,8 @@ const taskItem = {
   borderRadius: "10px",
   background: "#f8fafc",
   transition: "all 0.2s ease",
+  width: "100%",
+  boxSizing: "border-box",
 };
 
 const taskNumber = {
@@ -429,6 +441,8 @@ const updateCard = {
   borderRadius: "12px",
   background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
   border: "1px solid #fecaca",
+  width: "100%",
+  boxSizing: "border-box",
 };
 
 const updateIcon = {

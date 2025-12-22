@@ -21,16 +21,18 @@ export default function Layout() {
       <Navbar onCollapseChange={setIsCollapsed} />
 
       <main
-        style={{
-          marginLeft: `${sidebarWidth}px`,
-          flex: 1,
-          minHeight: "100vh",
-          width: `calc(100% - ${sidebarWidth}px)`,
-          padding: "20px",
-          backgroundColor: "#f8fafc",
-          transition: "margin-left 0.3s ease, width 0.3s ease",
-        }}
-      >
+      style={{
+        marginLeft: isMobile ? "0" : `${sidebarWidth}px`,
+        flex: 1,
+        minHeight: "100vh",
+        width: isMobile ? "100vw" : `calc(100% - ${sidebarWidth}px)`,
+        padding: isMobile ? "16px" : "20px",
+        backgroundColor: "#f8fafc",
+        overflowX: "hidden",           // ✅ KEY FIX
+        transition: "margin-left 0.3s ease, width 0.3s ease",
+      }}
+    >
+
         <Outlet />
       </main>
     </div>

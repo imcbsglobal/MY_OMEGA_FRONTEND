@@ -340,21 +340,20 @@ const PunchInPunchOut = () => {
 
   const isSunday = (date) => date.getDay() === 0;
 
-  const getDaySummary = (day) => {
-  const date = new Date(
-    currentMonth.getFullYear(),
-    currentMonth.getMonth(),
-    day
-  );
-
+ const getDaySummary = (day) => {
+  const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
   const today = new Date();
+  
+  // Normalize dates for comparison
+  const normalizedDate = new Date(date);
+  normalizedDate.setHours(0, 0, 0, 0);
+  
+  const normalizedToday = new Date(today);
+  normalizedToday.setHours(0, 0, 0, 0);
+  
+  const isToday = normalizedDate.getTime() === normalizedToday.getTime();
 
-  const isToday =
-    today.getFullYear() === date.getFullYear() &&
-    today.getMonth() === date.getMonth() &&
-    today.getDate() === date.getDate();
-
-  /* 🟦 SUNDAY → ALWAYS HOLIDAY (TOP PRIORITY) */
+  // 1. SUNDAY → ALWAYS HOLIDAY (TOP PRIORITY)
   if (date.getDay() === 0) {
     return {
       status: 'holiday',
@@ -365,12 +364,21 @@ const PunchInPunchOut = () => {
     };
   }
 
-  /* ✅ TODAY + PUNCH → WORKED */
+  // 2. LEAVE CHECK (BEFORE OTHER CHECKS)
+  if (isDateOnLeave(new Date(date))) {
+    return {
+      status: 'leave',
+      worked: false,
+      firstPunchIn: null,
+      lastPunchOut: null,
+      totalHours: 0
+    };
+  }
+
+  // 3. TODAY'S ATTENDANCE
   if (isToday && todayStatus.punch_records?.length > 0) {
     const firstIn = todayStatus.punch_records.find(r => r.punch_type === 'in');
-    const lastOut = [...todayStatus.punch_records]
-      .reverse()
-      .find(r => r.punch_type === 'out');
+    const lastOut = [...todayStatus.punch_records].reverse().find(r => r.punch_type === 'out');
 
     return {
       status: 'worked',
@@ -387,22 +395,11 @@ const PunchInPunchOut = () => {
     };
   }
 
-  /* 🔁 LEAVE CHECK */
-  if (isDateOnLeave(new Date(date))) {
-    return {
-      status: 'leave',
-      worked: false,
-      firstPunchIn: null,
-      lastPunchOut: null,
-      totalHours: 0
-    };
-  }
-
-  /* 🔁 CALENDAR SUMMARY */
+  // 4. CALENDAR SUMMARY (FROM MY_RECORDS) - THIS CHECKS PAST PUNCHES
   if (calendarSummary[day]) {
     const summary = calendarSummary[day];
     return {
-      status: summary.status,
+      status: summary.status,  // ✅ This will be 'worked' if you punched in
       worked: summary.status === 'worked',
       firstPunchIn: summary.first_punch_in || null,
       lastPunchOut: summary.last_punch_out || null,
@@ -412,9 +409,9 @@ const PunchInPunchOut = () => {
     };
   }
 
-  /* 🔁 ATTENDANCE HISTORY */
+  // 5. ATTENDANCE HISTORY (FALLBACK)
   if (attendanceHistory[day]) {
-    const records = attendanceHistory[day].punch_records;
+    const records = attendanceHistory[day].punch_records || [];
     const inRecords = records.filter(r => r.punch_type === 'in');
     const outRecords = records.filter(r => r.punch_type === 'out');
 
@@ -422,19 +419,13 @@ const PunchInPunchOut = () => {
       status: attendanceHistory[day].worked ? 'worked' : 'absent',
       worked: attendanceHistory[day].worked,
       firstPunchIn: inRecords[0] ? new Date(inRecords[0].punch_time) : null,
-      lastPunchOut: outRecords.length
-        ? new Date(outRecords[outRecords.length - 1].punch_time)
-        : null,
+      lastPunchOut: outRecords.length ? new Date(outRecords[outRecords.length - 1].punch_time) : null,
       totalHours: attendanceHistory[day].total_hours || 0
     };
   }
 
-  /* 🔁 DATE NORMALIZATION */
-  today.setHours(0, 0, 0, 0);
-  date.setHours(0, 0, 0, 0);
-
-  /* 🔮 FUTURE DATE */
-  if (date > today) {
+  // 6. FUTURE DATE
+  if (normalizedDate > normalizedToday) {
     return {
       status: 'future',
       worked: false,
@@ -444,7 +435,7 @@ const PunchInPunchOut = () => {
     };
   }
 
-  /* ⏳ TODAY BUT NO PUNCH */
+  // 7. TODAY BUT NO PUNCH
   if (isToday) {
     return {
       status: 'pending',
@@ -455,7 +446,7 @@ const PunchInPunchOut = () => {
     };
   }
 
-  /* ❌ PAST DAY WITH NO RECORD */
+  // 8. PAST DAY WITH NO RECORD → ABSENT
   return {
     status: 'absent',
     worked: false,
@@ -464,7 +455,6 @@ const PunchInPunchOut = () => {
     totalHours: 0
   };
 };
-
 
 
   const handleDayHover = (event, day) => {
@@ -478,154 +468,191 @@ const PunchInPunchOut = () => {
     setHoveredDay(day);
   };
 
-  const renderCalendar = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const startingDayOfWeek = new Date(year, month, 1).getDay();
-    const days = [];
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+ const renderCalendar = () => {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startingDayOfWeek = new Date(year, month, 1).getDay();
+  const days = [];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+  }
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month, day);
+    const isToday = date.toDateString() === new Date().toDateString();
+    const daySummary = getDaySummary(day);
+    const { status, worked } = daySummary;
     
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-    }
-    
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const isToday = date.toDateString() === new Date().toDateString();
-      const daySummary = getDaySummary(day);
-      const { status, worked } = daySummary;
-      
-      let dayClass = `calendar-day ${isToday ? 'today' : ''}`;
+    let dayClass = `calendar-day ${isToday ? 'today' : ''}`;
 
-if (isSunday(date)) dayClass += ' sunday-holiday';
-else if (status === 'leave') dayClass += ' on-leave';
-else if (status === 'worked') dayClass += ' worked-day';
-else if (status === 'absent') dayClass += ' absent-day';
-else if (status === 'future') dayClass += ' future-day';
-else if (status === 'pending') dayClass += ' pending';
+    if (isSunday(date)) dayClass += ' sunday-holiday';
+    else if (status === 'leave') dayClass += ' on-leave';
+    else if (status === 'worked') dayClass += ' worked-day';
+    else if (status === 'absent') dayClass += ' absent-day';
+    else if (status === 'future') dayClass += ' future-day';
+    else if (status === 'pending') dayClass += ' pending';
 
-
-      
-      days.push(
-        <div 
-          key={day} 
-          className={dayClass}
-          onMouseEnter={(e) => handleDayHover(e, day)}
-          onMouseLeave={() => setHoveredDay(null)}
-          onClick={() => setHoveredDay(hoveredDay === day ? null : day)}
-        >
-          {day}
-          <div className="day-status-dots">
-            {status === 'worked' && <div className="status-dot worked-dot" title="Worked"></div>}
-            {status === 'leave' && <div className="status-dot leave-dot" title="On Leave"></div>}
-            {status === 'absent' && <div className="status-dot absent-dot" title="Absent"></div>}
-            {status === 'future' && <div className="status-dot future-dot" title="Future Date"></div>}
-          </div>
+    days.push(
+      <div 
+        key={day} 
+        className={dayClass}
+        onMouseEnter={(e) => handleDayHover(e, day)}
+        onMouseLeave={() => setHoveredDay(null)}
+        onClick={() => setHoveredDay(hoveredDay === day ? null : day)}
+      >
+        {day}
+        <div className="day-status-dots">
+          {status === 'worked' && <div className="status-dot worked-dot" title="Worked"></div>}
+          {status === 'leave' && <div className="status-dot leave-dot" title="On Leave"></div>}
+          {status === 'absent' && <div className="status-dot absent-dot" title="Absent"></div>}
+          {status === 'future' && <div className="status-dot future-dot" title="Future Date"></div>}
+          {status === 'holiday' && <div className="status-dot holiday-dot" title="Holiday"></div>}
+          {status === 'pending' && <div className="status-dot pending-dot" title="Pending"></div>}
         </div>
-      );
-    }
-    
-    return (
-      <div className="calendar">
-        <div className="calendar-header">
-          <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}>‹</button>
-          <div className="calendar-title">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
-          <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}>›</button>
-        </div>
-        
-        <div className="calendar-summary-stats">
-          <div className="summary-stat-item">
-            <div className="summary-stat-label">Worked Days</div>
-            <div className="summary-stat-value">
-              {Object.values(calendarSummary).filter(s => s.status === 'worked').length}
-            </div>
-          </div>
-          <div className="summary-stat-item">
-            <div className="summary-stat-label">Total Hours</div>
-            <div className="summary-stat-value">
-              {Object.values(calendarSummary).reduce((total, s) => total + (s.total_hours || 0), 0).toFixed(1)}h
-            </div>
-          </div>
-          <div className="summary-stat-item">
-            <div className="summary-stat-label">Leave Days</div>
-            <div className="summary-stat-value">
-              {Object.values(calendarSummary).filter(s => s.status === 'leave').length}
-            </div>
-          </div>
-        </div>
-        
-        <div className="calendar-days-header">
-          {dayNames.map(name => <div key={name} className="calendar-day-name">{name}</div>)}
-        </div>
-        <div className="calendar-grid">{days}</div>
-        
-        {hoveredDay && (
-          <div 
-            className="day-tooltip"
-            style={{
-              left: `${tooltipPosition.x}px`,
-              top: `${tooltipPosition.y - 10}px`,
-              transform: 'translateX(-50%)'
-            }}
-          >
-            <div className="tooltip-content">
-              <div className="tooltip-date">{hoveredDay} {currentMonth.toLocaleDateString('en-US', { month: 'short' })}</div>
-              {(() => {
-                const daySummary = getDaySummary(hoveredDay);
-                const { status, firstPunchIn, lastPunchOut, totalHours, punchIns, punchOuts } = daySummary;
-                if (status === 'holiday') {
-                return <div className="tooltip-status holiday">Holiday (Sunday)</div>;
-              }
-
-                if (status === 'leave') {
-                  return <div className="tooltip-status leave">On Leave</div>;
-                } else if (status === 'worked') {
-                  return (
-                    <>
-                      <div className="tooltip-status worked">Worked - {formatHoursMinutes(totalHours)}</div>
-                      {firstPunchIn && (
-                        <div className="tooltip-time">First In: {formatTime(firstPunchIn)}</div>
-                      )}
-                      {lastPunchOut && (
-                        <div className="tooltip-time">Last Out: {formatTime(lastPunchOut)}</div>
-                      )}
-                      {punchIns && punchIns.length > 0 && (
-                        <div className="tooltip-detail">
-                          <div className="tooltip-detail-label">Punch Ins:</div>
-                          <div className="tooltip-detail-times">
-                            {punchIns.slice(0, 3).map((time, idx) => (
-                              <div key={idx} className="tooltip-detail-time">{formatTime(time)}</div>
-                            ))}
-                            {punchIns.length > 3 && <div className="tooltip-detail-time">+{punchIns.length - 3} more</div>}
-                          </div>
-                        </div>
-                      )}
-                      {totalHours > 0 && (
-                        <div className="tooltip-hours">Total Hours: {formatHoursMinutes(totalHours)}</div>
-                      )}
-                    </>
-                  );
-                } else if (status === 'absent') {
-                  return <div className="tooltip-status absent">Absent</div>;
-                } else if (status === 'future') {
-                  return <div className="tooltip-status future">Future Date</div>;
-                }
-              })()}
-            </div>
-            <div className="tooltip-arrow"></div>
-          </div>
-        )}
-        
-        {/* <div className="calendar-legend">
-          <div className="legend-item"><div className="legend-color worked-dot"></div><span>Worked</span></div>
-          <div className="legend-item"><div className="legend-color leave-dot"></div><span>Leave</span></div>
-          <div className="legend-item"><div className="legend-color absent-dot"></div><span>Absent</span></div>
-          <div className="legend-item"><div className="legend-color today"></div><span>Today</span></div>
-        </div> */}
       </div>
     );
-  };
+  }
+  
+  return (
+    <div className="calendar">
+      <div className="calendar-header">
+        <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}>‹</button>
+        <div className="calendar-title">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+        <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}>›</button>
+      </div>
+      
+      <div className="calendar-summary-stats">
+        <div className="summary-stat-item">
+          <div className="summary-stat-label">Worked Days</div>
+          <div className="summary-stat-value">
+            {Object.values(calendarSummary).filter(s => s.status === 'worked').length}
+          </div>
+        </div>
+        <div className="summary-stat-item">
+          <div className="summary-stat-label">Total Hours</div>
+          <div className="summary-stat-value">
+            {Object.values(calendarSummary).reduce((total, s) => total + (s.total_hours || 0), 0).toFixed(1)}h
+          </div>
+        </div>
+        <div className="summary-stat-item">
+          <div className="summary-stat-label">Leave Days</div>
+          <div className="summary-stat-value">
+            {Object.values(calendarSummary).filter(s => s.status === 'leave').length}
+          </div>
+        </div>
+      </div>
+      
+      <div className="calendar-days-header">
+        {dayNames.map(name => <div key={name} className="calendar-day-name">{name}</div>)}
+      </div>
+      <div className="calendar-grid">{days}</div>
+      
+      {hoveredDay && (
+        <div 
+          className="day-tooltip"
+          style={{
+            left: `${tooltipPosition.x}px`,
+            top: `${tooltipPosition.y - 10}px`,
+            transform: 'translateX(-50%)'
+          }}
+        >
+          <div className="tooltip-content">
+            <div className="tooltip-date">
+              {hoveredDay} {currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </div>
+            {(() => {
+              const daySummary = getDaySummary(hoveredDay);
+              const { status, firstPunchIn, lastPunchOut, totalHours, punchIns, punchOuts } = daySummary;
+              
+              if (status === 'holiday') {
+                return (
+                  <div className="tooltip-status-section">
+                    <div className="tooltip-status holiday">🏖️ Holiday (Sunday)</div>
+                    <div className="tooltip-description">Weekly off day</div>
+                  </div>
+                );
+              }
+
+              if (status === 'leave') {
+                return (
+                  <div className="tooltip-status-section">
+                    <div className="tooltip-status leave">🏠 On Leave</div>
+                    <div className="tooltip-description">Approved absence</div>
+                  </div>
+                );
+              } 
+              
+              if (status === 'worked') {
+                return (
+                  <div className="tooltip-status-section">
+                    <div className="tooltip-status worked">
+                      ✅ Worked - {formatHoursMinutes(totalHours)}
+                    </div>
+                    {firstPunchIn && (
+                      <div className="tooltip-time-row">
+                        <span className="tooltip-label">First In:</span>
+                        <span className="tooltip-value">{formatTime(firstPunchIn)}</span>
+                      </div>
+                    )}
+                    {lastPunchOut && (
+                      <div className="tooltip-time-row">
+                        <span className="tooltip-label">Last Out:</span>
+                        <span className="tooltip-value">{formatTime(lastPunchOut)}</span>
+                      </div>
+                    )}
+                    {punchIns && punchIns.length > 1 && (
+                      <div className="tooltip-sessions">
+                        <div className="tooltip-sessions-label">
+                          {Math.ceil(punchIns.length)} session{punchIns.length > 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    )}
+                    {totalHours > 0 && (
+                      <div className="tooltip-total">
+                        Total: <strong>{formatHoursMinutes(totalHours)}</strong>
+                      </div>
+                    )}
+                  </div>
+                );
+              } 
+              
+              if (status === 'absent') {
+                return (
+                  <div className="tooltip-status-section">
+                    <div className="tooltip-status absent">❌ Absent</div>
+                    <div className="tooltip-description">No punch records</div>
+                  </div>
+                );
+              } 
+              
+              if (status === 'future') {
+                return (
+                  <div className="tooltip-status-section">
+                    <div className="tooltip-status future">📅 Future Date</div>
+                    <div className="tooltip-description">Not yet arrived</div>
+                  </div>
+                );
+              }
+              
+              if (status === 'pending') {
+                return (
+                  <div className="tooltip-status-section">
+                    <div className="tooltip-status pending">⏳ Pending</div>
+                    <div className="tooltip-description">Awaiting punch in</div>
+                  </div>
+                );
+              }
+            })()}
+          </div>
+          <div className="tooltip-arrow"></div>
+        </div>
+      )}
+    </div>
+  );
+};
 
   const renderTodayPunchRecords = () => {
     if (!todayStatus.punch_records || todayStatus.punch_records.length === 0) {
@@ -800,13 +827,16 @@ else if (status === 'pending') dayClass += ' pending';
     <div className="action-top">
       {!isCurrentlyPunchedIn ? (
         <>
-          <h2 className="action-title">Ready to punch in?</h2>
+          <div className="action-header-fixed">
+  <h2 className="action-title">Ready to punch in?</h2>
 
-          {lastPunchTime && (
-            <div className="last-punch-info">
-              Last punch out: {formatTime(lastPunchTime)}
-            </div>
-          )}
+  {lastPunchTime && (
+    <div className="last-punch-info">
+      Last punch out: {formatTime(lastPunchTime)}
+    </div>
+  )}
+</div>
+
         </>
       ) : (
         <>
@@ -1212,7 +1242,7 @@ else if (status === 'pending') dayClass += ' pending';
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center; /* center everything */
+        justify-content: flex-start; /* center everything */
         text-align: center;
       }
         .action-top {
@@ -1316,6 +1346,13 @@ else if (status === 'pending') dayClass += ' pending';
         font-weight: 600;
         color: #ffffff;
       }
+.action-header-fixed {
+  position: sticky;      /* ✅ keeps it stable */
+  top: 0;
+  background: white;     /* prevents overlap */
+  z-index: 2;
+  padding-bottom: 10px;
+}
 
         .punch-in-btn { 
           background: linear-gradient(135deg, #E69B9B, #E07B7B); 
@@ -1939,7 +1976,95 @@ else if (status === 'pending') dayClass += ' pending';
           color: #222;
           font-weight: 600;
         }
-        
+        /* Enhanced Tooltip Styles */
+.tooltip-status-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tooltip-status {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-block;
+  font-weight: 600;
+  text-align: center;
+}
+
+.tooltip-status.holiday {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.tooltip-status.pending {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+.tooltip-description {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+  font-style: italic;
+}
+
+.tooltip-time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tooltip-label {
+  color: #999;
+  font-weight: 500;
+}
+
+.tooltip-value {
+  color: #333;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.tooltip-sessions {
+  text-align: center;
+  margin-top: 4px;
+}
+
+.tooltip-sessions-label {
+  font-size: 10px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.tooltip-total {
+  font-size: 12px;
+  color: #333;
+  text-align: center;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.tooltip-total strong {
+  color: #E07B7B;
+  font-weight: 700;
+}
+
+/* Add status dots for all statuses */
+.status-dot.holiday-dot {
+  background-color: #1565c0;
+}
+
+.status-dot.pending-dot {
+  background-color: #f57f17;
+}
         .mobile-action-buttons-single {
           display: flex;
           justify-content: center;
