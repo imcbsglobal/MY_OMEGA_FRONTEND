@@ -2336,6 +2336,3 @@ else if (status === 'pending') dayClass += ' pending';
 
 export default PunchInPunchOut;
 
-
-
-sja
