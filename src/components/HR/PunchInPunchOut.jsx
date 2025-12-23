@@ -19,13 +19,17 @@ const PunchInPunchOut = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [location, setLocation] = useState({ latitude: null, longitude: null, address: '' });
-  const [attendanceHistory, setAttendanceHistory] = useState({});
   const [hoveredDay, setHoveredDay] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
   const [myRecords, setMyRecords] = useState([]);
   const [calendarSummary, setCalendarSummary] = useState({});
   const [lastPunchTime, setLastPunchTime] = useState(null);
+  const [attendanceStats, setAttendanceStats] = useState({
+    presentDays: 0,
+    absentDays: 0,
+    leaveDays: 0
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -50,7 +54,6 @@ const PunchInPunchOut = () => {
     fetchMonthlySummary();
     fetchLeaveRequests();
     getUserLocation();
-    fetchAttendanceHistory();
     fetchMyRecords();
   }, [currentMonth]);
 
@@ -63,6 +66,47 @@ const PunchInPunchOut = () => {
       setCountdown(5);
     }
   }, [showSuccessScreen, countdown]);
+
+  useEffect(() => {
+    // Calculate attendance statistics when calendarSummary changes
+    if (Object.keys(calendarSummary).length > 0) {
+      calculateAttendanceStats();
+    }
+  }, [calendarSummary]);
+
+  const calculateAttendanceStats = () => {
+    const today = new Date();
+    const currentYear = currentMonth.getFullYear();
+    const currentMonthNum = currentMonth.getMonth() + 1;
+    
+    let presentDays = 0;
+    let absentDays = 0;
+    let leaveDays = 0;
+    
+    Object.keys(calendarSummary).forEach(day => {
+      const dayInt = parseInt(day);
+      const date = new Date(currentYear, currentMonthNum - 1, dayInt);
+      
+      // Don't count future dates
+      if (date > today) return;
+      
+      const summary = calendarSummary[day];
+      
+      if (summary.status === 'worked') {
+        presentDays++;
+      } else if (summary.status === 'leave') {
+        leaveDays++;
+      } else if (summary.status === 'absent') {
+        absentDays++;
+      }
+    });
+    
+    setAttendanceStats({
+      presentDays,
+      absentDays,
+      leaveDays
+    });
+  };
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
@@ -141,31 +185,6 @@ const PunchInPunchOut = () => {
     }
   };
 
-  const fetchAttendanceHistory = async () => {
-    try {
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth() + 1;
-      
-      const response = await api.get(`/hr/attendance/history/?year=${year}&month=${month}`);
-      
-      if (response.data) {
-        const history = {};
-        response.data.forEach(record => {
-          const date = new Date(record.date);
-          const day = date.getDate();
-          history[day] = {
-            punch_records: record.punch_records || [],
-            worked: record.worked || false,
-            total_hours: record.total_hours || 0
-          };
-        });
-        setAttendanceHistory(history);
-      }
-    } catch (error) {
-      console.error('Error fetching attendance history:', error);
-    }
-  };
-
   const fetchMyRecords = async () => {
     try {
       const year = currentMonth.getFullYear();
@@ -178,44 +197,80 @@ const PunchInPunchOut = () => {
         setMyRecords(records);
         
         // Process records for calendar summary
-        const summary = {};
-        records.forEach(record => {
-          const date = new Date(record.date || record.punch_time);
-          const day = date.getDate();
-          
-          if (!summary[day]) {
-            summary[day] = {
-              total_hours: 0,
-              punch_ins: [],
-              punch_outs: [],
-              status: 'absent'
-            };
-          }
-          
-          if (record.punch_type === 'in') {
-            summary[day].punch_ins.push(new Date(record.punch_time));
-            if (summary[day].punch_ins.length === 1) {
-              summary[day].first_punch_in = new Date(record.punch_time);
-            }
-          } else if (record.punch_type === 'out') {
-            summary[day].punch_outs.push(new Date(record.punch_time));
-            if (summary[day].punch_outs.length > 0) {
-              summary[day].last_punch_out = new Date(record.punch_time);
-            }
-          }
-          
-          // Calculate total hours for the day
-          if (record.total_hours) {
-            summary[day].total_hours = parseFloat(record.total_hours);
-          }
-          
-          // Determine status
-          if (summary[day].punch_ins.length > 0 || summary[day].total_hours > 0) {
-            summary[day].status = 'worked';
-          }
-        });
-        
-        setCalendarSummary(summary);
+       // Process records for calendar summary (FIXED)
+const summary = {};
+const today = new Date();
+
+records.forEach(record => {
+  // record = ONE DAY attendance
+  const dateObj = new Date(record.date);
+  const day = dateObj.getDate();
+
+  if (!summary[day]) {
+    summary[day] = {
+      total_hours: parseFloat(record.total_working_hours || 0),
+      punch_ins: [],
+      punch_outs: [],
+      first_punch_in: null,
+      last_punch_out: null,
+      status: 'absent'
+    };
+  }
+
+  // Handle LEAVE explicitly
+  if (record.status === 'leave') {
+    summary[day].status = 'leave';
+    return;
+  }
+
+  // Process punch records INSIDE attendance
+  if (Array.isArray(record.punch_records)) {
+    record.punch_records.forEach(punch => {
+      const punchTime = new Date(punch.punch_time);
+
+      if (punch.punch_type === 'in') {
+        summary[day].punch_ins.push(punchTime);
+        if (!summary[day].first_punch_in) {
+          summary[day].first_punch_in = punchTime;
+        }
+      }
+
+      if (punch.punch_type === 'out') {
+        summary[day].punch_outs.push(punchTime);
+        summary[day].last_punch_out = punchTime;
+      }
+    });
+  }
+
+  // Determine status
+  if (
+    summary[day].punch_ins.length > 0 ||
+    summary[day].total_hours > 0
+  ) {
+    summary[day].status = 'worked';
+  }
+});
+
+// Fill missing days (absent / future)
+const daysInMonth = new Date(year, month, 0).getDate();
+
+for (let day = 1; day <= daysInMonth; day++) {
+  if (!summary[day]) {
+    const date = new Date(year, month - 1, day);
+
+    summary[day] = {
+      status: date > today ? 'future' : 'absent',
+      total_hours: 0,
+      punch_ins: [],
+      punch_outs: [],
+      first_punch_in: null,
+      last_punch_out: null
+    };
+  }
+}
+
+setCalendarSummary(summary);
+
       }
     } catch (error) {
       console.error('Error fetching my records:', error);
@@ -258,10 +313,27 @@ const PunchInPunchOut = () => {
   const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
   const formatDay = (date) => date.toLocaleDateString('en-US', { weekday: 'long' });
 
+  // FIXED: Correct time formatting
   const formatHoursMinutes = (decimalHours) => {
-    const hours = Math.floor(decimalHours);
-    const minutes = Math.round((decimalHours - hours) * 60);
+    if (!decimalHours || decimalHours === 0) return '0:00';
+    
+    // Convert decimal hours to total minutes
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
     return `${hours}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // FIXED: Format decimal hours to hours and minutes
+  const formatDecimalHours = (decimalHours) => {
+    if (!decimalHours || decimalHours === 0) return '0h 0m';
+    
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    return `${hours}h ${minutes}m`;
   };
 
   const calculateTimeSinceLastPunch = () => {
@@ -364,21 +436,6 @@ const PunchInPunchOut = () => {
       };
     }
     
-    // Fallback to attendance history
-    if (attendanceHistory[dayKey]) {
-      const records = attendanceHistory[dayKey].punch_records;
-      const inRecords = records.filter(r => r.punch_type === 'in');
-      const outRecords = records.filter(r => r.punch_type === 'out');
-      
-      return {
-        status: attendanceHistory[dayKey].worked ? 'worked' : 'absent',
-        worked: attendanceHistory[dayKey].worked,
-        firstPunchIn: inRecords.length > 0 ? new Date(inRecords[0].punch_time) : null,
-        lastPunchOut: outRecords.length > 0 ? new Date(outRecords[outRecords.length - 1].punch_time) : null,
-        totalHours: attendanceHistory[dayKey].total_hours || 0
-      };
-    }
-    
     // Check if it's a future date
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -453,23 +510,24 @@ const PunchInPunchOut = () => {
           <button className="calendar-nav" onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}>›</button>
         </div>
         
+        {/* ADDED: Attendance Statistics Summary */}
         <div className="calendar-summary-stats">
           <div className="summary-stat-item">
-            <div className="summary-stat-label">Worked Days</div>
+            <div className="summary-stat-label">Present Days</div>
             <div className="summary-stat-value">
-              {Object.values(calendarSummary).filter(s => s.status === 'worked').length}
+              {attendanceStats.presentDays}
             </div>
           </div>
           <div className="summary-stat-item">
-            <div className="summary-stat-label">Total Hours</div>
-            <div className="summary-stat-value">
-              {Object.values(calendarSummary).reduce((total, s) => total + (s.total_hours || 0), 0).toFixed(1)}h
+            <div className="summary-stat-label">Absent Days</div>
+            <div className="summary-stat-value absent">
+              {attendanceStats.absentDays}
             </div>
           </div>
           <div className="summary-stat-item">
             <div className="summary-stat-label">Leave Days</div>
-            <div className="summary-stat-value">
-              {Object.values(calendarSummary).filter(s => s.status === 'leave').length}
+            <div className="summary-stat-value leave">
+              {attendanceStats.leaveDays}
             </div>
           </div>
         </div>
@@ -499,7 +557,7 @@ const PunchInPunchOut = () => {
                 } else if (status === 'worked') {
                   return (
                     <>
-                      <div className="tooltip-status worked">Worked - {formatHoursMinutes(totalHours)}</div>
+                      <div className="tooltip-status worked">Worked - {formatDecimalHours(totalHours)}</div>
                       {firstPunchIn && (
                         <div className="tooltip-time">First In: {formatTime(firstPunchIn)}</div>
                       )}
@@ -518,7 +576,7 @@ const PunchInPunchOut = () => {
                         </div>
                       )}
                       {totalHours > 0 && (
-                        <div className="tooltip-hours">Total Hours: {formatHoursMinutes(totalHours)}</div>
+                        <div className="tooltip-hours">Total Hours: {formatDecimalHours(totalHours)}</div>
                       )}
                     </>
                   );
@@ -532,13 +590,6 @@ const PunchInPunchOut = () => {
             <div className="tooltip-arrow"></div>
           </div>
         )}
-        
-        {/* <div className="calendar-legend">
-          <div className="legend-item"><div className="legend-color worked-dot"></div><span>Worked</span></div>
-          <div className="legend-item"><div className="legend-color leave-dot"></div><span>Leave</span></div>
-          <div className="legend-item"><div className="legend-color absent-dot"></div><span>Absent</span></div>
-          <div className="legend-item"><div className="legend-color today"></div><span>Today</span></div>
-        </div> */}
       </div>
     );
   };
@@ -620,7 +671,7 @@ const PunchInPunchOut = () => {
               </div>
               <div className="mobile-stat-item">
                 <div className="mobile-stat-label">Total Hours</div>
-                <div className="mobile-stat-value">{monthlySummary.total_working_hours}h</div>
+                <div className="mobile-stat-value">{formatDecimalHours(monthlySummary.total_working_hours)}</div>
               </div>
             </div>
           )}
@@ -660,7 +711,7 @@ const PunchInPunchOut = () => {
               </div>
               <div className="stat-item">
                 <div className="stat-label">Total Hours</div>
-                <div className="stat-value">{monthlySummary.total_working_hours}h</div>
+                <div className="stat-value">{formatDecimalHours(monthlySummary.total_working_hours)}</div>
               </div>
             </div>
           </div>
@@ -673,7 +724,7 @@ const PunchInPunchOut = () => {
               <div className="stat-box">
                 <div className="stat-box-label">Worked Hours</div>
                 <div className="stat-box-value worked">
-                  {formatHoursMinutes(todayStatus.total_working_hours || 0)}
+                  {formatDecimalHours(todayStatus.total_working_hours || 0)}
                 </div>
               </div>
               {isCurrentlyPunchedIn && (
@@ -710,73 +761,66 @@ const PunchInPunchOut = () => {
           
           <div className="main-content">
             <div className="content-wrapper">
-             <div className="action-section">
-  <div className="action-screen">
-
-    <div className="action-top">
-      {!isCurrentlyPunchedIn ? (
-        <>
-          <h2 className="action-title">Ready to punch in?</h2>
-
-          {lastPunchTime && (
-            <div className="last-punch-info">
-              Last punch out: {formatTime(lastPunchTime)}
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="check-icon">✓</div>
-          <h2 className="action-title">You are punched in</h2>
-          <div className="action-subtitle">to {branch}</div>
-
-          <div className="session-timer-display">
-            <div className="timer-large">
-              {(() => {
-                const t = calculateTimeSinceLastPunch();
-                return t
-                  ? `${String(t.hours).padStart(2, '0')}:${String(t.minutes).padStart(2, '0')}:${String(t.seconds).padStart(2, '0')}`
-                  : '00:00:00';
-              })()}
-            </div>
-            <div className="timer-note">
-              Since {formatTime(lastPunchTime)}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ✅ BUTTON ALWAYS CLOSE TO TEXT */}
-      <div className="action-buttons-single">
-        {!isCurrentlyPunchedIn ? (
-          <button
-            className="action-btn punch-in-btn"
-            onClick={handlePunchIn}
-            disabled={loading}
-          >
-            <div className="btn-icon">👆</div>
-            <div className="btn-text">
-              {loading ? "Processing..." : "Punch In"}
-            </div>
-          </button>
-        ) : (
-          <button
-            className="action-btn punch-out-btn"
-            onClick={handlePunchOut}
-            disabled={loading}
-          >
-            <div className="btn-icon">👇</div>
-            <div className="btn-text">
-              {loading ? "Processing..." : "Punch Out"}
-            </div>
-          </button>
-        )}
-      </div>
-    </div>
-
-  </div>
-</div>
-
+              <div className="action-section">
+                <div className="action-screen">
+                  <div className="action-top">
+                    {!isCurrentlyPunchedIn ? (
+                      <>
+                        <h2 className="action-title">Ready to punch in?</h2>
+                        {lastPunchTime && (
+                          <div className="last-punch-info">
+                            Last punch out: {formatTime(lastPunchTime)}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="check-icon">✓</div>
+                        <h2 className="action-title">You are punched in</h2>
+                        <div className="action-subtitle">to {branch}</div>
+                        <div className="session-timer-display">
+                          <div className="timer-large">
+                            {(() => {
+                              const t = calculateTimeSinceLastPunch();
+                              return t
+                                ? `${String(t.hours).padStart(2, '0')}:${String(t.minutes).padStart(2, '0')}:${String(t.seconds).padStart(2, '0')}`
+                                : '00:00:00';
+                            })()}
+                          </div>
+                          <div className="timer-note">
+                            Since {formatTime(lastPunchTime)}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="action-buttons-single">
+                      {!isCurrentlyPunchedIn ? (
+                        <button
+                          className="action-btn punch-in-btn"
+                          onClick={handlePunchIn}
+                          disabled={loading}
+                        >
+                          <div className="btn-icon">👆</div>
+                          <div className="btn-text">
+                            {loading ? "Processing..." : "Punch In"}
+                          </div>
+                        </button>
+                      ) : (
+                        <button
+                          className="action-btn punch-out-btn"
+                          onClick={handlePunchOut}
+                          disabled={loading}
+                        >
+                          <div className="btn-icon">👇</div>
+                          <div className="btn-text">
+                            {loading ? "Processing..." : "Punch Out"}
+                          </div>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
               
               <div className="calendar-section">
                 <div className="calendar-container">{renderCalendar()}</div>
@@ -829,7 +873,7 @@ const PunchInPunchOut = () => {
                   </div>
                   
                   <div className="mobile-summary-box">
-                    <p><b>Total Today:</b> {formatHoursMinutes(todayStatus.total_working_hours || 0)}</p>
+                    <p><b>Total Today:</b> {formatDecimalHours(todayStatus.total_working_hours || 0)}</p>
                     <p><b>Sessions Today:</b> {Math.ceil((todayStatus.punch_records || []).length / 2)}</p>
                   </div>
                   
@@ -853,7 +897,7 @@ const PunchInPunchOut = () => {
                 <div className="mobile-stat-box">
                   <div className="mobile-stat-box-label">Worked Hours</div>
                   <div className="mobile-stat-box-value worked">
-                    {formatHoursMinutes(todayStatus.total_working_hours || 0)}
+                    {formatDecimalHours(todayStatus.total_working_hours || 0)}
                   </div>
                 </div>
                 {isCurrentlyPunchedIn && (
@@ -1048,24 +1092,6 @@ const PunchInPunchOut = () => {
           font-family: monospace; 
           font-size: 20px; 
         }
-        .summary-box { 
-          background: white; 
-          padding: 18px 20px; 
-          margin: 20px 0; 
-          border-radius: 14px; 
-          box-shadow: 0 4px 14px rgba(0,0,0,0.08); 
-          text-align: left; 
-        }
-        .summary-box p { 
-          font-size: 15px; 
-          color: #444; 
-          margin: 8px 0; 
-          font-weight: 500; 
-        }
-        .summary-box b { 
-          color: #222; 
-          font-weight: 600; 
-        }
         .main-content { 
           flex: 1; 
           padding: 32px; 
@@ -1098,29 +1124,25 @@ const PunchInPunchOut = () => {
           box-shadow: 0 2px 12px rgba(0,0,0,0.06); 
           position: relative; 
         }
-       .action-screen {
-        width: 100%;
-        max-width: 520px;
-        min-height: 360px;      /* keeps layout stable */
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center; /* center everything */
-        text-align: center;
-      }
+        .action-screen {
+          width: 100%;
+          max-width: 520px;
+          min-height: 360px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+        }
         .action-top {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.action-buttons-single {
-  margin-top: 24px; /* 👈 keeps button close */
-}
-
-
-
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+        }
+        .action-buttons-single {
+          margin-top: 24px;
+        }
         .check-icon { 
           width: 80px; 
           height: 80px; 
@@ -1177,39 +1199,28 @@ const PunchInPunchOut = () => {
           display: flex; 
           justify-content: center; 
         }
-       .action-btn {
-        background: linear-gradient(135deg, #f2a1a1, #e98181);
-        border: none;
-        border-radius: 18px;
-
-        width: 280px;       /* ✅ NORMAL WIDTH */
-        height: 160px;      /* ✅ NORMAL HEIGHT */
-
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-        .action-buttons-single .action-btn { 
-         max-width: 360px;
-        
-        
+        .action-btn {
+          background: linear-gradient(135deg, #f2a1a1, #e98181);
+          border: none;
+          border-radius: 18px;
+          width: 280px;
+          height: 160px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .btn-icon {
-        font-size: 30px;  /* was too big before */
-        margin-bottom: 6px;
-      }
-
-      .btn-text {
-        font-size: 14px;
-        font-weight: 600;
-        color: #ffffff;
-      }
-
+          font-size: 30px;
+          margin-bottom: 6px;
+        }
+        .btn-text {
+          font-size: 14px;
+          font-weight: 600;
+          color: #ffffff;
+        }
         .punch-in-btn { 
           background: linear-gradient(135deg, #E69B9B, #E07B7B); 
           color: white; 
@@ -1335,6 +1346,12 @@ const PunchInPunchOut = () => {
           font-size: 16px; 
           font-weight: 600; 
           color: #E07B7B; 
+        }
+        .summary-stat-value.absent { 
+          color: #f44336; 
+        }
+        .summary-stat-value.leave { 
+          color: #ff9800; 
         }
         .calendar-days-header { 
           display: grid; 
@@ -1515,44 +1532,11 @@ const PunchInPunchOut = () => {
           border-right: 6px solid transparent; 
           border-top: 6px solid white; 
         }
-        .calendar-legend { 
-          display: flex; 
-          flex-wrap: wrap; 
-          gap: 12px; 
-          margin-top: 16px; 
-        }
-        .legend-item { 
-          display: flex; 
-          align-items: center; 
-          gap: 6px; 
-          font-size: 12px; 
-          color: #666; 
-        }
-        .legend-color { 
-          width: 12px; 
-          height: 12px; 
-          border-radius: 50%; 
-        }
-        .legend-color.worked-dot { 
-          background: #4CAF50; 
-        }
-        .legend-color.leave-dot { 
-          background: #f44336; 
-        }
-        .legend-color.absent-dot { 
-          background: #ccc; 
-        }
-        .legend-color.today { 
-          background: #E07B7B; 
-        }
-
-        /* Punch Records Styling */
         .punch-records-list {
           display: flex;
           flex-direction: column;
           gap: 8px;
         }
-        
         .punch-record-item {
           display: flex;
           align-items: center;
@@ -1562,11 +1546,9 @@ const PunchInPunchOut = () => {
           border-radius: 8px;
           border-left: 4px solid #E07B7B;
         }
-        
         .punch-record-item:nth-child(even) {
           border-left-color: #A38B8B;
         }
-        
         .punch-record-type {
           font-weight: 600;
           font-size: 12px;
@@ -1574,22 +1556,18 @@ const PunchInPunchOut = () => {
           border-radius: 4px;
           background: rgba(224, 123, 123, 0.1);
         }
-        
         .punch-record-type.in {
           color: #E07B7B;
         }
-        
         .punch-record-type.out {
           color: #A38B8B;
         }
-        
         .punch-record-time {
           font-family: monospace;
           font-weight: 600;
           color: #333;
           font-size: 14px;
         }
-        
         .punch-record-note {
           font-size: 11px;
           color: #999;
@@ -1598,7 +1576,6 @@ const PunchInPunchOut = () => {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        
         .current-session-timer {
           margin-top: 16px;
           padding: 12px;
@@ -1607,14 +1584,12 @@ const PunchInPunchOut = () => {
           text-align: center;
           border: 1px solid #4CAF50;
         }
-        
         .timer-label {
           font-size: 12px;
           color: #2e7d32;
           margin-bottom: 4px;
           font-weight: 600;
         }
-        
         .timer-display {
           font-family: monospace;
           font-size: 20px;
@@ -1622,14 +1597,11 @@ const PunchInPunchOut = () => {
           color: #2e7d32;
           margin-bottom: 4px;
         }
-
-        /* Mobile Styles */
         .mobile-container {
           width: 100%;
           min-height: 100vh;
           background: #f5f5f5;
         }
-        
         .mobile-header {
           background: white;
           padding: 16px;
@@ -1638,43 +1610,36 @@ const PunchInPunchOut = () => {
           top: 0;
           z-index: 10;
         }
-        
         .mobile-header-top {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 16px;
         }
-        
         .mobile-date-time {
           flex: 1;
         }
-        
         .mobile-date-day {
           font-size: 14px;
           color: #666;
           margin-bottom: 2px;
         }
-        
         .mobile-date {
           font-size: 16px;
           font-weight: 600;
           color: #333;
           margin-bottom: 2px;
         }
-        
         .mobile-time {
           font-size: 20px;
           font-weight: 300;
           color: #333;
         }
-        
         .mobile-user-info {
           display: flex;
           align-items: center;
           gap: 12px;
         }
-        
         .mobile-user-avatar {
           width: 48px;
           height: 48px;
@@ -1685,74 +1650,62 @@ const PunchInPunchOut = () => {
           justify-content: center;
           font-size: 24px;
         }
-        
         .mobile-user-details {
           display: flex;
           flex-direction: column;
         }
-        
         .mobile-user-name {
           font-size: 14px;
           font-weight: 600;
           color: #333;
         }
-        
         .mobile-user-email {
           font-size: 11px;
           color: #999;
         }
-        
         .mobile-monthly-stats {
           background: linear-gradient(135deg, #E69B9B, #E07B7B);
           padding: 12px;
           border-radius: 10px;
           color: white;
         }
-        
         .mobile-stats-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 8px;
         }
-        
         .mobile-stat-item {
           background: rgba(255,255,255,0.15);
           padding: 8px;
           border-radius: 6px;
           text-align: center;
         }
-        
         .mobile-stat-label {
           font-size: 9px;
           opacity: 0.9;
           margin-bottom: 2px;
           white-space: nowrap;
         }
-        
         .mobile-stat-value {
           font-size: 16px;
           font-weight: 600;
         }
-        
         .mobile-main-content {
           padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 20px;
         }
-        
         .mobile-action-section {
           background: white;
           padding: 24px;
           border-radius: 16px;
           box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
-        
         .mobile-action-screen {
           text-align: center;
           width: 100%;
         }
-        
         .mobile-check-icon {
           width: 60px;
           height: 60px;
@@ -1765,26 +1718,22 @@ const PunchInPunchOut = () => {
           font-size: 36px;
           margin: 0 auto 16px;
         }
-        
         .mobile-action-title {
           font-size: 22px;
           font-weight: 600;
           color: #333;
           margin-bottom: 6px;
         }
-        
         .mobile-action-subtitle {
           font-size: 14px;
           color: #999;
           margin-bottom: 20px;
         }
-        
         .mobile-last-punch-info {
           margin: 10px 0 15px;
           color: #666;
           font-size: 13px;
         }
-        
         .mobile-session-timer-display {
           background: linear-gradient(135deg, #f0f9f0, #e8f5e9);
           padding: 16px;
@@ -1792,14 +1741,12 @@ const PunchInPunchOut = () => {
           margin: 16px 0;
           border: 2px solid #4CAF50;
         }
-        
         .mobile-timer-title {
           font-size: 13px;
           color: #2e7d32;
           margin-bottom: 6px;
           font-weight: 600;
         }
-        
         .mobile-timer-large {
           font-size: 28px;
           font-weight: 700;
@@ -1807,12 +1754,10 @@ const PunchInPunchOut = () => {
           font-family: monospace;
           margin-bottom: 4px;
         }
-        
         .mobile-timer-note {
           font-size: 11px;
           color: #666;
         }
-        
         .mobile-summary-box {
           background: #f9f9f9;
           padding: 16px;
@@ -1820,25 +1765,21 @@ const PunchInPunchOut = () => {
           border-radius: 12px;
           text-align: left;
         }
-        
         .mobile-summary-box p {
           font-size: 14px;
           color: #444;
           margin: 6px 0;
           font-weight: 500;
         }
-        
         .mobile-summary-box b {
           color: #222;
           font-weight: 600;
         }
-        
         .mobile-action-buttons-single {
           display: flex;
           justify-content: center;
           margin-top: 20px;
         }
-        
         .mobile-action-btn {
           padding: 32px 24px;
           border: none;
@@ -1852,44 +1793,37 @@ const PunchInPunchOut = () => {
           width: 100%;
           max-width: 300px;
         }
-        
         .mobile-btn-icon {
           font-size: 36px;
         }
-        
         .mobile-btn-text {
           font-size: 16px;
           font-weight: 600;
         }
-        
         .mobile-today-summary {
           background: white;
           padding: 20px;
           border-radius: 16px;
           box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
-        
         .mobile-summary-title {
           font-size: 14px;
           color: #999;
           margin-bottom: 12px;
           font-weight: 600;
         }
-        
         .mobile-summary-stats-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 12px;
           margin-bottom: 20px;
         }
-        
         .mobile-stat-box {
           background: #f9f9f9;
           padding: 16px;
           border-radius: 10px;
           text-align: center;
         }
-        
         .mobile-stat-box-label {
           font-size: 11px;
           color: #999;
@@ -1897,33 +1831,27 @@ const PunchInPunchOut = () => {
           text-transform: uppercase;
           font-weight: 600;
         }
-        
         .mobile-stat-box-value {
           font-size: 20px;
           font-weight: 600;
         }
-        
         .mobile-stat-box-value.worked {
           color: #E07B7B;
         }
-        
         .mobile-stat-box-value.session-timer {
           color: #4CAF50;
           font-family: monospace;
           font-size: 18px;
         }
-        
         .mobile-calendar-section {
           background: white;
           padding: 20px;
           border-radius: 16px;
           box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
-        
         .mobile-calendar-container {
           position: relative;
         }
-        
         .mobile-current-session {
           margin-top: 16px;
           padding: 12px;
@@ -1932,379 +1860,298 @@ const PunchInPunchOut = () => {
           text-align: center;
           border: 1px solid #4CAF50;
         }
-        
         .mobile-session-label {
           font-size: 12px;
           color: #2e7d32;
           margin-bottom: 4px;
           font-weight: 600;
         }
-        
         .mobile-session-time {
           font-family: monospace;
           font-size: 18px;
           font-weight: 700;
           color: #2e7d32;
         }
-
-        /* Responsive Breakpoints */
         @media (max-width: 1024px) {
           .content-wrapper {
             flex-direction: column;
             gap: 24px;
           }
-          
           .calendar-section {
             flex: 0 0 auto;
           }
-          
           .calendar-container {
             max-width: 100%;
           }
-          
           .summary-stats-grid {
             grid-template-columns: 1fr;
           }
-          
           .mobile-stats-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
           }
-          
           .mobile-stat-item {
             padding: 10px;
           }
-          
           .mobile-summary-stats-grid {
             grid-template-columns: 1fr;
           }
         }
-
         @media (max-width: 768px) {
           .attendance-container {
             flex-direction: column;
           }
-          
           .sidebar {
             width: 100%;
             padding: 16px;
             box-shadow: none;
             border-bottom: 1px solid #f0f0f0;
           }
-          
           .main-content {
             padding: 16px;
           }
-          
           .content-wrapper {
             gap: 20px;
           }
-          
           .action-btn {
             padding: 32px 24px;
           }
-          
           .btn-icon {
             font-size: 36px;
           }
-          
           .btn-text {
             font-size: 16px;
           }
-          
           .calendar-title {
             font-size: 16px;
           }
-          
           .calendar-day {
             font-size: 13px;
           }
-          
           .day-status-dots {
             margin-top: 1px;
           }
-          
           .status-dot {
             width: 5px;
             height: 5px;
           }
-          
           .success-screen {
             width: 100%;
             padding: 32px;
           }
-          
           .success-icon {
             width: 80px;
             height: 80px;
             font-size: 48px;
           }
-          
           .success-title {
             font-size: 28px;
           }
-          
           .success-message {
             font-size: 16px;
           }
-          
           .mobile-header-top {
             flex-direction: column;
             align-items: flex-start;
             gap: 16px;
           }
-          
           .mobile-user-info {
             width: 100%;
             justify-content: space-between;
           }
-          
           .mobile-stats-grid {
             grid-template-columns: repeat(4, 1fr);
           }
-          
           .mobile-stat-label {
             font-size: 8px;
           }
-          
           .mobile-stat-value {
             font-size: 14px;
           }
-          
           .punch-record-item {
             padding: 8px 10px;
           }
-          
           .punch-record-time {
             font-size: 13px;
           }
-          
           .punch-record-note {
             display: none;
           }
         }
-
         @media (max-width: 480px) {
           .summary-stats-grid {
             grid-template-columns: 1fr;
             gap: 8px;
           }
-          
           .stat-box {
             padding: 12px;
           }
-          
           .calendar-grid {
             gap: 2px;
           }
-          
           .calendar-day {
             border-radius: 4px;
           }
-          
           .action-screen {
             max-width: 100%;
           }
-          
           .action-buttons-single .action-btn {
             max-width: 100%;
           }
-          
           .mobile-stats-grid {
             grid-template-columns: repeat(2, 1fr);
           }
-          
           .mobile-summary-stats-grid {
             grid-template-columns: 1fr;
           }
-          
           .mobile-action-btn {
             padding: 24px 20px;
           }
-          
           .mobile-btn-icon {
             font-size: 32px;
           }
-          
           .mobile-btn-text {
             font-size: 14px;
           }
-          
           .mobile-action-title {
             font-size: 20px;
           }
-          
           .calendar-day-name {
             font-size: 11px;
           }
-          
           .calendar-day {
             font-size: 12px;
           }
-          
           .calendar-summary-stats {
             grid-template-columns: repeat(3, 1fr);
             gap: 6px;
             padding: 8px;
           }
-          
           .summary-stat-label {
             font-size: 9px;
           }
-          
           .summary-stat-value {
             font-size: 14px;
           }
-          
           .timer-large {
             font-size: 28px;
           }
-          
           .mobile-timer-large {
             font-size: 24px;
           }
         }
-
         @media (max-width: 360px) {
           .mobile-stats-grid {
             grid-template-columns: repeat(2, 1fr);
           }
-          
           .mobile-stat-item {
             padding: 6px;
           }
-          
           .mobile-stat-label {
             font-size: 7px;
           }
-          
           .mobile-stat-value {
             font-size: 12px;
           }
-          
           .calendar-grid {
             gap: 1px;
           }
-          
           .calendar-day {
             font-size: 11px;
           }
-          
           .calendar-summary-stats {
             grid-template-columns: 1fr;
             gap: 4px;
           }
-          
           .timer-large {
             font-size: 24px;
           }
-          
           .mobile-timer-large {
             font-size: 20px;
           }
         }
-
         @media (hover: none) and (pointer: coarse) {
           .day-tooltip {
             display: none !important;
           }
-          
           .calendar-day {
             min-height: 44px;
           }
         }
-          /* ✅ FIX calendar overflow on mobile */
         @media (max-width: 768px) {
           .mobile-calendar-container {
             width: 100%;
-            overflow-x: hidden;   /* 🔒 prevents overflow */
+            overflow-x: hidden;
           }
-
           .calendar {
             width: 100%;
             max-width: 100%;
           }
-
           .calendar-grid {
             width: 100%;
             max-width: 100%;
           }
         }
-
         @media (max-width: 480px) {
-      .calendar-grid {
-        gap: 2px;   /* tighter spacing */
-      }
-
-      .calendar-day {
-        font-size: 11px;
-        aspect-ratio: 1 / 1;
-      }
-
-      .calendar-day-name {
-        font-size: 10px;
-      }
-    }
-/* âœ… FIX calendar overflow on mobile */
+          .calendar-grid {
+            gap: 2px;
+          }
+          .calendar-day {
+            font-size: 11px;
+            aspect-ratio: 1 / 1;
+          }
+          .calendar-day-name {
+            font-size: 10px;
+          }
+        }
         @media (max-width: 768px) {
           .mobile-calendar-section {
             padding: 16px;
             width: 100%;
             overflow-x: hidden;
           }
-
           .mobile-calendar-container {
             width: 100%;
             max-width: 100%;
             overflow-x: hidden;
           }
-
           .calendar {
             width: 100%;
             max-width: 100%;
           }
-
           .calendar-header {
             margin-bottom: 12px;
           }
-
           .calendar-title {
             font-size: 16px;
           }
-
           .calendar-summary-stats {
             padding: 10px;
             gap: 6px;
             margin-bottom: 12px;
           }
-
           .summary-stat-label {
             font-size: 10px;
           }
-
           .summary-stat-value {
             font-size: 14px;
           }
-
           .calendar-days-header {
             width: 100%;
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 2px;
           }
-
           .calendar-day-name {
             font-size: 10px;
             padding: 6px 0;
           }
-
           .calendar-grid {
             width: 100%;
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 2px;
           }
-
           .calendar-day {
             font-size: 12px;
             padding: 0;
@@ -2312,67 +2159,54 @@ const PunchInPunchOut = () => {
             height: auto;
             aspect-ratio: 1 / 1;
           }
-
           .day-status-dots {
             margin-top: 2px;
             gap: 2px;
           }
-
           .status-dot {
             width: 4px;
             height: 4px;
           }
         }
-
         @media (max-width: 480px) {
           .mobile-calendar-section {
             padding: 12px;
           }
-
           .calendar-grid {
             gap: 1px;
           }
-
           .calendar-day {
             font-size: 11px;
             min-height: 36px;
           }
-
           .calendar-day-name {
             font-size: 9px;
             padding: 4px 0;
           }
-
           .calendar-summary-stats {
             padding: 8px;
             gap: 4px;
           }
-
           .summary-stat-label {
             font-size: 9px;
           }
-
           .summary-stat-value {
             font-size: 12px;
           }
         }
-
         @media (max-width: 360px) {
           .calendar-day {
             font-size: 10px;
             min-height: 32px;
           }
-
           .calendar-day-name {
             font-size: 8px;
           }
-
           .calendar-summary-stats {
             grid-template-columns: 1fr;
             gap: 4px;
           }
         }
-
       `}</style>
     </div>
   );

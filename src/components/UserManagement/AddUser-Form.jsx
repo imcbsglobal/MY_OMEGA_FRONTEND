@@ -27,7 +27,6 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
         status: editData.is_active ? "Active" : "Inactive",
       });
 
-      // Set profile picture preview if exists
       if (editData.profile_picture) {
         setProfilePicturePreview(editData.profile_picture);
       }
@@ -37,7 +36,6 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Convert fullName to uppercase
     if (name === "fullName") {
       setFormData((p) => ({ ...p, [name]: value.toUpperCase() }));
     } else {
@@ -45,17 +43,14 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
     }
   };
 
-  // Handle profile picture file selection
   const handlePictureChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         alert('Please select an image file');
         return;
       }
 
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert('File size must be less than 5MB');
         return;
@@ -63,7 +58,6 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
 
       setProfilePicture(file);
       
-      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfilePicturePreview(reader.result);
@@ -72,7 +66,6 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
     }
   };
 
-  // Remove profile picture
   const handleRemovePicture = () => {
     setProfilePicture(null);
     setProfilePicturePreview(null);
@@ -81,7 +74,6 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Prepare FormData for file upload
     const formDataToSend = new FormData();
     
     formDataToSend.append('name', formData.fullName);
@@ -91,13 +83,11 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
     formDataToSend.append('phone_number', formData.phoneNumber);
     formDataToSend.append('is_active', formData.status === "Active");
 
-    // Add password if provided
     if (formData.password && formData.password.trim().length > 0) {
       formDataToSend.append('password', formData.password);
       formDataToSend.append('confirm_password', formData.password);
     }
 
-    // Add profile picture if selected
     if (profilePicture) {
       formDataToSend.append('profile_picture', profilePicture);
     }
@@ -111,7 +101,6 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
         });
         alert("User updated!");
       } else {
-        // Backend requires password for new users
         if (!formData.password) {
           alert("Password is required for new users");
           return;
@@ -137,7 +126,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
         <div style={styles.header}>
           <h2 style={styles.title}>{editData ? "Edit User" : "Add User"}</h2>
           <button onClick={onCancel} style={styles.backButton}>
-            Back
+            ← Back
           </button>
         </div>
 
@@ -180,7 +169,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
                   </button>
                 )}
                 <div style={styles.helperText}>
-                  Max 5MB (JPG, PNG,)
+                  Max 5MB (JPG, PNG)
                 </div>
               </div>
             </div>
@@ -203,6 +192,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
               <label style={styles.label}>Email (User ID)</label>
               <input
                 name="userId"
+                type="email"
                 placeholder="Email (User ID)"
                 value={formData.userId}
                 onChange={handleChange}
@@ -212,11 +202,13 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>Password</label>
+              <label style={styles.label}>
+                Password {!editData && <span style={styles.required}>*</span>}
+              </label>
               <input
                 name="password"
                 type="password"
-                placeholder="Password"
+                placeholder={editData ? "Leave blank to keep current" : "Password"}
                 value={formData.password}
                 onChange={handleChange}
                 style={styles.input}
@@ -256,6 +248,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
               <label style={styles.label}>Phone Number</label>
               <input
                 name="phoneNumber"
+                type="tel"
                 placeholder="Phone"
                 value={formData.phoneNumber}
                 onChange={handleChange}
@@ -282,7 +275,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
               Cancel
             </button>
             <button type="submit" style={styles.saveBtn}>
-              {editData ? "Update" : "Create"}
+              {editData ? "Update User" : "Create User"}
             </button>
           </div>
         </form>
@@ -293,7 +286,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
 
 const styles = {
   container: {
-    padding: "24px",
+    padding: "16px",
     background: "#f9fafb",
     minHeight: "100vh",
   },
@@ -306,13 +299,15 @@ const styles = {
   },
   header: {
     display: "flex",
-    justifyContent: "space-between",
-    padding: "20px",
+    flexDirection: "column",
+    gap: "12px",
+    padding: "16px",
     borderBottom: "1px solid #eee",
   },
   title: {
-    fontSize: "22px",
+    fontSize: "20px",
     fontWeight: "700",
+    margin: 0
   },
   backButton: {
     padding: "10px 16px",
@@ -321,28 +316,31 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
     fontWeight: "600",
+    fontSize: "14px",
+    width: "100%"
   },
   form: {
-    padding: "20px",
+    padding: "16px",
   },
   pictureSection: {
-    marginBottom: "24px",
-    padding: "20px",
+    marginBottom: "20px",
+    padding: "16px",
     border: "1px solid #e5e7eb",
     borderRadius: "8px",
     background: "#fbfdff"
   },
   sectionLabel: {
-    fontSize: "16px",
+    fontSize: "15px",
     fontWeight: "600",
     color: "#374151",
-    marginBottom: "16px",
+    marginBottom: "12px",
     display: "block"
   },
   pictureContainer: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: '24px'
+    gap: '16px'
   },
   picturePreview: {
     width: '100px',
@@ -374,13 +372,14 @@ const styles = {
   pictureActions: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px'
+    gap: '10px',
+    width: '100%'
   },
   fileInput: {
     display: 'none'
   },
   uploadButton: {
-    padding: '10px 16px',
+    padding: '12px 16px',
     border: '1px solid #3b82f6',
     borderRadius: '6px',
     background: '#eff6ff',
@@ -388,27 +387,32 @@ const styles = {
     fontSize: '14px',
     fontWeight: '600',
     color: '#3b82f6',
-    textAlign: 'center'
+    textAlign: 'center',
+    width: '100%',
+    boxSizing: 'border-box'
   },
   removeButton: {
-    padding: '10px 16px',
+    padding: '12px 16px',
     border: '1px solid #ef4444',
     borderRadius: '6px',
     background: '#fef2f2',
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: '600',
-    color: '#ef4444'
+    color: '#ef4444',
+    width: '100%',
+    boxSizing: 'border-box'
   },
   helperText: {
     fontSize: '12px',
     color: '#6b7280',
-    fontStyle: 'italic'
+    fontStyle: 'italic',
+    textAlign: 'center'
   },
   grid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "18px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
   },
   field: {
     display: "flex",
@@ -418,35 +422,89 @@ const styles = {
     fontWeight: "600",
     fontSize: "14px",
     marginBottom: "6px",
+    color: "#374151"
+  },
+  required: {
+    color: "#ef4444"
   },
   input: {
     padding: "12px",
-    border: "1px solid #ccc",
+    border: "1px solid #d1d5db",
     borderRadius: "8px",
     outline: "none",
+    fontSize: "14px",
+    width: "100%",
+    boxSizing: "border-box"
   },
   footer: {
     display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-    paddingTop: "15px",
-    marginTop: "15px",
+    flexDirection: "column",
+    gap: "10px",
+    paddingTop: "20px",
+    marginTop: "20px",
     borderTop: "1px solid #eee",
   },
   cancelBtn: {
-    padding: "10px 20px",
-    border: "1px solid #ccc",
+    padding: "12px 20px",
+    border: "1px solid #d1d5db",
     background: "#fff",
     borderRadius: "8px",
     cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "600",
+    width: "100%",
+    boxSizing: "border-box"
   },
   saveBtn: {
-    padding: "10px 20px",
+    padding: "12px 20px",
     border: "none",
     background: "#2563eb",
     color: "#fff",
     borderRadius: "8px",
     cursor: "pointer",
     fontWeight: "600",
+    fontSize: "14px",
+    width: "100%",
+    boxSizing: "border-box"
   },
 };
+
+// Apply media query styles for tablet and desktop
+if (typeof window !== 'undefined') {
+  const mediaQuery = window.matchMedia('(min-width: 768px)');
+  if (mediaQuery.matches) {
+    Object.assign(styles.container, { padding: "24px" });
+    Object.assign(styles.header, { 
+      flexDirection: "row", 
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "20px"
+    });
+    Object.assign(styles.title, { fontSize: "22px" });
+    Object.assign(styles.backButton, { width: "auto" });
+    Object.assign(styles.form, { padding: "20px" });
+    Object.assign(styles.pictureSection, { padding: "20px", marginBottom: "24px" });
+    Object.assign(styles.pictureContainer, { 
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: '24px'
+    });
+    Object.assign(styles.pictureActions, { width: 'auto' });
+    Object.assign(styles.uploadButton, { width: 'auto' });
+    Object.assign(styles.removeButton, { width: 'auto' });
+    Object.assign(styles.helperText, { textAlign: 'left' });
+    Object.assign(styles.grid, { 
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "18px"
+    });
+    Object.assign(styles.footer, { 
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginTop: "15px",
+      paddingTop: "15px"
+    });
+    Object.assign(styles.cancelBtn, { width: "auto" });
+    Object.assign(styles.saveBtn, { width: "auto" });
+  }
+}
