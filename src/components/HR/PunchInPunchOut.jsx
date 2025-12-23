@@ -5,7 +5,7 @@ const PunchInPunchOut = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
   const [successType, setSuccessType] = useState('');
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(2);
   const [todayStatus, setTodayStatus] = useState({ 
     punch_records: [], 
     total_working_hours: 0
@@ -57,15 +57,18 @@ const PunchInPunchOut = () => {
     fetchMyRecords();
   }, [currentMonth]);
 
-  useEffect(() => {
-    if (showSuccessScreen && countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (countdown === 0) {
-      setShowSuccessScreen(false);
-      setCountdown(5);
-    }
-  }, [showSuccessScreen, countdown]);
+ useEffect(() => {
+  if (showSuccessScreen && countdown > 0) {
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }
+
+  if (countdown === 0) {
+    setShowSuccessScreen(false);
+    setCountdown(2); // 👈 reset to 2 seconds
+  }
+}, [showSuccessScreen, countdown]);
+
 
   useEffect(() => {
     // Calculate attendance statistics when calendarSummary changes
@@ -407,46 +410,134 @@ setCalendarSummary(summary);
     });
   };
 
+  const isSunday = (date) => date.getDay() === 0;
+
   const getDaySummary = (day) => {
-    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dayKey = day;
-    
-    // Check if on leave first
-    if (isDateOnLeave(new Date(date))) {
-      return {
-        status: 'leave',
-        worked: false,
-        firstPunchIn: null,
-        lastPunchOut: null,
-        totalHours: 0
-      };
-    }
-    
-    // Check calendar summary from my_records API
-    if (calendarSummary[dayKey]) {
-      const summary = calendarSummary[dayKey];
-      return {
-        status: summary.status,
-        worked: summary.status === 'worked',
-        firstPunchIn: summary.first_punch_in || null,
-        lastPunchOut: summary.last_punch_out || null,
-        totalHours: summary.total_hours || 0,
-        punchIns: summary.punch_ins || [],
-        punchOuts: summary.punch_outs || []
-      };
-    }
-    
-    // Check if it's a future date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    date.setHours(0, 0, 0, 0);
-    
-    if (date > today) {
-      return { status: 'future', worked: false, firstPunchIn: null, lastPunchOut: null, totalHours: 0 };
-    }
-    
-    return { status: 'absent', worked: false, firstPunchIn: null, lastPunchOut: null, totalHours: 0 };
+  const date = new Date(
+    currentMonth.getFullYear(),
+    currentMonth.getMonth(),
+    day
+  );
+
+  const today = new Date();
+
+  const isToday =
+    today.getFullYear() === date.getFullYear() &&
+    today.getMonth() === date.getMonth() &&
+    today.getDate() === date.getDate();
+
+  /* 🟦 SUNDAY → ALWAYS HOLIDAY (TOP PRIORITY) */
+  if (date.getDay() === 0) {
+    return {
+      status: 'holiday',
+      worked: false,
+      firstPunchIn: null,
+      lastPunchOut: null,
+      totalHours: 0
+    };
+  }
+
+  /* ✅ TODAY + PUNCH → WORKED */
+  if (isToday && todayStatus.punch_records?.length > 0) {
+    const firstIn = todayStatus.punch_records.find(r => r.punch_type === 'in');
+    const lastOut = [...todayStatus.punch_records]
+      .reverse()
+      .find(r => r.punch_type === 'out');
+
+    return {
+      status: 'worked',
+      worked: true,
+      firstPunchIn: firstIn ? new Date(firstIn.punch_time) : null,
+      lastPunchOut: lastOut ? new Date(lastOut.punch_time) : null,
+      totalHours: todayStatus.total_working_hours || 0,
+      punchIns: todayStatus.punch_records
+        .filter(r => r.punch_type === 'in')
+        .map(r => new Date(r.punch_time)),
+      punchOuts: todayStatus.punch_records
+        .filter(r => r.punch_type === 'out')
+        .map(r => new Date(r.punch_time)),
+    };
+  }
+
+  /* 🔁 LEAVE CHECK */
+  if (isDateOnLeave(new Date(date))) {
+    return {
+      status: 'leave',
+      worked: false,
+      firstPunchIn: null,
+      lastPunchOut: null,
+      totalHours: 0
+    };
+  }
+
+  /* 🔁 CALENDAR SUMMARY */
+  if (calendarSummary[day]) {
+    const summary = calendarSummary[day];
+    return {
+      status: summary.status,
+      worked: summary.status === 'worked',
+      firstPunchIn: summary.first_punch_in || null,
+      lastPunchOut: summary.last_punch_out || null,
+      totalHours: summary.total_hours || 0,
+      punchIns: summary.punch_ins || [],
+      punchOuts: summary.punch_outs || []
+    };
+  }
+
+  /* 🔁 ATTENDANCE HISTORY */
+  if (attendanceHistory[day]) {
+    const records = attendanceHistory[day].punch_records;
+    const inRecords = records.filter(r => r.punch_type === 'in');
+    const outRecords = records.filter(r => r.punch_type === 'out');
+
+    return {
+      status: attendanceHistory[day].worked ? 'worked' : 'absent',
+      worked: attendanceHistory[day].worked,
+      firstPunchIn: inRecords[0] ? new Date(inRecords[0].punch_time) : null,
+      lastPunchOut: outRecords.length
+        ? new Date(outRecords[outRecords.length - 1].punch_time)
+        : null,
+      totalHours: attendanceHistory[day].total_hours || 0
+    };
+  }
+
+  /* 🔁 DATE NORMALIZATION */
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+
+  /* 🔮 FUTURE DATE */
+  if (date > today) {
+    return {
+      status: 'future',
+      worked: false,
+      firstPunchIn: null,
+      lastPunchOut: null,
+      totalHours: 0
+    };
+  }
+
+  /* ⏳ TODAY BUT NO PUNCH */
+  if (isToday) {
+    return {
+      status: 'pending',
+      worked: false,
+      firstPunchIn: null,
+      lastPunchOut: null,
+      totalHours: 0
+    };
+  }
+
+  /* ❌ PAST DAY WITH NO RECORD */
+  return {
+    status: 'absent',
+    worked: false,
+    firstPunchIn: null,
+    lastPunchOut: null,
+    totalHours: 0
   };
+};
+
+
 
   const handleDayHover = (event, day) => {
     if (event) {
@@ -478,10 +569,15 @@ setCalendarSummary(summary);
       const { status, worked } = daySummary;
       
       let dayClass = `calendar-day ${isToday ? 'today' : ''}`;
-      if (status === 'leave') dayClass += ' on-leave';
-      if (status === 'worked') dayClass += ' worked-day';
-      if (status === 'absent') dayClass += ' absent-day';
-      if (status === 'future') dayClass += ' future-day';
+
+if (isSunday(date)) dayClass += ' sunday-holiday';
+else if (status === 'leave') dayClass += ' on-leave';
+else if (status === 'worked') dayClass += ' worked-day';
+else if (status === 'absent') dayClass += ' absent-day';
+else if (status === 'future') dayClass += ' future-day';
+else if (status === 'pending') dayClass += ' pending';
+
+
       
       days.push(
         <div 
@@ -551,7 +647,10 @@ setCalendarSummary(summary);
               {(() => {
                 const daySummary = getDaySummary(hoveredDay);
                 const { status, firstPunchIn, lastPunchOut, totalHours, punchIns, punchOuts } = daySummary;
-                
+                if (status === 'holiday') {
+                return <div className="tooltip-status holiday">Holiday (Sunday)</div>;
+              }
+
                 if (status === 'leave') {
                   return <div className="tooltip-status leave">On Leave</div>;
                 } else if (status === 'worked') {
@@ -1112,6 +1211,29 @@ setCalendarSummary(summary);
           align-items: center; 
           justify-content: center; 
         }
+      .calendar-day.pending {
+        background: #fff8e1;
+        color: #92400e;
+        border: 1px dashed #facc15;
+        font-weight: 600;
+      }
+
+        /* Sunday Holiday */
+      .calendar-day.sunday-holiday {
+        background: #e3f2fd;
+        color: #1565c0;
+        font-weight: 600;
+        border: 1px solid #90caf9;
+      }
+
+      /* Punch-in / Worked day */
+      .calendar-day.worked-day {
+  background: linear-gradient(135deg, #d4f8e8, #b2f2d8);
+  color: #065f46 !important;   /* ✅ FORCE text color */
+  border: 1px solid #34d399;
+  font-weight: 700;
+}
+
         .calendar-section { 
           flex: 0 0 450px; 
           display: flex; 
