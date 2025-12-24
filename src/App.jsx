@@ -37,6 +37,8 @@ import JobTitles from "./components/master/JobTitles";
 import JobTitleForm from "./components/master/JobTitleForm";
 import Department from "./components/master/Department";
 import LeaveTypeManagement from "./components/master/LeaveTypeManagement.jsx";
+import Deduction from "./components/master/Deduction.jsx";
+import Allowence from "./components/master/Allowence.jsx";
 
 
 import UserControl from "./components/UserManagement/UserControl";
@@ -49,6 +51,8 @@ import LeaveList from './components/HR/LeaveList';
 import EarlyList from './components/HR/EarlyList';
 import LateList from './components/HR/LateList';
 import UnderConstruction from './components/HR/UnderConstruction';
+// ✅ NEW - Payroll Import
+import Payroll from "./components/Payroll/Payroll";
 
 // ✅ NEW – Break List
 import BreakList from "./components/HR/BreakList";
@@ -146,11 +150,17 @@ function App() {
           <Route path="hr/request/early" element={<EarlyRequest />} />
 
           {/* Master */}
-          <Route path="master/job-titles" element={<JobTitles />} />
+         <Route path="master/job-titles" element={<JobTitles />} />
           <Route path="master/job-titles/new" element={<JobTitleForm />} />
           <Route path="master/job-titles/:id/edit" element={<JobTitleForm />} />
           <Route path="master/department" element={<Department />} />
-          <Route path="/master/leave-types" element={<LeaveTypeManagement />} />
+          <Route path="master/leave-types" element={<LeaveTypeManagement />} />
+          <Route path="master/deductions" element={<Deduction />} />
+          <Route path="master/allowences" element={<Allowence />} />
+
+           {/* ✅ NEW - Payroll Routes */}
+          <Route path="payroll" element={<Payroll />} />
+          <Route path="payroll/processing" element={<Payroll />} />
 
 
           {/* User Management */}

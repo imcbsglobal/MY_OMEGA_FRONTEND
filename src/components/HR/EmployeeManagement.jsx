@@ -216,13 +216,6 @@ const [detailLoading, setDetailLoading] = useState(false);
         </div>
       </div>
 
-      {/* Debug Info */}
-      <div style={S.debugBanner}>
-        <strong>Total Employees:</strong> {employees.length} | 
-        <strong> Filtered:</strong> {filtered.length} | 
-        <strong> Job Titles:</strong> {jobTitles.length} |
-        <strong> Departments:</strong> {departments.length}
-      </div>
 
       {/* Main Split Layout */}
       <div style={S.main}>
