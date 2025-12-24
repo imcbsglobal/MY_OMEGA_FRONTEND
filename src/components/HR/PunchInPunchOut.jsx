@@ -137,18 +137,15 @@ const PunchInPunchOut = () => {
     }
   };
 
-  const fetchUserProfile = async () => {
-    try {
-      const response = await api.get('/auth/profile/');
-      if (response.data) {
-        setUserName(response.data.name || response.data.username || 'User');
-        setUserEmail(response.data.email || '');
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      setUserName('User');
-    }
-  };
+const fetchUserProfile = async () => {
+  try {
+    const response = await api.get('/users/me/'); // ← FIXED
+    setUserName(response.data.name);
+    setUserEmail(response.data.email);
+  } catch (error) {
+    console.error(error);
+  }
+};
 
   const fetchMonthlySummary = async () => {
     try {
@@ -484,22 +481,6 @@ setCalendarSummary(summary);
     };
   }
 
-  /* 🔁 ATTENDANCE HISTORY */
-  if (attendanceHistory[day]) {
-    const records = attendanceHistory[day].punch_records;
-    const inRecords = records.filter(r => r.punch_type === 'in');
-    const outRecords = records.filter(r => r.punch_type === 'out');
-
-    return {
-      status: attendanceHistory[day].worked ? 'worked' : 'absent',
-      worked: attendanceHistory[day].worked,
-      firstPunchIn: inRecords[0] ? new Date(inRecords[0].punch_time) : null,
-      lastPunchOut: outRecords.length
-        ? new Date(outRecords[outRecords.length - 1].punch_time)
-        : null,
-      totalHours: attendanceHistory[day].total_hours || 0
-    };
-  }
 
   /* 🔁 DATE NORMALIZATION */
   today.setHours(0, 0, 0, 0);
