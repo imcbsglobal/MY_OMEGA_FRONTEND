@@ -685,7 +685,9 @@ const styles = {
     alignItems: "flex-end",
   },
   filterGroup: {
+
     display: "flex",
+
     flexDirection: "column",
   },
   filterLabel: {

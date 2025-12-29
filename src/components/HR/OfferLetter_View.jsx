@@ -1,4 +1,4 @@
-// OfferLetter_View.jsx - COMPLETE UPDATED VERSION WITH HEADER/FOOTER
+// OfferLetter_View.jsx - FIXED PRINT LAYOUT VERSION
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/client";
@@ -391,22 +391,144 @@ export default function OfferLetterView() {
       {/* Print Styles */}
       <style>{`
         @media print {
+          /* Hide all non-print elements */
           .no-print {
             display: none !important;
           }
           
-          body {
-            margin: 0;
-            padding: 0;
+          /* Reset everything for print */
+          * {
+            box-sizing: border-box;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
 
-          .page-break {
-            page-break-before: always;
+          html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible;
           }
-          
+
+          /* Hide everything except our content */
+          body > *:not(#root) {
+            display: none !important;
+          }
+
+          #root {
+            width: 100%;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* Hide all navigation, sidebars, headers */
+          aside, nav, header, footer:not([style*="footer"]),
+          .sidebar, .navbar, .header, .menu,
+          [class*="sidebar"], 
+          [class*="Sidebar"],
+          [class*="nav"],
+          [class*="Nav"],
+          [class*="layout"],
+          [class*="Layout"],
+          [id*="sidebar"],
+          [id*="nav"],
+          [role="navigation"] {
+            display: none !important;
+            position: absolute !important;
+            left: -9999px !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
+
+          /* Force main content container to full width */
+          main, [role="main"], .main-content, [class*="content"] {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+          }
+
+          /* Page setup */
           @page {
             size: A4;
-            margin: 10mm;
+            margin: 8mm;
+          }
+
+          /* Our page container */
+          div[style*="page"] {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 0 !important;
+          }
+
+          /* Letter containers */
+          div[style*="letterContainer"] {
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            max-width: 210mm !important;
+            min-height: 0 !important;
+            height: auto !important;
+            page-break-inside: auto;
+          }
+
+          /* Only first container doesn't break before */
+          div[style*="letterContainer"]:first-of-type {
+            page-break-before: avoid;
+          }
+
+          /* Page breaks only between actual pages */
+          .page-break {
+            page-break-before: always;
+            break-before: page;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* Adjust header for print */
+          div[style*="header"] {
+            padding: 20px 25px 12px !important;
+          }
+
+          /* Adjust body for print */
+          div[style*="letterBody"] {
+            padding: 20px 30px 55px !important;
+          }
+
+          /* Ensure tables fit */
+          table {
+            width: 100% !important;
+            page-break-inside: avoid;
+          }
+
+          /* Images */
+          img {
+            max-width: 100%;
+            height: auto;
+          }
+
+          /* Lists shouldn't break across pages if possible */
+          ol, ul {
+            page-break-inside: auto;
+          }
+
+          li {
+            page-break-inside: auto;
+          }
+
+          /* Sections to keep together */
+          div[style*="salaryBox"],
+          div[style*="incentivesSection"],
+          div[style*="acceptanceSection"] {
+            page-break-inside: avoid;
           }
         }
       `}</style>
@@ -493,11 +615,11 @@ const styles = {
   },
   letterContainer: {
     maxWidth: "210mm",
-    minHeight: "297mm",
     margin: "0 auto 20px",
     backgroundColor: "white",
     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
     position: "relative",
+    paddingBottom: "40px",
   },
   // Header Section
   header: {
@@ -557,7 +679,7 @@ const styles = {
   },
   // Letter Body
   letterBody: {
-    padding: "25px 35px 60px",
+    padding: "25px 30px 60px",
   },
   toDateSection: {
     display: "flex",
@@ -772,13 +894,10 @@ const styles = {
   },
   // Footer
   footer: {
-    position: "absolute",
-    bottom: "0",
-    left: "0",
-    right: "0",
     backgroundColor: "#06b6d4",
     padding: "8px 0",
     textAlign: "center",
+    marginTop: "auto",
   },
   footerText: {
     margin: "0",

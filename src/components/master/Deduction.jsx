@@ -1,9 +1,13 @@
+
 import React, { useEffect, useState } from "react";
-import { Wallet, Plus, Trash2, Edit2, X, Check, RefreshCw, Calendar } from "lucide-react";
+import { Wallet, Plus, Trash2, Edit2, X, Check, RefreshCw, Calendar, User } from "lucide-react";
 import api from "../../api/client";
+
 export default function Deduction() {
   const [deductions, setDeductions] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [formData, setFormData] = useState({
+    employee_id: "",
     name: "",
     year: new Date().getFullYear().toString(),
     month: "",
@@ -11,6 +15,7 @@ export default function Deduction() {
   });
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({
+    employee_id: "",
     name: "",
     year: "",
     month: "",
@@ -30,7 +35,38 @@ export default function Deduction() {
 
   useEffect(() => {
     fetchDeductions();
+    fetchEmployees();
   }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      let response;
+      try {
+        response = await api.get("cv-management/employees/");
+      } catch (err) {
+        if (err.response?.status === 404) {
+          response = await api.get("cv-management/employees");
+        } else {
+          throw err;
+        }
+      }
+      
+      let employeeData;
+      if (response.data.data) {
+        employeeData = response.data.data;
+      } else if (response.data.results) {
+        employeeData = response.data.results;
+      } else if (Array.isArray(response.data)) {
+        employeeData = response.data;
+      } else {
+        employeeData = [];
+      }
+      
+      setEmployees(Array.isArray(employeeData) ? employeeData : []);
+    } catch (err) {
+      console.error("Error fetching employees:", err);
+    }
+  };
 
   const fetchDeductions = async () => {
     try {
@@ -81,6 +117,11 @@ export default function Deduction() {
   };
 
   const handleAddDeduction = async () => {
+    if (!formData.employee_id) {
+      setError("Please select an employee");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
     if (!formData.name.trim()) {
       setError("Please enter a deduction name");
       setTimeout(() => setError(""), 3000);
@@ -104,6 +145,7 @@ export default function Deduction() {
       let response;
       try {
         response = await api.post("cv-management/deductions/", {
+          employee_id: formData.employee_id,
           name: formData.name.trim(),
           year: formData.year,
           month: formData.month,
@@ -112,6 +154,7 @@ export default function Deduction() {
       } catch (err) {
         if (err.response?.status === 404) {
           response = await api.post("cv-management/deductions", {
+            employee_id: formData.employee_id,
             name: formData.name.trim(),
             year: formData.year,
             month: formData.month,
@@ -125,6 +168,7 @@ export default function Deduction() {
       const newDeduction = response.data.data || response.data;
       setDeductions((prev) => [...prev, newDeduction]);
       setFormData({
+        employee_id: "",
         name: "",
         year: new Date().getFullYear().toString(),
         month: "",
@@ -148,9 +192,22 @@ export default function Deduction() {
     }
   };
 
+  const handleAddMore = () => {
+    setFormData({
+      employee_id: "",
+      name: "",
+      year: new Date().getFullYear().toString(),
+      month: "",
+      amount: ""
+    });
+    setError("");
+    setSuccess("");
+  };
+
   const startEdit = (deduction) => {
     setEditingId(deduction.id);
     setEditData({
+      employee_id: deduction.employee_id || "",
       name: deduction.name,
       year: deduction.year,
       month: deduction.month,
@@ -161,11 +218,16 @@ export default function Deduction() {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditData({ name: "", year: "", month: "", amount: "" });
+    setEditData({ employee_id: "", name: "", year: "", month: "", amount: "" });
     setError("");
   };
 
   const handleUpdateDeduction = async (id) => {
+    if (!editData.employee_id) {
+      setError("Please select an employee");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
     if (!editData.name.trim()) {
       setError("Deduction name cannot be empty");
       setTimeout(() => setError(""), 3000);
@@ -184,6 +246,7 @@ export default function Deduction() {
       let response;
       try {
         response = await api.put(`cv-management/deductions/${id}/`, {
+          employee_id: editData.employee_id,
           name: editData.name.trim(),
           year: editData.year,
           month: editData.month,
@@ -192,6 +255,7 @@ export default function Deduction() {
       } catch (err) {
         if (err.response?.status === 404) {
           response = await api.put(`cv-management/deductions/${id}`, {
+            employee_id: editData.employee_id,
             name: editData.name.trim(),
             year: editData.year,
             month: editData.month,
@@ -207,7 +271,7 @@ export default function Deduction() {
         prev.map((ded) => (ded.id === id ? updatedDeduction : ded))
       );
       setEditingId(null);
-      setEditData({ name: "", year: "", month: "", amount: "" });
+      setEditData({ employee_id: "", name: "", year: "", month: "", amount: "" });
       setSuccess("Deduction updated successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
@@ -282,6 +346,11 @@ export default function Deduction() {
     }).format(amount);
   };
 
+  const getEmployeeName = (employeeId) => {
+    const employee = employees.find(emp => emp.id === employeeId);
+    return employee ? employee.name : 'Unknown';
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -328,6 +397,21 @@ export default function Deduction() {
         </h3>
         
         <div style={styles.formGrid}>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Select Employee</label>
+            <select
+              value={formData.employee_id}
+              onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+              style={styles.select}
+              disabled={loading}
+            >
+              <option value="">Select Employee</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>{employee.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div style={styles.formGroup}>
             <label style={styles.label}>Deduction Name</label>
             <input
@@ -385,18 +469,28 @@ export default function Deduction() {
           </div>
         </div>
 
-        <button
-          onClick={handleAddDeduction}
-          style={{
-            ...styles.addButton,
-            opacity: loading || !formData.name.trim() || !formData.year || !formData.month || !formData.amount ? 0.5 : 1,
-            cursor: loading || !formData.name.trim() || !formData.year || !formData.month || !formData.amount ? "not-allowed" : "pointer",
-          }}
-          disabled={loading || !formData.name.trim() || !formData.year || !formData.month || !formData.amount}
-        >
-          <Plus size={18} />
-          Add Deduction
-        </button>
+        <div style={styles.buttonGroup}>
+          <button
+            onClick={handleAddDeduction}
+            style={{
+              ...styles.addButton,
+              opacity: loading || !formData.employee_id || !formData.name.trim() || !formData.year || !formData.month || !formData.amount ? 0.5 : 1,
+              cursor: loading || !formData.employee_id || !formData.name.trim() || !formData.year || !formData.month || !formData.amount ? "not-allowed" : "pointer",
+            }}
+            disabled={loading || !formData.employee_id || !formData.name.trim() || !formData.year || !formData.month || !formData.amount}
+          >
+            <Plus size={18} />
+            Add Deduction
+          </button>
+          <button
+            onClick={handleAddMore}
+            style={styles.addMoreButton}
+            disabled={loading}
+          >
+            <Plus size={18} />
+            Add More
+          </button>
+        </div>
       </div>
 
       <div style={styles.card}>
@@ -434,6 +528,7 @@ export default function Deduction() {
               <thead>
                 <tr style={styles.tableHeader}>
                   <th style={{ ...styles.th, width: "60px" }}>#</th>
+                  <th style={styles.th}>Employee</th>
                   <th style={styles.th}>Deduction Name</th>
                   <th style={{ ...styles.th, width: "100px" }}>Year</th>
                   <th style={{ ...styles.th, width: "120px" }}>Month</th>
@@ -445,6 +540,26 @@ export default function Deduction() {
                 {deductions.map((deduction, index) => (
                   <tr key={deduction.id} style={styles.tableRow}>
                     <td style={styles.td}>{index + 1}</td>
+                    <td style={styles.td}>
+                      {editingId === deduction.id ? (
+                        <select
+                          value={editData.employee_id}
+                          onChange={(e) => setEditData({ ...editData, employee_id: e.target.value })}
+                          style={styles.editSelect}
+                          disabled={loading}
+                        >
+                          <option value="">Select Employee</option>
+                          {employees.map((employee) => (
+                            <option key={employee.id} value={employee.id}>{employee.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div style={styles.employeeName}>
+                          <User size={16} color="#64748b" />
+                          <span>{getEmployeeName(deduction.employee_id)}</span>
+                        </div>
+                      )}
+                    </td>
                     <td style={styles.td}>
                       {editingId === deduction.id ? (
                         <input
@@ -585,7 +700,7 @@ export default function Deduction() {
 }
 
 const styles = {
-  container: { maxWidth: 1200, margin: "0 auto", padding: "20px" },
+  container: { maxWidth: 1400, margin: "0 auto", padding: "20px" },
   header: { marginBottom: 30 },
   titleSection: { display: "flex", alignItems: "center", gap: 12, marginBottom: 8 },
   title: { margin: 0, fontSize: "28px", fontWeight: "700", color: "#1e293b" },
@@ -616,10 +731,16 @@ const styles = {
     padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "14px",
     outline: "none", transition: "all 0.2s", background: "#fff", cursor: "pointer"
   },
+  buttonGroup: { display: "flex", gap: 12, flexWrap: "wrap" },
   addButton: {
     padding: "12px 24px", background: "#dc2626", color: "#fff", border: "none", borderRadius: 8,
     fontSize: "14px", fontWeight: "600", display: "flex", alignItems: "center", justifyContent: "center",
-    gap: 8, transition: "all 0.2s", cursor: "pointer", width: "fit-content"
+    gap: 8, transition: "all 0.2s", cursor: "pointer"
+  },
+  addMoreButton: {
+    padding: "12px 24px", background: "#059669", color: "#fff", border: "none", borderRadius: 8,
+    fontSize: "14px", fontWeight: "600", display: "flex", alignItems: "center", justifyContent: "center",
+    gap: 8, transition: "all 0.2s", cursor: "pointer"
   },
   tableContainer: { overflowX: "auto", borderRadius: "8px", border: "1px solid #e2e8f0" },
   table: { width: "100%", borderCollapse: "collapse" },
@@ -630,6 +751,7 @@ const styles = {
   },
   tableRow: { borderBottom: "1px solid #f1f5f9", transition: "background-color 0.2s" },
   td: { padding: "14px 16px", fontSize: "14px", color: "#334155" },
+  employeeName: { display: "flex", alignItems: "center", gap: 8, fontWeight: "500", color: "#7c3aed" },
   deductionName: { display: "flex", alignItems: "center", gap: 8, fontWeight: "500" },
   yearBadge: {
     fontSize: "13px", color: "#475569", background: "#f1f5f9", padding: "4px 10px",
