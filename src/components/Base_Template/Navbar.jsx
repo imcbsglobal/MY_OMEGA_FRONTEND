@@ -1,10 +1,10 @@
   import { useState, useEffect, useRef } from "react";
-  import { 
-    ChevronRight, Menu, X, LogOut, LayoutDashboard, Users, Megaphone, 
-    Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
-    FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
-    ClipboardList, UserPlus, Shield, Building2, PanelLeftClose, PanelLeft,
-    ChevronDown
+ import { 
+  ChevronRight, Menu, X, LogOut, LayoutDashboard, Users, Megaphone, 
+  Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
+  FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
+  ClipboardList, UserPlus, Shield, Building2, PanelLeftClose, PanelLeft,
+  ChevronDown, Wallet  
   } from "lucide-react";
   import { NavLink, useLocation, useNavigate } from "react-router-dom";
   import api from "../../api/client";
@@ -115,6 +115,8 @@
         'experience certificate': Award,
         'duties and responsibility': ClipboardList,
         'department': Building2,
+         'payroll': Wallet,  // ✅ ADD THIS
+  'payroll processing': Wallet,  // ✅ ADD THIS
       };
 
       const lowerName = name.toLowerCase();
@@ -210,6 +212,10 @@
               { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
               { name: "Salary Certificate", path: "/hr/salary-certificate", icon: DollarSign },
               { name: "Experience Certificate", path: "/hr/experience-certificate", icon: Award },
+              { name: "Deductions", path: "/master/deductions", icon: DollarSign },
+              { name: "Allowences", path: "/master/allowences", icon: DollarSign },
+
+
             ]
           },
           {
@@ -245,6 +251,8 @@
           { name: "User Control", path: "/user-control", icon: Shield },
         ]
       },
+       // ✅ ADD THIS NEW MENU ITEM
+      { name: "Payroll Processing", path: "/payroll", icon: Wallet },
       { 
         name: "Master", 
         icon: Settings,
