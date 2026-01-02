@@ -521,7 +521,7 @@ const S = {
     display: "block",
   },
   filterInput: {
-    width: "100%",
+    width: "92%",
     padding: "10px 12px",
     borderRadius: 6,
     border: "1px solid #d1d5db",

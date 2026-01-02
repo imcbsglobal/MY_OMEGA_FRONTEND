@@ -10,9 +10,17 @@ export default function LeaveList() {
   const loadLeave = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/hr/leave-requests/")
+      const res = await api.get("/hr/leave-requests/");
 
-      setLeaveData(res.data);
+      const data = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.results)
+        ? res.data.results
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+
+      setLeaveData(data);
     } catch (err) {
       console.error(err);
       alert("Failed to load leave list");
@@ -97,9 +105,9 @@ export default function LeaveList() {
                 <td style={styles.tableCell}>
                   <span
                     style={
-                      row.status === "approved"
+                      row.status === "Approved"
                         ? styles.statusApproved
-                        : row.status === "rejected"
+                        : row.status === "Rejected"
                         ? styles.statusRejected
                         : styles.statusPending
                     }
@@ -110,18 +118,18 @@ export default function LeaveList() {
                 <td style={styles.tableCell}>{row.reviewed_by_name || "-"}</td>
 
                 <td style={styles.tableCell}>
-                  {row.status === "pending" ? (
+                  {row.status === "Pending" ? (
                     <div style={styles.actionButtons}>
                       <button
                         style={styles.approveBtn}
-                        onClick={() => updateStatus(row.id, "approved")}
+                        onClick={() => updateStatus(row.id, "Approved")}
                       >
                         Approve
                       </button>
 
                       <button
                         style={styles.rejectBtn}
-                        onClick={() => updateStatus(row.id, "rejected")}
+                        onClick={() => updateStatus(row.id, "Rejected")}
                       >
                         Reject
                       </button>
@@ -255,39 +263,6 @@ const styles = {
   actionButtons: {
     display: "flex",
     gap: "10px",
-  },
-
-  viewBtn: {
-    padding: "6px 14px",
-    backgroundColor: "#dcfce7",
-    color: "#16a34a",
-    border: "1px solid #86efac",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "13px",
-  },
-
-  editBtn: {
-    padding: "6px 14px",
-    backgroundColor: "#dbeafe",
-    color: "#1d4ed8",
-    border: "1px solid #93c5fd",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "13px",
-  },
-
-  deleteBtn: {
-    padding: "6px 14px",
-    backgroundColor: "#fee2e2",
-    color: "#dc2626",
-    border: "1px solid #fecaca",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "13px",
   },
 
   approveBtn: {

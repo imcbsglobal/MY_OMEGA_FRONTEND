@@ -183,8 +183,10 @@ export default function Dashboard() {
 const page = {
   background: "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)",
   minHeight: "100vh",
-  padding: "24px",
+  padding: "16px",
   fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  maxWidth: "100%",
+  overflowX: "hidden",
 };
 
 const header = {
