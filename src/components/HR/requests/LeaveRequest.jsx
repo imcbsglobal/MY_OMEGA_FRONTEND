@@ -50,9 +50,7 @@ export default function LeaveRequest() {
             name: "Current User",
             note: "User details will be fetched from authentication token"
           });
-        } else {
-          alert("❌ No authentication found. Please login again.");
-        }
+        } else {        }
       } finally {
         setFetchingUser(false);
       }
@@ -70,7 +68,6 @@ export default function LeaveRequest() {
     e.preventDefault();
 
     if (!employee) {
-      alert("⚠️ User information not loaded. Please refresh the page.");
       return;
     }
 
@@ -93,23 +90,15 @@ export default function LeaveRequest() {
     console.log("🔥 PAYLOAD SENT:", payload);
 
     try {
-      const response = await api.post("/hr/leave-requests/", payload);
-      console.log("✅ Response:", response.data);
-      alert("✅ Leave request submitted successfully!");
-      window.history.back();
-    } catch (err) {
-      console.log("🔥 FULL BACKEND ERROR:", err?.response?.data);
-      console.log("🔥 STATUS CODE:", err?.response?.status);
-      
-      const errorMsg = err?.response?.data?.detail || 
-                      err?.response?.data?.message ||
-                      JSON.stringify(err?.response?.data) ||
-                      "Unknown error";
-      
-      alert(`❌ Failed to submit leave request.\n\nError: ${errorMsg}`);
-    } finally {
-      setLoading(false);
-    }
+  await api.post("/hr/leave-requests/", payload);
+  window.history.back(); // success toast handled globally
+} catch (err) {
+  // ❌ DO NOTHING
+  // error toast is handled by axios interceptor
+} finally {
+  setLoading(false);
+}
+
   };
 
   if (fetchingUser) {

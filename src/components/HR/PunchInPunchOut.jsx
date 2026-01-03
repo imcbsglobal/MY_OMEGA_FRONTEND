@@ -127,14 +127,18 @@ const PunchInPunchOut = () => {
             console.error('Error getting address:', error);
           }
         },
-        (error) => {
-          console.error('Error getting location:', error);
-          setLocation({ latitude: 10.8505, longitude: 76.2711, address: 'Office' });
-        }
+     (error) => {
+  console.error('Error getting location:', error);
+  setLocation({ latitude: 11.618056, longitude: 76.081333, address: 'Office' });
+}
+
+
       );
-    } else {
-      setLocation({ latitude: 10.8505, longitude: 76.2711, address: 'Office' });
-    }
+ } else {
+  setLocation({ latitude: 11.618056, longitude: 76.081333, address: 'Office' });
+}
+
+
   };
 
 const fetchUserProfile = async () => {
@@ -351,11 +355,17 @@ setCalendarSummary(summary);
   const handlePunchIn = async () => {
     setLoading(true);
     try {
-      await api.post('/hr/attendance/punch_in/', {
-        location: location.address || 'Office',
-        latitude: location.latitude || 10.8505,
-        longitude: location.longitude || 76.2711,
-      });
+     if (!location.latitude || !location.longitude) {
+  alert("Location not available. Please enable GPS and try again.");
+  return;
+}
+
+await api.post('/hr/attendance/punch_in/', {
+  location: location.address || 'Office',
+  latitude: location.latitude,
+  longitude: location.longitude,
+});
+
       setIsCurrentlyPunchedIn(true);
       setLastPunchTime(new Date());
       await fetchTodayAttendance();
@@ -374,12 +384,18 @@ setCalendarSummary(summary);
   const handlePunchOut = async () => {
     setLoading(true);
     try {
-      await api.post('/hr/attendance/punch_out/', {
-        location: location.address || 'Office',
-        latitude: location.latitude || 10.8505,
-        longitude: location.longitude || 76.2711,
-        note: 'Punch Out'
-      });
+     if (!location.latitude || !location.longitude) {
+  alert("Location not available. Please enable GPS and try again.");
+  return;
+}
+
+await api.post('/hr/attendance/punch_out/', {
+  location: location.address || 'Office',
+  latitude: location.latitude,
+  longitude: location.longitude,
+  note: 'Punch Out'
+});
+
       setIsCurrentlyPunchedIn(false);
       setLastPunchTime(null);
       await fetchTodayAttendance();

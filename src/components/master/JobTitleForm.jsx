@@ -19,18 +19,22 @@ export default function JobTitleForm() {
     fetchDepartments();
   }, []);
 
-  const fetchDepartments = async () => {
-    try {
-      const res = await api.get("cv-management/departments/");
-      const deptData = res.data.data || res.data;
-      setDepartments(Array.isArray(deptData) ? deptData : []);
-    } catch (error) {
-      console.error("Failed to load departments:", error);
-      alert("Could not fetch departments. Please try again.");
-    } finally {
-      setLoadingDepts(false);
-    }
-  };
+ const fetchDepartments = async () => {
+  try {
+    const res = await api.get("cv-management/departments/");
+    const deptData =
+      res.data?.results ||
+      res.data?.data ||
+      (Array.isArray(res.data) ? res.data : []);
+
+    setDepartments(deptData);
+  } catch (error) {
+    console.error("Failed to load departments:", error);
+  } finally {
+    setLoadingDepts(false);
+  }
+};
+
 
   // ✅ Fetch existing job title if editing
   useEffect(() => {
@@ -38,13 +42,18 @@ export default function JobTitleForm() {
     const fetchJobTitle = async () => {
       try {
         const res = await api.get(`cv-management/job-titles/${id}/`);
-        const jobData = res.data.data || res.data;
+       const jobData = res.data.data || res.data;
 
-        if (!jobData) throw new Error("No job data found");
+setTitle(jobData.title ? jobData.title.toUpperCase() : "");
 
-        // Set existing data
-        setTitle(jobData.title ? jobData.title.toUpperCase() : "");
-        setDepartmentId(jobData.department || "");
+const deptId =
+  typeof jobData.department === "object"
+    ? jobData.department.id
+    : jobData.department;
+
+setDepartmentId(deptId || "");
+
+
       } catch (error) {
         console.error("Failed to load job title:", error.response || error);
         alert("Could not fetch job title details.");

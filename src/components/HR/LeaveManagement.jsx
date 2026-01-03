@@ -1,327 +1,477 @@
-// src/components/HR/LeaveManagement.jsx
 import React, { useEffect, useState } from "react";
+import { Pencil, Trash2, Plus } from "lucide-react";
 import api from "@/api/client";
 
 export default function LeaveManagement() {
-  const [activeTab, setActiveTab] = useState("leave"); // leave | late | early
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("leave");
   const [leaveData, setLeaveData] = useState([]);
-  const [lateData, setLateData] = useState([]);
   const [earlyData, setEarlyData] = useState([]);
+  const [lateData, setLateData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // ============================
-  // LOAD DATA
-  // ============================
-  const loadAll = async () => {
+  // =========================
+  // LOAD USER DATA
+  // =========================
+  useEffect(() => {
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      setUser(userData);
+    } catch (error) {
+      console.error("Failed to parse user data:", error);
+      setUser({});
+    }
+  }, []);
+
+  // =========================
+  // LOAD ALL DATA
+  // =========================
+  const loadAllData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const [leaveRes, lateRes, earlyRes] = await Promise.all([
-        api.get("/hr/leave-requests/"),
-        api.get("/hr/late-requests/"),
-        api.get("/hr/early-requests/"),
-      ]);
 
-      setLeaveData(leaveRes.data || []);
-      setLateData(lateRes.data || []);
-      setEarlyData(earlyRes.data || []);
-    } catch (err) {
-      alert("Failed to load requests");
+      // Load Leave Requests
+      try {
+        const leaveRes = await api.get("/hr/leave-requests/");
+        const allLeave = extractData(leaveRes.data);
+        setLeaveData(allLeave.filter(r => r.user === user.id));
+      } catch (error) {
+        console.error("Failed to load leave data:", error);
+      }
+
+      // Load Early Requests
+      try {
+        const earlyRes = await api.get("/hr/early-requests/");
+        const allEarly = extractData(earlyRes.data);
+        setEarlyData(allEarly.filter(r => r.user === user.id));
+      } catch (error) {
+        console.error("Failed to load early data:", error);
+      }
+
+      // Load Late Requests
+      try {
+        const lateRes = await api.get("/hr/late-requests/");
+        const allLate = extractData(lateRes.data);
+        setLateData(allLate.filter(r => r.user === user.id));
+      } catch (error) {
+        console.error("Failed to load late data:", error);
+      }
+
     } finally {
       setLoading(false);
     }
   };
 
+  // Helper function to extract data from different response structures
+  const extractData = (data) => {
+    if (Array.isArray(data)) {
+      return data;
+    } else if (data?.results && Array.isArray(data.results)) {
+      return data.results;
+    } else if (data?.data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    return [];
+  };
+
   useEffect(() => {
-    loadAll();
-  }, []);
+    if (user) {
+      loadAllData();
+    }
+  }, [user]);
 
-  // ============================
-  // UPDATE STATUS
-  // ============================
-  const updateStatus = async (type, id, status) => {
-    let url = "";
+  // =========================
+  // DELETE RECORD
+  // =========================
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this record?")) {
+      try {
+        let endpoint = "";
+        if (activeTab === "leave") endpoint = `/hr/leave-requests/${id}/`;
+        else if (activeTab === "early") endpoint = `/hr/early-requests/${id}/`;
+        else if (activeTab === "late") endpoint = `/hr/late-requests/${id}/`;
 
-    if (type === "leave") url = `/hr/leave-requests/${id}/review/`;
-    if (type === "late") url = `/hr/late-requests/${id}/review/`;
-    if (type === "early") url = `/hr/early-requests/${id}/review/`;
-
-    try {
-      await api.post(url, {
-        status,
-        admin_comment: "",
-      });
-      alert("Status updated");
-      loadAll();
-    } catch (err) {
-      alert("Update failed");
+        await api.delete(endpoint);
+        loadAllData();
+      } catch (error) {
+        console.error("Failed to delete record:", error);
+      }
     }
   };
 
-  // ============================
-  // RENDER STATUS BADGE
-  // ============================
-  const renderStatus = (status) => {
-    if (status === "approved")
-      return <span style={styles.statusApproved}>Approved</span>;
-    if (status === "rejected")
-      return <span style={styles.statusRejected}>Rejected</span>;
-    return <span style={styles.statusPending}>Pending</span>;
+  // =========================
+  // GET CURRENT DATA
+  // =========================
+  const getCurrentData = () => {
+    if (activeTab === "leave") return leaveData;
+    if (activeTab === "early") return earlyData;
+    if (activeTab === "late") return lateData;
+    return [];
   };
 
-  // ============================
-  // RENDER TABLES
-  // ============================
-  const renderLeave = () => (
-    <div style={styles.tableContainer}>
-      <table style={styles.table}>
-        <thead>
-          <tr style={styles.tableHeaderRow}>
-            <th style={styles.tableHeader}>SL NO</th>
-            <th style={styles.tableHeader}>EMPLOYEE</th>
-            <th style={styles.tableHeader}>LEAVE TYPE</th>
-            <th style={styles.tableHeader}>FROM</th>
-            <th style={styles.tableHeader}>TO</th>
-            <th style={styles.tableHeader}>REASON</th>
-            <th style={styles.tableHeader}>STATUS</th>
-            <th style={styles.tableHeader}>REVIEWED BY</th>
-            <th style={styles.tableHeader}>ACTION</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {leaveData.length === 0 ? (
-            <tr>
-              <td colSpan="9" style={styles.noResults}>
-                No leave requests found
-              </td>
-            </tr>
-          ) : (
-            leaveData.map((row, i) => (
-              <tr key={row.id} style={styles.tableRow}>
-                <td style={styles.tableCell}>{i + 1}</td>
-                <td style={styles.tableCell}>{row.user_name}</td>
-                <td style={styles.tableCell}>{row.leave_type_display}</td>
-                <td style={styles.tableCell}>{row.from_date}</td>
-                <td style={styles.tableCell}>{row.to_date}</td>
-                <td style={styles.tableCell}>{row.reason}</td>
-                <td style={styles.tableCell}>{renderStatus(row.status)}</td>
-                <td style={styles.tableCell}>{row.reviewed_by_name || "-"}</td>
-                <td style={styles.tableCell}>
-                  {row.status === "pending" ? (
-                    <div style={styles.actionButtons}>
-                      <button
-                        style={styles.approveBtn}
-                        onClick={() => updateStatus("leave", row.id, "approved")}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        style={styles.rejectBtn}
-                        onClick={() => updateStatus("leave", row.id, "rejected")}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  ) : (
-                    <span style={styles.completedText}>Completed</span>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-
-  const renderLate = () => (
-    <div style={styles.tableContainer}>
-      <table style={styles.table}>
-        <thead>
-          <tr style={styles.tableHeaderRow}>
-            <th style={styles.tableHeader}>SL NO</th>
-            <th style={styles.tableHeader}>EMPLOYEE</th>
-            <th style={styles.tableHeader}>DATE</th>
-            <th style={styles.tableHeader}>MINUTES LATE</th>
-            <th style={styles.tableHeader}>REASON</th>
-            <th style={styles.tableHeader}>STATUS</th>
-            <th style={styles.tableHeader}>REVIEWED BY</th>
-            <th style={styles.tableHeader}>ACTION</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {lateData.length === 0 ? (
-            <tr>
-              <td colSpan="8" style={styles.noResults}>
-                No late requests found
-              </td>
-            </tr>
-          ) : (
-            lateData.map((row, i) => (
-              <tr key={row.id} style={styles.tableRow}>
-                <td style={styles.tableCell}>{i + 1}</td>
-                <td style={styles.tableCell}>{row.user_name}</td>
-                <td style={styles.tableCell}>{row.date}</td>
-                <td style={styles.tableCell}>{row.late_by_minutes}</td>
-                <td style={styles.tableCell}>{row.reason}</td>
-                <td style={styles.tableCell}>{renderStatus(row.status)}</td>
-                <td style={styles.tableCell}>{row.reviewed_by_name || "-"}</td>
-                <td style={styles.tableCell}>
-                  {row.status === "pending" ? (
-                    <div style={styles.actionButtons}>
-                      <button
-                        style={styles.approveBtn}
-                        onClick={() => updateStatus("late", row.id, "approved")}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        style={styles.rejectBtn}
-                        onClick={() => updateStatus("late", row.id, "rejected")}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  ) : (
-                    <span style={styles.completedText}>Completed</span>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-
-  const renderEarly = () => (
-    <div style={styles.tableContainer}>
-      <table style={styles.table}>
-        <thead>
-          <tr style={styles.tableHeaderRow}>
-            <th style={styles.tableHeader}>SL NO</th>
-            <th style={styles.tableHeader}>EMPLOYEE</th>
-            <th style={styles.tableHeader}>DATE</th>
-            <th style={styles.tableHeader}>MINUTES EARLY</th>
-            <th style={styles.tableHeader}>REASON</th>
-            <th style={styles.tableHeader}>STATUS</th>
-            <th style={styles.tableHeader}>REVIEWED BY</th>
-            <th style={styles.tableHeader}>ACTION</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {earlyData.length === 0 ? (
-            <tr>
-              <td colSpan="8" style={styles.noResults}>
-                No early requests found
-              </td>
-            </tr>
-          ) : (
-            earlyData.map((row, i) => (
-              <tr key={row.id} style={styles.tableRow}>
-                <td style={styles.tableCell}>{i + 1}</td>
-                <td style={styles.tableCell}>{row.user_name}</td>
-                <td style={styles.tableCell}>{row.date}</td>
-                <td style={styles.tableCell}>{row.early_by_minutes}</td>
-                <td style={styles.tableCell}>{row.reason}</td>
-                <td style={styles.tableCell}>{renderStatus(row.status)}</td>
-                <td style={styles.tableCell}>{row.reviewed_by_name || "-"}</td>
-                <td style={styles.tableCell}>
-                  {row.status === "pending" ? (
-                    <div style={styles.actionButtons}>
-                      <button
-                        style={styles.approveBtn}
-                        onClick={() => updateStatus("early", row.id, "approved")}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        style={styles.rejectBtn}
-                        onClick={() => updateStatus("early", row.id, "rejected")}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  ) : (
-                    <span style={styles.completedText}>Completed</span>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-
-  if (loading) {
+  // =========================
+  // FILTER DATA
+  // =========================
+  const currentData = getCurrentData();
+  const filteredData = currentData.filter(row => {
+    const search = searchTerm.toLowerCase();
     return (
-      <div style={{ ...styles.container, textAlign: "center" }}>
-        <p style={{ fontSize: "18px", color: "#6b7280" }}>
-          Loading leave data...
-        </p>
-      </div>
+      row.leave_type_display?.toLowerCase().includes(search) ||
+      row.request_type?.toLowerCase().includes(search) ||
+      row.date?.toLowerCase().includes(search) ||
+      row.from_date?.toLowerCase().includes(search) ||
+      row.to_date?.toLowerCase().includes(search) ||
+      row.status?.toLowerCase().includes(search) ||
+      row.reason?.toLowerCase().includes(search)
     );
-  }
+  });
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={styles.title}>Leave Management</h2>
+    <div style={styles.page} className="leave-management">
+      {/* HEADER */}
+      <div style={styles.header} className="header-responsive">
+        <h2 style={styles.title}>
+          {activeTab === "leave" ? "Leave" : activeTab === "early" ? "Early" : "Late"} Management
+        </h2>
+
+        <div style={styles.rightHeader} className="header-actions">
+          <input
+            placeholder="Search..."
+            style={styles.search}
+            className="search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <button style={styles.addBtn} className="add-btn">
+            <Plus size={18} />
+            <span className="btn-text">Add New</span>
+          </button>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div style={styles.tabsRow}>
+      {/* TABS */}
+      <div style={styles.tabsContainer} className="tabs-responsive">
         <button
-          style={
-            activeTab === "leave"
-              ? { ...styles.tabBtn, ...styles.tabActive }
-              : styles.tabBtn
-          }
+          style={{
+            ...styles.tab,
+            ...(activeTab === "leave" ? styles.tabActive : {}),
+          }}
+          className="tab-btn"
           onClick={() => setActiveTab("leave")}
         >
-          Leave Requests
+          <span className="tab-label">Leave Requests</span>
+          {leaveData.length > 0 && (
+            <span style={styles.tabBadge}>{leaveData.length}</span>
+          )}
         </button>
-
         <button
-          style={
-            activeTab === "late"
-              ? { ...styles.tabBtn, ...styles.tabActive }
-              : styles.tabBtn
-          }
-          onClick={() => setActiveTab("late")}
-        >
-          Late Requests
-        </button>
-
-        <button
-          style={
-            activeTab === "early"
-              ? { ...styles.tabBtn, ...styles.tabActive }
-              : styles.tabBtn
-          }
+          style={{
+            ...styles.tab,
+            ...(activeTab === "early" ? styles.tabActive : {}),
+          }}
+          className="tab-btn"
           onClick={() => setActiveTab("early")}
         >
-          Early Requests
+          <span className="tab-label">Early Requests</span>
+          {earlyData.length > 0 && (
+            <span style={styles.tabBadge}>{earlyData.length}</span>
+          )}
+        </button>
+        <button
+          style={{
+            ...styles.tab,
+            ...(activeTab === "late" ? styles.tabActive : {}),
+          }}
+          className="tab-btn"
+          onClick={() => setActiveTab("late")}
+        >
+          <span className="tab-label">Late Requests</span>
+          {lateData.length > 0 && (
+            <span style={styles.tabBadge}>{lateData.length}</span>
+          )}
         </button>
       </div>
 
-      {activeTab === "leave" && renderLeave()}
-      {activeTab === "late" && renderLate()}
-      {activeTab === "early" && renderEarly()}
+      {/* TABLE CARD - Desktop View */}
+      <div style={styles.card} className="desktop-table">
+        <table style={styles.table}>
+          <thead>
+            <tr style={styles.tableHeader}>
+              <th style={styles.th}>SL NO</th>
+              {activeTab === "leave" && (
+                <>
+                  <th style={styles.th}>LEAVE TYPE</th>
+                  <th style={styles.th}>FROM</th>
+                  <th style={styles.th}>TO</th>
+                </>
+              )}
+              {(activeTab === "early" || activeTab === "late") && (
+                <>
+                  <th style={styles.th}>DATE</th>
+                  <th style={styles.th}>TIME</th>
+                </>
+              )}
+              <th style={styles.th}>REASON</th>
+              <th style={styles.th}>STATUS</th>
+              <th style={styles.th}>ACTION</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="7" style={styles.empty}>Loading...</td>
+              </tr>
+            ) : filteredData.length === 0 ? (
+              <tr>
+                <td colSpan="7" style={styles.empty}>No records found</td>
+              </tr>
+            ) : (
+              filteredData.map((row, i) => (
+                <tr key={row.id} style={styles.tableRow}>
+                  <td style={styles.td}>{i + 1}</td>
+                  {activeTab === "leave" && (
+                    <>
+                      <td style={styles.td}>{row.leave_type_display || row.leave_type || "N/A"}</td>
+                      <td style={styles.td}>{row.from_date || "N/A"}</td>
+                      <td style={styles.td}>{row.to_date || "N/A"}</td>
+                    </>
+                  )}
+                  {(activeTab === "early" || activeTab === "late") && (
+                    <>
+                      <td style={styles.td}>{row.date || "N/A"}</td>
+                      <td style={styles.td}>{row.time || row.requested_time || "N/A"}</td>
+                    </>
+                  )}
+                  <td style={styles.td}>{row.reason || "N/A"}</td>
+                  <td style={styles.td}>
+                    <span
+                      style={{
+                        ...styles.statusBadge,
+                        ...(row.status === "Approved"
+                          ? styles.statusApproved
+                          : row.status === "Rejected"
+                          ? styles.statusRejected
+                          : styles.statusPending),
+                      }}
+                    >
+                      {row.status}
+                    </span>
+                  </td>
+                  <td style={styles.td}>
+                    <div style={styles.actions}>
+                      <Pencil size={18} style={styles.editIcon} />
+                      <Trash2 
+                        size={18} 
+                        style={styles.deleteIcon}
+                        onClick={() => handleDelete(row.id)}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* MOBILE CARD VIEW */}
+      <div className="mobile-cards">
+        {loading ? (
+          <div style={styles.empty}>Loading...</div>
+        ) : filteredData.length === 0 ? (
+          <div style={styles.empty}>No records found</div>
+        ) : (
+          filteredData.map((row, i) => (
+            <div key={row.id} style={styles.mobileCard}>
+              <div style={styles.mobileCardHeader}>
+                <span style={styles.mobileCardNumber}>#{i + 1}</span>
+                <span
+                  style={{
+                    ...styles.statusBadge,
+                    ...(row.status === "approved"
+                      ? styles.statusApproved
+                      : row.status === "rejected"
+                      ? styles.statusRejected
+                      : styles.statusPending),
+                  }}
+                >
+                  {row.status}
+                </span>
+              </div>
+
+              <div style={styles.mobileCardBody}>
+                {activeTab === "leave" && (
+                  <>
+                    <div style={styles.mobileRow}>
+                      <span style={styles.mobileLabel}>Leave Type:</span>
+                      <span style={styles.mobileValue}>{row.leave_type_display || row.leave_type || "N/A"}</span>
+                    </div>
+                    <div style={styles.mobileRow}>
+                      <span style={styles.mobileLabel}>From:</span>
+                      <span style={styles.mobileValue}>{row.from_date || "N/A"}</span>
+                    </div>
+                    <div style={styles.mobileRow}>
+                      <span style={styles.mobileLabel}>To:</span>
+                      <span style={styles.mobileValue}>{row.to_date || "N/A"}</span>
+                    </div>
+                  </>
+                )}
+                {(activeTab === "early" || activeTab === "late") && (
+                  <>
+                    <div style={styles.mobileRow}>
+                      <span style={styles.mobileLabel}>Date:</span>
+                      <span style={styles.mobileValue}>{row.date || "N/A"}</span>
+                    </div>
+                    <div style={styles.mobileRow}>
+                      <span style={styles.mobileLabel}>Time:</span>
+                      <span style={styles.mobileValue}>{row.time || row.requested_time || "N/A"}</span>
+                    </div>
+                  </>
+                )}
+                <div style={styles.mobileRow}>
+                  <span style={styles.mobileLabel}>Reason:</span>
+                  <span style={styles.mobileValue}>{row.reason || "N/A"}</span>
+                </div>
+              </div>
+
+              <div style={styles.mobileCardFooter}>
+                <button style={styles.mobileActionBtn}>
+                  <Pencil size={16} />
+                  Edit
+                </button>
+                <button 
+                  style={{...styles.mobileActionBtn, ...styles.mobileDeleteBtn}}
+                  onClick={() => handleDelete(row.id)}
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <div style={styles.footer} className="footer-responsive">
+        <span style={styles.footerText}>
+          Showing 1to {filteredData.length} of {filteredData.length} entries
+        </span>
+        <div style={styles.pagination}>
+          <button style={styles.pageBtn}>Prev</button>
+          <button style={styles.pageActive}>1</button>
+          <button style={styles.pageBtn}>Next</button>
+        </div>
+      </div>
+
+      {/* CSS FOR RESPONSIVE */}
+      <style>{`
+        @media (max-width: 768px) {
+          .leave-management {
+            padding: 16px !important;
+          }
+
+          .header-responsive {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 16px;
+          }
+
+          .header-responsive h2 {
+            font-size: 22px !important;
+          }
+
+          .header-actions {
+            width: 100%;
+            flex-direction: column !important;
+            gap: 12px !important;
+          }
+
+          .search-input {
+            width: 100% !important;
+          }
+
+          .add-btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .tabs-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+
+          .tabs-responsive::-webkit-scrollbar {
+            display: none;
+          }
+
+          .tab-btn {
+            flex-shrink: 0;
+            padding: 10px 16px !important;
+            font-size: 13px !important;
+          }
+
+          .tab-label {
+            white-space: nowrap;
+          }
+
+          .desktop-table {
+            display: none !important;
+          }
+
+          .mobile-cards {
+            display: block !important;
+          }
+
+          .footer-responsive {
+            flex-direction: column !important;
+            gap: 16px;
+            align-items: center !important;
+          }
+
+          .footer-responsive span {
+            font-size: 13px !important;
+          }
+        }
+
+        @media (min-width: 769px) {
+          .mobile-cards {
+            display: none !important;
+          }
+
+          .desktop-table {
+            display: block !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .btn-text {
+            display: inline;
+          }
+        }
+      `}</style>
     </div>
   );
 }
 
-/* ======================= INTERVIEW MANAGEMENT STYLE ======================= */
-
+/* =========================
+   STYLES
+========================= */
 const styles = {
-  container: {
+  page: {
     padding: "24px",
-    backgroundColor: "#f9fafb",
+    background: "#f9fafb",
     minHeight: "100vh",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
 
   header: {
@@ -329,8 +479,6 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "24px",
-    flexWrap: "wrap",
-    gap: "16px",
   },
 
   title: {
@@ -340,35 +488,75 @@ const styles = {
     margin: 0,
   },
 
-  tabsRow: {
+  rightHeader: {
     display: "flex",
     gap: "12px",
-    marginBottom: "24px",
+    alignItems: "center",
   },
 
-  tabBtn: {
-    padding: "12px 24px",
+  search: {
+    padding: "10px 16px",
+    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    width: "320px",
+    fontSize: "14px",
+    outline: "none",
+  },
+
+  addBtn: {
+    padding: "10px 20px",
+    background: "#3b82f6",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
     fontSize: "14px",
     fontWeight: "600",
-    color: "#374151",
-    backgroundColor: "white",
-    border: "1px solid #d1d5db",
-    borderRadius: "8px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+
+  tabsContainer: {
+    display: "flex",
+    gap: "8px",
+    marginBottom: "20px",
+    borderBottom: "2px solid #e5e7eb",
+  },
+
+  tab: {
+    padding: "12px 24px",
+    background: "transparent",
+    border: "none",
+    borderBottom: "3px solid transparent",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#6b7280",
     cursor: "pointer",
     transition: "all 0.2s",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
 
   tabActive: {
-    backgroundColor: "#3b82f6",
-    color: "white",
-    borderColor: "#3b82f6",
+    color: "#3b82f6",
+    borderBottomColor: "#3b82f6",
   },
 
-  tableContainer: {
-    backgroundColor: "white",
+  tabBadge: {
+    background: "#3b82f6",
+    color: "#fff",
+    padding: "2px 8px",
     borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    fontSize: "12px",
+    fontWeight: "600",
+  },
+
+  card: {
+    background: "#fff",
+    borderRadius: "12px",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
     overflow: "hidden",
   },
 
@@ -377,100 +565,197 @@ const styles = {
     borderCollapse: "collapse",
   },
 
-  tableHeaderRow: {
-    backgroundColor: "#f3f4f6",
+  tableHeader: {
+    background: "#f9fafb",
+    borderBottom: "1px solid #e5e7eb",
   },
 
-  tableHeader: {
-    padding: "12px 16px",
+  th: {
+    padding: "16px",
     textAlign: "left",
     fontSize: "12px",
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#6b7280",
     textTransform: "uppercase",
-    borderBottom: "2px solid #e5e7eb",
+    letterSpacing: "0.05em",
   },
 
   tableRow: {
-    borderBottom: "1px solid #e5e7eb",
-    transition: "background-color 0.2s",
+    borderBottom: "1px solid #f3f4f6",
   },
 
-  tableCell: {
-    padding: "12px 16px",
+  td: {
+    padding: "16px",
     fontSize: "14px",
     color: "#374151",
   },
 
-  statusPending: {
-    padding: "4px 12px",
-    borderRadius: "12px",
+  empty: {
+    padding: "48px",
+    textAlign: "center",
+    color: "#9ca3af",
+    fontSize: "14px",
+  },
+
+  statusBadge: {
+    padding: "6px 12px",
+    borderRadius: "20px",
     fontSize: "12px",
     fontWeight: "600",
+    textTransform: "capitalize",
     display: "inline-block",
-    backgroundColor: "#fef3c7",
-    color: "#92400e",
   },
 
   statusApproved: {
-    padding: "4px 12px",
-    borderRadius: "12px",
-    fontSize: "12px",
-    fontWeight: "600",
-    display: "inline-block",
-    backgroundColor: "#d1fae5",
+    background: "#d1fae5",
     color: "#065f46",
   },
 
   statusRejected: {
-    padding: "4px 12px",
-    borderRadius: "12px",
-    fontSize: "12px",
-    fontWeight: "600",
-    display: "inline-block",
-    backgroundColor: "#fee2e2",
+    background: "#fee2e2",
     color: "#991b1b",
   },
 
-  actionButtons: {
+  statusPending: {
+    background: "#fef3c7",
+    color: "#92400e",
+  },
+
+  actions: {
     display: "flex",
+    gap: "12px",
+    alignItems: "center",
+  },
+
+  editIcon: {
+    color: "#6b7280",
+    cursor: "pointer",
+  },
+
+  deleteIcon: {
+    color: "#ef4444",
+    cursor: "pointer",
+  },
+
+  footer: {
+    marginTop: "20px",
+    padding: "16px 20px",
+    background: "#fff",
+    borderRadius: "12px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+  },
+
+  footerText: {
+    fontSize: "14px",
+    color: "#6b7280",
+  },
+
+  pagination: {
+    display: "flex",
+    gap: "8px",
+  },
+
+  pageBtn: {
+    padding: "8px 14px",
+    borderRadius: "6px",
+    border: "1px solid #e5e7eb",
+    background: "#fff",
+    fontSize: "14px",
+    color: "#374151",
+    cursor: "pointer",
+  },
+
+  pageActive: {
+    padding: "8px 14px",
+    borderRadius: "6px",
+    background: "#3b82f6",
+    color: "#fff",
+    border: "none",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+
+  // Mobile Card Styles
+  mobileCard: {
+    background: "#fff",
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "16px",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+  },
+
+  mobileCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "16px",
+    paddingBottom: "12px",
+    borderBottom: "1px solid #f3f4f6",
+  },
+
+  mobileCardNumber: {
+    fontSize: "16px",
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  mobileCardBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+
+  mobileRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "8px",
+  },
+
+  mobileLabel: {
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#6b7280",
+    minWidth: "80px",
+  },
+
+  mobileValue: {
+    fontSize: "14px",
+    color: "#374151",
+    textAlign: "right",
+    flex: 1,
+  },
+
+  mobileCardFooter: {
+    display: "flex",
+    gap: "8px",
+    paddingTop: "12px",
+    borderTop: "1px solid #f3f4f6",
+  },
+
+  mobileActionBtn: {
+    flex: 1,
+    padding: "10px 16px",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    background: "#fff",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#374151",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     gap: "6px",
   },
 
-  approveBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#059669",
-    backgroundColor: "#d1fae5",
-    border: "1px solid #a7f3d0",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  rejectBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#dc2626",
-    backgroundColor: "#fee2e2",
-    border: "1px solid #fecaca",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-
-  completedText: {
-    color: "#6b7280",
-    fontStyle: "italic",
-  },
-
-  noResults: {
-    padding: "40px",
-    textAlign: "center",
-    color: "#6b7280",
-    fontSize: "16px",
-    fontWeight: "500",
+  mobileDeleteBtn: {
+    color: "#ef4444",
+    borderColor: "#ef4444",
   },
 };
