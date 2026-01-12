@@ -203,6 +203,8 @@ export default function Payroll() {
             employee_id: employeeId,
             month: selectedMonth,
             year: selectedYear,
+            allowance_items: allowances.map(a => ({ allowance_type: a.allowance_type || a.name || a.type || '', amount: a.amount || 0 })),
+            deduction_items: deductions.map(d => ({ deduction_type: d.deduction_type || d.name || d.type || '', amount: d.amount || 0 })),
           });
 
           console.debug('Payroll preview response:', previewRes.data);
@@ -217,7 +219,7 @@ export default function Payroll() {
 
             // fallback: compute net from preview/basic + any known allowances/deductions
             const usedBasic2 = empStoredBasic2 && empStoredBasic2 > 0 ? empStoredBasic2 : (salaryCalc.monthly_basic ?? salaryCalc.base_salary ?? salaryCalc.earned_salary ?? 0);
-            const localAllowances2 = 0; // preview returns totals, not items; allowances array empty here
+            const localAllowances2 = 0; // preview may return itemized lists below
             const localDeductions2 = 0;
             const computedNetPreviewFallback = Number(usedBasic2 || 0) + Number(localAllowances2 || 0) - Number(localDeductions2 || 0);
             const finalNetPreview = (salaryCalc && (salaryCalc.net_pay !== undefined && salaryCalc.net_pay !== null) ? Number(salaryCalc.net_pay) : computedNetPreviewFallback) || 0;
@@ -226,8 +228,9 @@ export default function Payroll() {
 
           const attendanceB = preview.attendance_breakdown || {};
           // preview provides totals (numbers) not itemized lists
-          setAllowances([]);
-          setDeductions([]);
+            // if preview returned itemized lists, use them to populate the UI
+            setAllowances(preview.allowance_items || []);
+            setDeductions(preview.deduction_items || []);
           setOtherComponents([]);
 
           setAttendance({
@@ -372,8 +375,8 @@ export default function Payroll() {
         employee_id: selectedEmployee.id,
         month: selectedMonth,
         year: selectedYear,
-        allowances: totalAllowances,
-        deductions: totalDeductions,
+        allowance_items: allowances.map(a => ({ allowance_type: a.allowance_type || a.name || a.type || '', amount: a.amount || 0 })),
+        deduction_items: deductions.map(d => ({ deduction_type: d.deduction_type || d.name || d.type || '', amount: d.amount || 0 })),
       });
 
       const preview = previewRes.data || {};
@@ -385,6 +388,10 @@ export default function Payroll() {
       setBasicSalary(salaryCalc.monthly_basic ?? salaryCalc.base_salary ?? salaryCalc.earned_salary ?? basicSalary);
       setNetSalary(salaryCalc.net_pay ?? netSalary);
       setFixedNetLocked(true);
+
+      // apply returned item lists so top UI shows them
+      setAllowances(preview.allowance_items || []);
+      setDeductions(preview.deduction_items || []);
 
       // show modal payslip with preview data
       setShowPayslip(true);
@@ -929,26 +936,61 @@ export default function Payroll() {
             <div style={{ marginTop: 18 }}>
               <h4 style={{ margin: '8px 0' }}>Payslip History</h4>
               {payrollRecords.length > 0 ? (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: 8 }}>Month</th>
-                      <th style={{ textAlign: 'left', padding: 8 }}>Year</th>
-                      <th style={{ textAlign: 'right', padding: 8 }}>Net Pay</th>
-                      <th style={{ textAlign: 'left', padding: 8 }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payrollRecords.map((p) => (
-                      <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
-                        <td style={{ padding: 8 }}>{p.month}</td>
-                        <td style={{ padding: 8 }}>{p.year}</td>
-                        <td style={{ padding: 8, textAlign: 'right' }}>₹{(p.net_pay || p.net || 0).toLocaleString('en-IN')}</td>
-                        <td style={{ padding: 8 }}>{p.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {payrollRecords.map((p) => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', borderRadius: 10, background: '#fff5f5', border: '1px solid #fee2e2' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 8, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', fontWeight: 700 }}>
+                          <FileText size={18} color="#ef4444" />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 700 }}>{p.month} {p.year}</div>
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>Generated on {p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ textAlign: 'right', marginRight: 8 }}>
+                          <div style={{ fontSize: 16, fontWeight: 700 }}>₹{((p.net_pay || p.net || 0)).toLocaleString('en-IN')}</div>
+                        </div>
+                        <button onClick={() => {
+                          // view payslip in modal: populate state from record
+                          setSalaryCalculation(p.salary_calculation || {});
+                          setBasicSalary(p.salary || p.earned_salary || 0);
+                          setAllowances(p.allowance_items || []);
+                          setDeductions(p.deduction_items || []);
+                          setNetSalary(p.net_pay || p.net || 0);
+                          setFixedNetLocked(true);
+                          setShowPayslip(true);
+                        }} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }} title="View">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                        <button onClick={async () => {
+                          try {
+                            setLoading(true);
+                            const pdfRes = await api.post('/payroll/generate_preview_payslip/', { employee_id: selectedEmployee.id, month: p.month, year: p.year }, { responseType: 'blob' });
+                            const blob = new Blob([pdfRes.data], { type: 'application/pdf' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Payslip_${selectedEmployee.id}_${p.month}_${p.year}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                          } catch (e) {
+                            console.error('Download failed', e);
+                            setError('Failed to download payslip');
+                          } finally {
+                            setLoading(false);
+                          }
+                        }} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }} title="Download">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div style={{ color: '#6b7280' }}>No payslips generated yet for this employee.</div>
               )}

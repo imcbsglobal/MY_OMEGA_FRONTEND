@@ -50,8 +50,26 @@ export default function Deduction() {
   const fetchDeductions = async () => {
     try {
       setLoading(true);
-      const res = await api.get("payroll/deductions/");
-      setDeductions(Array.isArray(res.data) ? res.data : []);
+      let res;
+      try {
+        res = await api.get("payroll/deductions/");
+      } catch (err) {
+        // If the simple path isn't registered, try the alternate path used elsewhere in the codebase
+        if (err.response && err.response.status === 404) {
+          res = await api.get("payroll/payroll/deductions/");
+        } else {
+          throw err;
+        }
+      }
+
+      // Support both paginated and plain-list responses
+      if (Array.isArray(res.data)) {
+        setDeductions(res.data);
+      } else if (res.data && res.data.results) {
+        setDeductions(res.data.results);
+      } else {
+        setDeductions(res.data || []);
+      }
     } catch {
       setError("Unable to load deductions");
     } finally {
@@ -72,7 +90,7 @@ export default function Deduction() {
       setLoading(true);
       setError("");
 
-      await api.post("payroll/payroll/add-deduction/", {
+      await api.post("payroll/add-deduction/", {
         employee_id: Number(formData.employee_id),
           deduction_type: formData.deduction_type.trim().toUpperCase(),
         year: Number(formData.year),

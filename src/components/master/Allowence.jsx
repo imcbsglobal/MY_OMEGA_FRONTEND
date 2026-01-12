@@ -102,7 +102,7 @@ export default function Allowance() {
     try {
       setLoading(true);
       setError("");
-      const response = await api.post("payroll/payroll/add-allowance/", {
+      const response = await api.post("payroll/allowances/", {
         employee_id: formData.employee_id,
         allowance_type: formData.name.trim().toUpperCase(),
         year: formData.year,
