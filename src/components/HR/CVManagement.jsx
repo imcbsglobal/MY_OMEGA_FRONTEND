@@ -149,6 +149,7 @@ export default function CVManagement() {
       </div>
 
       <div style={styles.tableContainer}>
+         <div style={styles.tableScroll}>
         <table style={styles.table}>
           <thead>
             <tr style={styles.tableHeaderRow}>
@@ -248,6 +249,7 @@ export default function CVManagement() {
                         >
                           <Trash2 size={16} />
                         </button>
+                        
                       </div>
                     </td>
                   </tr>
@@ -256,6 +258,7 @@ export default function CVManagement() {
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       <div style={styles.paginationContainer}>
@@ -372,27 +375,39 @@ const styles = {
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   },
   tableContainer: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    overflow: "hidden",
-  },
+  backgroundColor: "white",
+  borderRadius: "12px",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  overflow: "hidden",
+},
+tableScroll: {
+  maxHeight: "420px",      // adjust height as needed
+  overflowY: "auto",
+},
+
+
   table: {
     width: "100%",
     borderCollapse: "collapse",
   },
-  tableHeaderRow: {
-    backgroundColor: "#f3f4f6",
-  },
+ tableHeaderRow: {
+  backgroundColor: "#f3f4f6",
+  position: "sticky",
+  top: 0,
+  zIndex: 2,
+},
+
   tableHeader: {
-    padding: "12px 16px",
-    textAlign: "left",
-    fontSize: "12px",
-    fontWeight: "600",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    borderBottom: "2px solid #e5e7eb",
-  },
+  padding: "12px 16px",
+  textAlign: "left",
+  fontSize: "12px",
+  fontWeight: "600",
+  color: "#6b7280",
+  textTransform: "uppercase",
+  borderBottom: "2px solid #e5e7eb",
+  backgroundColor: "#f3f4f6", // required for sticky
+},
+
   tableRow: {
     borderBottom: "1px solid #e5e7eb",
     transition: "background-color 0.2s",

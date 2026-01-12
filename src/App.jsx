@@ -57,6 +57,7 @@ import AddUser from "./components/UserManagement/AddUser";
 
 // Payroll
 import Payroll from "./components/Payroll/Payroll";
+import Payslip from "./components/Payroll/Payslip";
 
 // 🔐 Private Route
 function PrivateRoute({ children }) {
@@ -139,6 +140,7 @@ function App() {
 
           <Route path="payroll" element={<Payroll />} />
           <Route path="payroll/processing" element={<Payroll />} />
+          <Route path="payslip" element={<Payslip />} />
 
           <Route path="add-user" element={<AddUser />} />
           <Route path="user-control" element={<UserControl />} />

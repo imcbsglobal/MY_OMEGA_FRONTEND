@@ -1,502 +1,206 @@
-
 import React, { useEffect, useState } from "react";
-import { Wallet, Plus, Trash2, Edit2, X, Check, RefreshCw, Calendar, User } from "lucide-react";
+import {
+  Wallet, Plus, RefreshCw, X, Check, Briefcase, User, Calendar, Edit2, Trash2
+} from "lucide-react";
 import api from "../../api/client";
 
 export default function Deduction() {
   const [deductions, setDeductions] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [formData, setFormData] = useState({
-    employee_id: "",
-    name: "",
-    year: new Date().getFullYear().toString(),
-    month: "",
-    amount: ""
-  });
-  const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({
-    employee_id: "",
-    name: "",
-    year: "",
-    month: "",
-    amount: ""
-  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  /* =========================
+     FORM STATE (MATCH BACKEND)
+  ========================= */
+  const [formData, setFormData] = useState({
+    employee_id: "",
+    deduction_type: "",
+    year: new Date().getFullYear(),
+    month: "",
+    amount: ""
+  });
+
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
-  
+
   const months = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
 
+  /* =========================
+     LOAD DATA
+  ========================= */
   useEffect(() => {
-    fetchDeductions();
     fetchEmployees();
+    fetchDeductions();
   }, []);
 
   const fetchEmployees = async () => {
     try {
-      let response;
-      try {
-        response = await api.get("cv-management/employees/");
-      } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.get("cv-management/employees");
-        } else {
-          throw err;
-        }
-      }
-      
-      let employeeData;
-      if (response.data.data) {
-        employeeData = response.data.data;
-      } else if (response.data.results) {
-        employeeData = response.data.results;
-      } else if (Array.isArray(response.data)) {
-        employeeData = response.data;
-      } else {
-        employeeData = [];
-      }
-      
-      setEmployees(Array.isArray(employeeData) ? employeeData : []);
+      const res = await api.get("employee-management/employees/");
+      setEmployees(res.data?.results || res.data || []);
     } catch (err) {
-      console.error("Error fetching employees:", err);
+      console.error("Employee load error", err);
     }
   };
 
   const fetchDeductions = async () => {
     try {
       setLoading(true);
-      setError("");
-      
-      let response;
+      let res;
       try {
-        response = await api.get("cv-management/deductions/");
+        res = await api.get("payroll/deductions/");
       } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.get("cv-management/deductions");
+        // If the simple path isn't registered, try the alternate path used elsewhere in the codebase
+        if (err.response && err.response.status === 404) {
+          res = await api.get("payroll/payroll/deductions/");
         } else {
           throw err;
         }
       }
-      
-      let deductionData;
-      if (response.data.data) {
-        deductionData = response.data.data;
-      } else if (response.data.results) {
-        deductionData = response.data.results;
-      } else if (Array.isArray(response.data)) {
-        deductionData = response.data;
+
+      // Support both paginated and plain-list responses
+      if (Array.isArray(res.data)) {
+        setDeductions(res.data);
+      } else if (res.data && res.data.results) {
+        setDeductions(res.data.results);
       } else {
-        deductionData = [];
+        setDeductions(res.data || []);
       }
-      
-      setDeductions(Array.isArray(deductionData) ? deductionData : []);
-    } catch (err) {
-      let errorMessage = "Unable to load deduction data";
-      
-      if (err.response?.status === 404) {
-        errorMessage = "API endpoint not found. Please check your Django URL configuration.";
-      } else if (err.response?.status === 401) {
-        errorMessage = "Unauthorized. Please login again.";
-      } else if (err.response?.status === 403) {
-        errorMessage = "Access denied. You don't have permission.";
-      } else if (err.response?.data) {
-        errorMessage = err.response.data.detail || err.response.data.message || 
-                      err.response.data.error || JSON.stringify(err.response.data);
-      }
-      
-      setError(errorMessage);
+    } catch {
+      setError("Unable to load deductions");
     } finally {
       setLoading(false);
     }
   };
 
+  /* =========================
+     ADD DEDUCTION
+  ========================= */
   const handleAddDeduction = async () => {
-    if (!formData.employee_id) {
-      setError("Please select an employee");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (!formData.name.trim()) {
-      setError("Please enter a deduction name");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (!formData.year || !formData.month) {
-      setError("Please select year and month");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      setError("Please enter a valid amount");
-      setTimeout(() => setError(""), 3000);
+    if (!formData.employee_id || !formData.deduction_type || !formData.month || !formData.amount) {
+      setError("All fields are required");
       return;
     }
 
     try {
       setLoading(true);
       setError("");
-      
-      let response;
-      try {
-        response = await api.post("cv-management/deductions/", {
-          employee_id: formData.employee_id,
-          name: formData.name.trim(),
-          year: formData.year,
-          month: formData.month,
-          amount: parseFloat(formData.amount)
-        });
-      } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.post("cv-management/deductions", {
-            employee_id: formData.employee_id,
-            name: formData.name.trim(),
-            year: formData.year,
-            month: formData.month,
-            amount: parseFloat(formData.amount)
-          });
-        } else {
-          throw err;
-        }
-      }
 
-      const newDeduction = response.data.data || response.data;
-      setDeductions((prev) => [...prev, newDeduction]);
+      await api.post("payroll/add-deduction/", {
+        employee_id: Number(formData.employee_id),
+          deduction_type: formData.deduction_type.trim().toUpperCase(),
+        year: Number(formData.year),
+        month: formData.month,
+        amount: Number(formData.amount),
+      });
+
+      setSuccess("Deduction added successfully");
+      fetchDeductions();
+
       setFormData({
         employee_id: "",
-        name: "",
-        year: new Date().getFullYear().toString(),
+        deduction_type: "",
+        year: new Date().getFullYear(),
         month: "",
         amount: ""
       });
-      setSuccess("Deduction added successfully!");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      let errorMsg = "Unable to add deduction";
-      
-      if (err.response?.status === 400) {
-        errorMsg = err.response.data.detail || "Invalid deduction data";
-      } else if (err.response?.data) {
-        errorMsg = err.response.data.detail || err.response.data.message || 
-                  err.response.data.error || JSON.stringify(err.response.data);
-      }
-      
-      setError(errorMsg);
+    } catch {
+      setError("Failed to add deduction");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddMore = () => {
-    setFormData({
-      employee_id: "",
-      name: "",
-      year: new Date().getFullYear().toString(),
-      month: "",
-      amount: ""
-    });
-    setError("");
-    setSuccess("");
-  };
-
-  const startEdit = (deduction) => {
-    setEditingId(deduction.id);
-    setEditData({
-      employee_id: deduction.employee_id || "",
-      name: deduction.name,
-      year: deduction.year,
-      month: deduction.month,
-      amount: deduction.amount
-    });
-    setError("");
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditData({ employee_id: "", name: "", year: "", month: "", amount: "" });
-    setError("");
-  };
-
-  const handleUpdateDeduction = async (id) => {
-    if (!editData.employee_id) {
-      setError("Please select an employee");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (!editData.name.trim()) {
-      setError("Deduction name cannot be empty");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (!editData.amount || parseFloat(editData.amount) <= 0) {
-      setError("Please enter a valid amount");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-      
-      let response;
-      try {
-        response = await api.put(`cv-management/deductions/${id}/`, {
-          employee_id: editData.employee_id,
-          name: editData.name.trim(),
-          year: editData.year,
-          month: editData.month,
-          amount: parseFloat(editData.amount)
-        });
-      } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.put(`cv-management/deductions/${id}`, {
-            employee_id: editData.employee_id,
-            name: editData.name.trim(),
-            year: editData.year,
-            month: editData.month,
-            amount: parseFloat(editData.amount)
-          });
-        } else {
-          throw err;
-        }
-      }
-
-      const updatedDeduction = response.data.data || response.data;
-      setDeductions((prev) =>
-        prev.map((ded) => (ded.id === id ? updatedDeduction : ded))
-      );
-      setEditingId(null);
-      setEditData({ employee_id: "", name: "", year: "", month: "", amount: "" });
-      setSuccess("Deduction updated successfully!");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      let errorMsg = "Unable to update deduction";
-      
-      if (err.response?.status === 400) {
-        errorMsg = err.response.data.detail || "Invalid deduction data";
-      } else if (err.response?.status === 404) {
-        errorMsg = "Deduction not found or API endpoint incorrect";
-      } else if (err.response?.data) {
-        errorMsg = err.response.data.detail || err.response.data.message || 
-                  err.response.data.error || JSON.stringify(err.response.data);
-      }
-      
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteDeduction = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this deduction?")) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-      
-      try {
-        await api.delete(`cv-management/deductions/${id}/`);
-      } catch (err) {
-        if (err.response?.status === 404) {
-          await api.delete(`cv-management/deductions/${id}`);
-        } else {
-          throw err;
-        }
-      }
-      
-      setDeductions((prev) => prev.filter((ded) => ded.id !== id));
-      setSuccess("Deduction deleted successfully!");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      let errorMsg = "Unable to delete deduction";
-      
-      if (err.response?.status === 404) {
-        errorMsg = "Deduction not found or API endpoint incorrect";
-      } else if (err.response?.status === 400) {
-        errorMsg = err.response.data.detail || "Cannot delete this deduction";
-      } else if (err.response?.data) {
-        errorMsg = err.response.data.detail || err.response.data.message || 
-                  err.response.data.error || JSON.stringify(err.response.data);
-      }
-      
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRefresh = () => {
-    setError("");
-    setSuccess("");
-    fetchDeductions();
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2
+  /* =========================
+     HELPERS (SAFE)
+  ========================= */
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR"
     }).format(amount);
-  };
 
-  const getEmployeeName = (employeeId) => {
-    const employee = employees.find(emp => emp.id === employeeId);
-    return employee ? employee.name : 'Unknown';
-  };
-
+  /* =========================
+     UI
+  ========================= */
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <div style={styles.titleSection}>
-          <Wallet size={28} color="#dc2626" />
-          <h2 style={styles.title}>Deduction Management</h2>
-          <button 
-            onClick={handleRefresh}
-            style={{
-              ...styles.refreshButton,
-              opacity: loading ? 0.6 : 1,
-            }}
-            title="Refresh deductions"
-            disabled={loading}
-          >
-            <RefreshCw size={14} style={{
-              animation: loading ? 'spin 1s linear infinite' : 'none'
-            }} />
-            Refresh
-          </button>
-        </div>
+        <Wallet size={28} color="#dc2626" />
+        <h2 style={styles.title}>Deduction Management</h2>
+        <button onClick={fetchDeductions} style={styles.refreshButton}>
+          <RefreshCw size={14} /> Refresh
+        </button>
       </div>
 
-      {success && (
-        <div style={styles.successMessage}>
-          <Check size={18} />
-          <span>{success}</span>
-          <button onClick={() => setSuccess("")} style={styles.dismissSuccessButton}>×</button>
-        </div>
-      )}
+      {error && <div style={styles.errorMessage}><X /> {error}</div>}
+      {success && <div style={styles.successMessage}><Check /> {success}</div>}
 
-      {error && (
-        <div style={styles.errorMessage}>
-          <X size={18} />
-          <span style={{ flex: 1 }}>{error}</span>
-          <button onClick={() => setError("")} style={styles.dismissButton}>Dismiss</button>
-        </div>
-      )}
-
+      {/* ADD FORM */}
       <div style={styles.card}>
-        <h3 style={styles.cardTitle}>
-          <Plus size={20} />
-          Add New Deduction
-        </h3>
-        
+        <h3 style={styles.cardTitle}><Plus /> Add New Deduction</h3>
+
         <div style={styles.formGrid}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Select Employee</label>
-            <select
-              value={formData.employee_id}
-              onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-              style={styles.select}
-              disabled={loading}
-            >
-              <option value="">Select Employee</option>
-              {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>{employee.name}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={formData.employee_id}
+            onChange={e => setFormData({ ...formData, employee_id: e.target.value })}
+            style={styles.select}
+          >
+            <option value="">Select Employee</option>
+            {employees.map(emp => (
+              <option key={emp.id} value={emp.id}>
+                {emp.full_name || emp.employee_id || emp.id}
+              </option>
+            ))}
+          </select>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Deduction Name</label>
-            <input
-              type="text"
-              placeholder="Enter Deduction Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              style={styles.input}
-              disabled={loading}
-            />
-          </div>
+          <input
+            placeholder="Deduction Type"
+            value={formData.deduction_type}
+            onChange={e => setFormData({ ...formData, deduction_type: e.target.value.toUpperCase() })}
+            style={styles.input}
+          />
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Year</label>
-            <select
-              value={formData.year}
-              onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-              style={styles.select}
-              disabled={loading}
-            >
-              <option value="">YYYY</option>
-              {years.map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={formData.year}
+            onChange={e => setFormData({ ...formData, year: e.target.value })}
+            style={styles.select}
+          >
+            {years.map(y => <option key={y}>{y}</option>)}
+          </select>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Month</label>
-            <select
-              value={formData.month}
-              onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-              style={styles.select}
-              disabled={loading}
-            >
-              <option value="">Select Month</option>
-              {months.map((month) => (
-                <option key={month} value={month}>{month}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={formData.month}
+            onChange={e => setFormData({ ...formData, month: e.target.value })}
+            style={styles.select}
+          >
+            <option value="">Select Month</option>
+            {months.map(m => <option key={m}>{m}</option>)}
+          </select>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Amount</label>
-            <input
-              type="number"
-              placeholder="0.00"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              style={styles.input}
-              step="0.01"
-              min="0"
-              disabled={loading}
-            />
-          </div>
+          <input
+            type="number"
+            placeholder="Amount"
+            value={formData.amount}
+            onChange={e => setFormData({ ...formData, amount: e.target.value })}
+            style={styles.input}
+          />
         </div>
 
-        <div style={styles.buttonGroup}>
-          <button
-            onClick={handleAddDeduction}
-            style={{
-              ...styles.addButton,
-              opacity: loading || !formData.employee_id || !formData.name.trim() || !formData.year || !formData.month || !formData.amount ? 0.5 : 1,
-              cursor: loading || !formData.employee_id || !formData.name.trim() || !formData.year || !formData.month || !formData.amount ? "not-allowed" : "pointer",
-            }}
-            disabled={loading || !formData.employee_id || !formData.name.trim() || !formData.year || !formData.month || !formData.amount}
-          >
-            <Plus size={18} />
-            Add Deduction
-          </button>
-          <button
-            onClick={handleAddMore}
-            style={styles.addMoreButton}
-            disabled={loading}
-          >
-            <Plus size={18} />
-            Add More
-          </button>
-        </div>
+        <button onClick={handleAddDeduction} style={styles.addButton}>
+          <Plus /> Add Deduction
+        </button>
       </div>
 
+      {/* LIST */}
       <div style={styles.card}>
         <div style={styles.sectionHeader}>
           <h3 style={styles.cardTitle}>
-            <Wallet size={20} />
+            <Briefcase size={20} />
             All Deductions ({deductions.length})
           </h3>
           <div style={styles.stats}>
@@ -504,196 +208,55 @@ export default function Deduction() {
           </div>
         </div>
 
-        {loading && deductions.length === 0 ? (
-          <div style={styles.loadingState}>
-            <div style={styles.spinner}></div>
-            <p>Loading deductions...</p>
-            <p style={styles.loadingHint}>Make sure backend server is running on http://localhost:8000</p>
-          </div>
-        ) : deductions.length === 0 ? (
-          <div style={styles.emptyState}>
-            <Wallet size={48} color="#cbd5e1" />
-            <p style={styles.emptyText}>No deductions added yet</p>
-            <p style={styles.emptySubtext}>
-              {error ? "Failed to load deductions. Check the error above." : "Add your first deduction using the form above"}
-            </p>
-            <button onClick={fetchDeductions} style={styles.retryButton} disabled={loading}>
-              <RefreshCw size={14} />
-              Retry Loading
-            </button>
-          </div>
-        ) : (
-          <div style={styles.tableContainer}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.tableHeader}>
-                  <th style={{ ...styles.th, width: "60px" }}>#</th>
-                  <th style={styles.th}>Employee</th>
-                  <th style={styles.th}>Deduction Name</th>
-                  <th style={{ ...styles.th, width: "100px" }}>Year</th>
-                  <th style={{ ...styles.th, width: "120px" }}>Month</th>
-                  <th style={{ ...styles.th, width: "120px", textAlign: "right" }}>Amount</th>
-                  <th style={{ ...styles.th, width: "200px", textAlign: "center" }}>Actions</th>
+        <div style={styles.tableContainer}>
+        <table style={styles.table}>
+          <thead>
+              <tr style={styles.tableHeader}>
+                <th style={{ ...styles.th, width: "60px" }}>#</th>
+                <th style={styles.th}>Employee</th>
+                <th style={styles.th}>Deduction</th>
+                <th style={{ ...styles.th, width: "100px" }}>Year</th>
+                <th style={{ ...styles.th, width: "120px" }}>Month</th>
+                <th style={{ ...styles.th, width: "120px", textAlign: "right" }}>Amount</th>
+              </tr>
+          </thead>
+          <tbody>
+              {deductions.map((d, i) => (
+                <tr key={d.id} style={styles.tableRow}>
+                  <td style={styles.td}>{i + 1}</td>
+
+                  <td style={styles.td}>
+                    <div style={styles.employeeName}>
+                      <User size={16} color="#64748b" />
+                      <span>{d.employee_name || "—"}</span>
+                    </div>
+                  </td>
+
+                  <td style={styles.td}>
+                    <div style={styles.deductionName}>
+                      <Briefcase size={16} color="#64748b" />
+                      <span>{d.deduction_type}</span>
+                    </div>
+                  </td>
+
+                  <td style={styles.td}>
+                    <span style={styles.yearBadge}>{d.year || "—"}</span>
+                  </td>
+
+                  <td style={styles.td}>
+                    <span style={styles.monthBadge}><Calendar size={14} />{d.month || "—"}</span>
+                  </td>
+
+                  <td style={{ ...styles.td, textAlign: "right" }}>
+                    <span style={styles.amount}>{formatCurrency(d.amount)}</span>
+                  </td>
+
+                  
                 </tr>
-              </thead>
-              <tbody>
-                {deductions.map((deduction, index) => (
-                  <tr key={deduction.id} style={styles.tableRow}>
-                    <td style={styles.td}>{index + 1}</td>
-                    <td style={styles.td}>
-                      {editingId === deduction.id ? (
-                        <select
-                          value={editData.employee_id}
-                          onChange={(e) => setEditData({ ...editData, employee_id: e.target.value })}
-                          style={styles.editSelect}
-                          disabled={loading}
-                        >
-                          <option value="">Select Employee</option>
-                          {employees.map((employee) => (
-                            <option key={employee.id} value={employee.id}>{employee.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div style={styles.employeeName}>
-                          <User size={16} color="#64748b" />
-                          <span>{getEmployeeName(deduction.employee_id)}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td style={styles.td}>
-                      {editingId === deduction.id ? (
-                        <input
-                          type="text"
-                          value={editData.name}
-                          onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                          style={styles.editInput}
-                          autoFocus
-                          disabled={loading}
-                        />
-                      ) : (
-                        <div style={styles.deductionName}>
-                          <Wallet size={16} color="#64748b" />
-                          <span>{deduction.name}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td style={styles.td}>
-                      {editingId === deduction.id ? (
-                        <select
-                          value={editData.year}
-                          onChange={(e) => setEditData({ ...editData, year: e.target.value })}
-                          style={styles.editSelect}
-                          disabled={loading}
-                        >
-                          {years.map((year) => (
-                            <option key={year} value={year}>{year}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span style={styles.yearBadge}>{deduction.year}</span>
-                      )}
-                    </td>
-                    <td style={styles.td}>
-                      {editingId === deduction.id ? (
-                        <select
-                          value={editData.month}
-                          onChange={(e) => setEditData({ ...editData, month: e.target.value })}
-                          style={styles.editSelect}
-                          disabled={loading}
-                        >
-                          {months.map((month) => (
-                            <option key={month} value={month}>{month}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span style={styles.monthBadge}>
-                          <Calendar size={14} />
-                          {deduction.month}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ ...styles.td, textAlign: "right" }}>
-                      {editingId === deduction.id ? (
-                        <input
-                          type="number"
-                          value={editData.amount}
-                          onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
-                          style={{ ...styles.editInput, textAlign: "right" }}
-                          step="0.01"
-                          min="0"
-                          disabled={loading}
-                        />
-                      ) : (
-                        <span style={styles.amount}>{formatCurrency(deduction.amount)}</span>
-                      )}
-                    </td>
-                    <td style={{ ...styles.td, textAlign: "center" }}>
-                      {editingId === deduction.id ? (
-                        <div style={styles.actionButtons}>
-                          <button
-                            onClick={() => handleUpdateDeduction(deduction.id)}
-                            style={{
-                              ...styles.saveButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Save changes"
-                          >
-                            <Check size={16} />
-                            Save
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            style={{
-                              ...styles.cancelButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Cancel editing"
-                          >
-                            <X size={16} />
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={styles.actionButtons}>
-                          <button
-                            onClick={() => startEdit(deduction)}
-                            style={{
-                              ...styles.editButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Edit deduction"
-                          >
-                            <Edit2 size={16} />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteDeduction(deduction.id)}
-                            style={{
-                              ...styles.deleteButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Delete deduction"
-                          >
-                            <Trash2 size={16} />
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+          </tbody>
+        </table>
+        </div>
       </div>
     </div>
   );
