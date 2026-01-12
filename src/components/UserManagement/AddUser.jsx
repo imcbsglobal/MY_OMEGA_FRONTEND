@@ -16,7 +16,10 @@ export default function AddUser() {
   async function fetchUsers() {
     try {
       const res = await api.get("/users/");
-      setUsers(res.data);
+      // API may return paginated object { results: [...], count, ... } or an array.
+      const payload = res.data || {};
+      const list = Array.isArray(payload) ? payload : (payload.results || payload.data || []);
+      setUsers(Array.isArray(list) ? list : []);
     } catch (e) {
       console.error("Error fetching users:", e.response?.data || e.message);
     }

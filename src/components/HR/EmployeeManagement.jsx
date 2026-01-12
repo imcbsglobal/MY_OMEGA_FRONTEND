@@ -216,6 +216,13 @@ const [detailLoading, setDetailLoading] = useState(false);
         </div>
       </div>
 
+      {/* Debug Info */}
+      <div style={S.debugBanner}>
+        <strong>Total Employees:</strong> {employees.length} | 
+        <strong> Filtered:</strong> {filtered.length} | 
+        <strong> Job Titles:</strong> {jobTitles.length} |
+        <strong> Departments:</strong> {departments.length}
+      </div>
 
       {/* Main Split Layout */}
       <div style={S.main}>
@@ -365,8 +372,8 @@ const [detailLoading, setDetailLoading] = useState(false);
 }
 
 /* Right Side Detail Card */
+
 function EmployeeDetail({ employee, onEdit, onDelete }) {
-  console.log("=== RENDERING EMPLOYEE DETAIL ===", employee.phone_number);
   if (!employee) {
     return <div style={S.empty}>Employee not found</div>;
   }
@@ -419,6 +426,8 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
           <Info label="Duty Time" value={employee.duty_time || employee.job_info?.duty_time} />
           <Info label="Reporting Manager" value={employee.reporting_manager || employee.job_info?.reporting_manager} />
           <Info label="Date of Joining" value={employee.date_of_joining || employee.job_info?.date_of_joining} />
+          <Info label="Date of Leaving" value={employee.date_of_leaving || employee.job_info?.date_of_leaving} />
+          <Info label="Probation End Date" value={employee.probation_end_date || employee.job_info?.probation_end_date} />
           <Info label="Confirmation Date" value={employee.confirmation_date || employee.job_info?.confirmation_date} />
         </div>
       </div>
@@ -427,6 +436,7 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
         <div style={S.sectionTitle}>Salary Information</div>
         <div style={S.grid}>
           <Info label="Basic Salary" value={employee.basic_salary || employee.job_info?.basic_salary} />
+          <Info label="Allowances" value={employee.allowances || employee.job_info?.allowances} />
           <Info label="Gross Salary" value={employee.gross_salary || employee.job_info?.gross_salary} />
         </div>
       </div>
@@ -434,9 +444,9 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
       <div style={S.section}>
         <div style={S.sectionTitle}>Contact Details</div>
         <div style={S.grid}>
-          <Info label="Personal Phone" value={ employee.phone_number} />
-          <Info label="Emergency Contact Name" value={employee.contact_info.emergency_contact_name} />
-          <Info label="Emergency Contact Phone" value={employee.contact_info.emergency_contact_phone} />
+          <Info label="Personal Phone" value={employee.personal_phone} />
+          <Info label="Emergency Contact Name" value={employee.contact_info?.emergency_contact_name} />
+          <Info label="Emergency Contact Phone" value={employee.contact_info?.emergency_contact_phone} />
           <Info label="Emergency Contact Relation" value={employee.contact_info?.emergency_contact_relation} />
         </div>
       </div>
@@ -455,11 +465,10 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
       <div style={S.section}>
         <div style={S.sectionTitle}>Personal Information</div>
         <div style={S.grid}>
-          <Info label="PF Number" value={employee.bank_info?.pf_number} />
-
-          <Info label="ESI Number" value={employee.bank_info?.esi_number} />
-          <Info label="PAN Number" value={employee.bank_info?.pan_number} />
-          <Info label="Aadhar Number" value={employee.bank_info?.aadhar_number} />
+          <Info label="PF Number" value={employee.pf_number} />
+          <Info label="ESI Number" value={employee.esi_number} />
+          <Info label="PAN Number" value={employee.pan_number} />
+          <Info label="Aadhar Number" value={employee.aadhar_number} />
           <Info label="Blood Group" value={employee.blood_group} />
           <Info label="Marital Status" value={employee.marital_status} />
           <Info label="Notes" value={employee.notes} />
@@ -521,7 +530,7 @@ const S = {
     display: "block",
   },
   filterInput: {
-    width: "92%",
+    width: "100%",
     padding: "10px 12px",
     borderRadius: 6,
     border: "1px solid #d1d5db",
@@ -571,7 +580,7 @@ const S = {
     color: "#374151", 
     fontSize: 14,
   },
-  leftList: { maxHeight: "calc(700px)", overflowY: "auto" },
+  leftList: { maxHeight: "calc(70vh - 200px)", overflowY: "auto" },
   leftItem: { padding: 12, borderBottom: "1px solid #f1f5f9", cursor: "pointer", transition: "background 0.2s" },
   leftItemActive: { background: "#eef2ff" },
   leftRow: { display: "flex", alignItems: "center", gap: 10 },

@@ -12,28 +12,30 @@ import {
   FileText,
   DollarSign
 } from "lucide-react";
+import Payslip from "./Payslip";
+import api from "../../api/client";
 
 export default function Payroll() {
-  const [employees, setEmployees] = useState([
-    { id: 1, name: "John Smith", employee_id: "EMP001", email: "john@example.com", department: "Engineering", designation: "Senior Developer", basic_salary: 75000 },
-    { id: 2, name: "Sarah Johnson", employee_id: "EMP002", email: "sarah@example.com", department: "Marketing", designation: "Marketing Manager", basic_salary: 65000 },
-    { id: 3, name: "Mike Wilson", employee_id: "EMP003", email: "mike@example.com", department: "Sales", designation: "Sales Executive", basic_salary: 55000 }
-  ]);
-  
+  const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState("December");
+  const [selectedMonth, setSelectedMonth] = useState("November");
   const [selectedYear, setSelectedYear] = useState(2025);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [showPayslip, setShowPayslip] = useState(false);
   
   // Payroll Data
   const [basicSalary, setBasicSalary] = useState(0);
   const [allowances, setAllowances] = useState([]);
   const [deductions, setDeductions] = useState([]);
+  const [otherComponents, setOtherComponents] = useState([]);
   const [netSalary, setNetSalary] = useState(0);
+  const [salaryCalculation, setSalaryCalculation] = useState(null);
+  const [fixedNetLocked, setFixedNetLocked] = useState(false);
+  const [payrollRecords, setPayrollRecords] = useState([]);
   const [attendance, setAttendance] = useState({
     workingDays: 0,
     weekends: 0,
@@ -43,6 +45,7 @@ export default function Payroll() {
     paidLeave: 0,
     absentDays: 0
   });
+  const [attendanceList, setAttendanceList] = useState([]);
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -51,77 +54,296 @@ export default function Payroll() {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  // Calculate payroll when employee or month changes
+  // Fetch employees on component mount
   useEffect(() => {
-    if (selectedEmployee) {
-      calculatePayroll();
+    fetchEmployees();
+  }, []);
+
+  // Fetch employee payroll when employee is selected
+  useEffect(() => {
+    if (selectedEmployee?.id) {
+      fetchEmployeePayroll(selectedEmployee.id);
+      fetchEmployeePayrollsList(selectedEmployee.id);
     }
   }, [selectedEmployee, selectedMonth, selectedYear]);
 
-  const calculatePayroll = () => {
-    if (!selectedEmployee) return;
+  // Fetch list of payroll records for selected employee (to show payslip history)
+  const fetchEmployeePayrollsList = async (employeeId) => {
+    try {
+      const res = await api.get(`/payroll/payroll/?employee_id=${employeeId}`);
+      // normalize paginated or plain-list responses
+      const raw = res.data || {};
+      const list = Array.isArray(raw)
+        ? raw
+        : (raw.results || raw.data || raw || []);
 
-    // Set basic salary
-    const annualSalary = selectedEmployee.basic_salary;
-    const monthlySalary = annualSalary / 12;
-    setBasicSalary(monthlySalary);
+      // ensure we only keep records belonging to the requested employee
+      const filtered = (Array.isArray(list) ? list : []).filter(p => {
+        if (!p) return false;
+        // try several possible employee id fields
+        return (
+          Number(p.employee_id) === Number(employeeId) ||
+          (p.employee && (Number(p.employee.id) === Number(employeeId)))
+        );
+      });
 
-    // Sample allowances
-    const sampleAllowances = [
-      { name: "House Rent Allowance", amount: 15000 },
-      { name: "Transport Allowance", amount: 5000 },
-      { name: "Medical Allowance", amount: 3000 },
-      { name: "Special Allowance", amount: 8000 },
-      { name: "Performance Bonus", amount: monthlySalary * 0.1, percentage: "10%" }
-    ];
-    setAllowances(sampleAllowances);
+      setPayrollRecords(filtered);
+    } catch (err) {
+      console.warn('Failed to fetch payroll records list', err);
+      setPayrollRecords([]);
+    }
+  };
 
-    // Sample deductions
-    const sampleDeductions = [
-      { name: "Provident Fund", amount: 750, percentage: "12%" },
-      { name: "Professional Tax", amount: 200 },
-      { name: "Income Tax", amount: monthlySalary * 0.05, percentage: "5%" },
-      { name: "Health Insurance", amount: 1500 }
-    ];
-    setDeductions(sampleDeductions);
+  // Fetch all employees
+  const fetchEmployees = async () => {
+  try {
+    setLoading(true);
+    const res = await api.get("employee-management/employees/");
+    const employeeData = res.data?.results || res.data?.data || res.data || [];
+    setEmployees(Array.isArray(employeeData) ? employeeData : []);
+  } catch (err) {
+    console.error("Failed to fetch employees:", err);
+    setError("Failed to load employees");
+  } finally {
+    setLoading(false);
+  }
+};
 
-    // Sample attendance for December 2025
-    const monthAttendance = {
-      workingDays: 15,
-      weekends: 8,
-      holidays: 3,
-      casualLeave: 2,
-      sickLeave: 1,
-      paidLeave: 1,
-      absentDays: 1
-    };
-    setAttendance(monthAttendance);
+  // Fetch full employee details (to get basic salary if not present in list)
+  const fetchEmployeeDetail = async (employeeId) => {
+    try {
+      const res = await api.get(`employee-management/employees/${employeeId}/`);
+      const data = res.data || res.data?.data || res.data?.results || {};
+      // merge into selectedEmployee
+      setSelectedEmployee(prev => ({ ...(prev || {}), ...data }));
+      // set basic salary if available
+      const empBasic = getEmployeeMonthlyBasic(data);
+      if (empBasic && empBasic > 0) setBasicSalary(empBasic);
+      return data;
+    } catch (err) {
+      console.warn('Failed to fetch employee detail', err);
+      return null;
+    }
+  };
 
-    // Calculate net salary based on working days
-    const totalAllowances = sampleAllowances.reduce((sum, item) => sum + item.amount, 0);
-    const totalDeductions = sampleDeductions.reduce((sum, item) => sum + item.amount, 0);
-    const grossSalary = monthlySalary + totalAllowances;
-    
-    // Calculate based on actual working days (15 scheduled working days)
-    const actualWorkingDays = monthAttendance.workingDays;
-    const totalScheduledDays = 15; // Assuming 15 working days in December
-    const payableAmount = (grossSalary / totalScheduledDays) * actualWorkingDays;
-    const finalNetSalary = payableAmount - totalDeductions;
-    
-    setNetSalary(finalNetSalary);
+
+  // Fetch employee payroll details
+  const fetchEmployeePayroll = async (employeeId) => {
+    try {
+      // when fetching a new payroll unlock net so it can be set by incoming data
+      setFixedNetLocked(false);
+      setLoading(true);
+      setError("");
+
+      // Request the detailed payroll for the selected month/year
+      const res = await api.get(
+        `/payroll/payroll/?employee_id=${employeeId}&month=${selectedMonth}&year=${selectedYear}`
+      );
+
+      // backend returns an array of payrolls; take the most recent (first) item
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data || res.data || []);
+      console.debug('Payroll list response:', res.data, 'parsed list:', list);
+      const data = list[0] || {};
+
+      // If a saved payroll exists use it, otherwise call preview endpoint
+      if (data && Object.keys(data).length > 0) {
+        // Prefer employee's stored basic salary if available, else use payroll values
+        const empStoredBasic = getEmployeeMonthlyBasic(selectedEmployee);
+        setBasicSalary(empStoredBasic && empStoredBasic > 0 ? empStoredBasic : (data.earned_salary ?? data.salary ?? 0));
+        const allowanceItems = data.allowance_items || [];
+        const deductionItems = data.deduction_items || [];
+        setAllowances(allowanceItems);
+        setDeductions(deductionItems);
+        setOtherComponents(data.other_components || []);
+
+        const attendanceSource = data.attendance || {
+          workingDays: data.working_days ?? 0,
+          weekends: 0,
+          holidays: 0,
+          casualLeave: data.casual_leave_days ?? 0,
+          sickLeave: data.sick_leave_days ?? 0,
+          paidLeave: data.total_paid_days ?? 0,
+          absentDays: data.days_to_deduct ?? 0
+        };
+        setAttendance(attendanceSource);
+
+        // build attendance item list from available fields
+        const attList = [];
+        if (data.effective_paid_days !== undefined) attList.push({ label: 'Effective Paid Days', value: data.effective_paid_days });
+        if (data.working_days !== undefined) attList.push({ label: 'Working Days', value: data.working_days });
+        if (data.total_working_days !== undefined) attList.push({ label: 'Total Working Days', value: data.total_working_days });
+        if (data.full_days_worked !== undefined) attList.push({ label: 'Full Days Worked', value: data.full_days_worked });
+        if (data.half_days_worked !== undefined) attList.push({ label: 'Half Days Worked', value: data.half_days_worked });
+        if (data.casual_leave_days !== undefined) attList.push({ label: 'Casual Leave', value: data.casual_leave_days });
+        if (data.sick_leave_days !== undefined) attList.push({ label: 'Sick Leave', value: data.sick_leave_days });
+        if (data.special_leave_days !== undefined) attList.push({ label: 'Special Leave', value: data.special_leave_days });
+        if (attList.length === 0) {
+          // fallback to our attendanceSource
+          attList.push({ label: 'Working Days', value: attendanceSource.workingDays });
+          attList.push({ label: 'Casual Leave', value: attendanceSource.casualLeave });
+          attList.push({ label: 'Sick Leave', value: attendanceSource.sickLeave });
+        }
+        setAttendanceList(attList);
+
+        // store salary calculation if provided by backend, and net pay
+        const sc = data.salary_calculation || { monthly_basic: data.monthly_basic ?? data.earned_salary ?? 0, net_pay: data.net_pay ?? data.net_salary ?? 0 };
+        setSalaryCalculation(sc);
+        // compute local totals as fallback
+        const usedBasic = empStoredBasic && empStoredBasic > 0 ? empStoredBasic : (data.earned_salary ?? data.salary ?? 0);
+        const localAllowances = (allowanceItems || []).reduce((s, a) => s + (Math.abs(Number(a.amount)) || 0), 0);
+        const localDeductions = (deductionItems || []).reduce((s, d) => s + (Math.abs(Number(d.amount)) || 0), 0);
+        const computedNetFallback = Number(usedBasic || 0) + Number(localAllowances || 0) - Number(localDeductions || 0);
+        const finalNet = (sc && (sc.net_pay !== undefined && sc.net_pay !== null) ? Number(sc.net_pay) : computedNetFallback) || 0;
+        setNetSalary(finalNet);
+        setFixedNetLocked(true);
+      } else {
+        // No saved payroll found — request a preview to populate the UI
+        try {
+          const previewRes = await api.post('/payroll/payroll/calculate_payroll_preview/', {
+            employee_id: employeeId,
+            month: selectedMonth,
+            year: selectedYear,
+          });
+
+          console.debug('Payroll preview response:', previewRes.data);
+
+            const preview = previewRes.data || {};
+            const salaryCalc = preview.salary_calculation || {};
+            setSalaryCalculation(salaryCalc);
+            // Prefer explicit monthly basic if provided, otherwise fallback
+            // Do not overwrite employee-stored basic salary if present
+            const empStoredBasic2 = getEmployeeMonthlyBasic(selectedEmployee);
+            setBasicSalary(empStoredBasic2 && empStoredBasic2 > 0 ? empStoredBasic2 : (salaryCalc.monthly_basic ?? salaryCalc.base_salary ?? salaryCalc.earned_salary ?? 0));
+
+            // fallback: compute net from preview/basic + any known allowances/deductions
+            const usedBasic2 = empStoredBasic2 && empStoredBasic2 > 0 ? empStoredBasic2 : (salaryCalc.monthly_basic ?? salaryCalc.base_salary ?? salaryCalc.earned_salary ?? 0);
+            const localAllowances2 = 0; // preview returns totals, not items; allowances array empty here
+            const localDeductions2 = 0;
+            const computedNetPreviewFallback = Number(usedBasic2 || 0) + Number(localAllowances2 || 0) - Number(localDeductions2 || 0);
+            const finalNetPreview = (salaryCalc && (salaryCalc.net_pay !== undefined && salaryCalc.net_pay !== null) ? Number(salaryCalc.net_pay) : computedNetPreviewFallback) || 0;
+            setNetSalary(finalNetPreview);
+            setFixedNetLocked(true);
+
+          const attendanceB = preview.attendance_breakdown || {};
+          // preview provides totals (numbers) not itemized lists
+          setAllowances([]);
+          setDeductions([]);
+          setOtherComponents([]);
+
+          setAttendance({
+            workingDays: attendanceB.total_working_days ?? 0,
+            weekends: attendanceB.sundays ?? 0,
+            holidays: attendanceB.total_paid_holidays ?? 0,
+            casualLeave: attendanceB.casual_leave_days ?? 0,
+            sickLeave: attendanceB.sick_leave_days ?? 0,
+            paidLeave: attendanceB.total_paid_days ?? 0,
+            absentDays: attendanceB.days_to_deduct ?? 0,
+          });
+
+          // build attendance list from attendance_breakdown
+          const attList = [];
+          if (attendanceB.total_working_days !== undefined) attList.push({ label: 'Total Working Days', value: attendanceB.total_working_days });
+          if (attendanceB.total_paid_days !== undefined) attList.push({ label: 'Total Paid Days', value: attendanceB.total_paid_days });
+          if (attendanceB.effective_paid_days !== undefined) attList.push({ label: 'Effective Paid Days', value: attendanceB.effective_paid_days });
+          if (attendanceB.full_days_worked !== undefined) attList.push({ label: 'Full Days Worked', value: attendanceB.full_days_worked });
+          if (attendanceB.half_days_worked !== undefined) attList.push({ label: 'Half Days Worked', value: attendanceB.half_days_worked });
+          if (attendanceB.casual_leave_days !== undefined) attList.push({ label: 'Casual Leave', value: attendanceB.casual_leave_days });
+          if (attendanceB.sick_leave_days !== undefined) attList.push({ label: 'Sick Leave', value: attendanceB.sick_leave_days });
+          if (attendanceB.special_leave_days !== undefined) attList.push({ label: 'Special Leave', value: attendanceB.special_leave_days });
+          setAttendanceList(attList);
+
+          setNetSalary(salaryCalc.net_pay ?? 0);
+          setFixedNetLocked(true);
+        } catch (pe) {
+          console.error('Preview fetch failed:', pe);
+        }
+      }
+
+    } catch (err) {
+      console.error("Payroll fetch failed:", err);
+      setError("Failed to load payroll details");
+      // Reset payroll data on error
+      setBasicSalary(0);
+      setAllowances([]);
+      setDeductions([]);
+      setOtherComponents([]);
+      setNetSalary(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate payroll
+  const calculatePayroll = async () => {
+    if (!selectedEmployee) {
+      setError("Please select an employee first");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const res = await api.post("/payroll/payroll/", {
+        employee_id: selectedEmployee.id,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      setBasicSalary(res.data.basic_salary || 0);
+      setAllowances(res.data.allowances || []);
+      setDeductions(res.data.deductions || []);
+      setOtherComponents(res.data.other_components || []);
+      setAttendance(res.data.attendance || {});
+      setNetSalary(res.data.net_salary || 0);
+
+      setSuccess("Payroll calculated successfully");
+
+    } catch (err) {
+      console.error("Payroll calculation failed:", err);
+      setError("Failed to calculate payroll");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Employee Selection
-  const filteredEmployees = employees.filter(emp =>
-    emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.employee_id?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredEmployees = employees.filter(emp => {
+    const name = (emp.full_name || emp.employee_name || emp.name || "").toString().toLowerCase();
+    const empId = (emp.employee_id || "").toString().toLowerCase();
+    const designation = (emp.designation || "").toString().toLowerCase();
+    const term = searchTerm.toLowerCase();
+    return name.includes(term) || empId.includes(term) || designation.includes(term);
+  });
+
 
   const handleSelectEmployee = (employee) => {
     setSelectedEmployee(employee);
-    setSearchTerm(employee.name);
+    setSearchTerm((employee.full_name || employee.employee_name || employee.name || employee.employee_id || "").toString());
     setShowEmployeeDropdown(false);
+    // Fetch full employee detail to obtain salary fields if not included in list
+    const empBasic = getEmployeeMonthlyBasic(employee);
+    if (empBasic && empBasic > 0) {
+      setBasicSalary(empBasic);
+    } else {
+      fetchEmployeeDetail(employee.id);
+    }
+  };
+
+  // Helper: robustly extract monthly basic salary from employee object
+  const getEmployeeMonthlyBasic = (emp) => {
+    if (!emp) return 0;
+    // direct field
+    if (emp.basic_salary && !isNaN(Number(emp.basic_salary))) return Number(emp.basic_salary);
+    // nested job_info
+    if (emp.job_info) {
+      const ji = emp.job_info;
+      if (ji.basic_salary && !isNaN(Number(ji.basic_salary))) return Number(ji.basic_salary);
+      if (ji.salary && !isNaN(Number(ji.salary))) return Number(ji.salary);
+      if (ji.base_salary && !isNaN(Number(ji.base_salary))) return Number(ji.base_salary);
+    }
+    // fallback to 0
+    return 0;
   };
 
   const handleClearSelection = () => {
@@ -130,18 +352,99 @@ export default function Payroll() {
     setBasicSalary(0);
     setAllowances([]);
     setDeductions([]);
+    setOtherComponents([]);
     setNetSalary(0);
+    setFixedNetLocked(false);
+    setPayrollRecords([]);
   };
 
-  const handleGeneratePayslip = () => {
-    if (!selectedEmployee || !selectedMonth || !selectedYear) {
-      setError("Please select employee and pay period");
-      setTimeout(() => setError(""), 3000);
+  const handleGeneratePayslip = async () => {
+    if (!selectedEmployee) {
+      setError("Select employee first");
       return;
     }
 
-    setSuccess("Payslip generated successfully!");
-    setTimeout(() => setSuccess(""), 3000);
+    try {
+      setLoading(true);
+      setError("");
+      // First, request a payroll preview and show the modal with details
+      const previewRes = await api.post('/payroll/payroll/calculate_payroll_preview/', {
+        employee_id: selectedEmployee.id,
+        month: selectedMonth,
+        year: selectedYear,
+        allowances: totalAllowances,
+        deductions: totalDeductions,
+      });
+
+      const preview = previewRes.data || {};
+      const salaryCalc = preview.salary_calculation || {};
+
+      setSalaryCalculation(salaryCalc);
+
+      // populate UI state from preview
+      setBasicSalary(salaryCalc.monthly_basic ?? salaryCalc.base_salary ?? salaryCalc.earned_salary ?? basicSalary);
+      setNetSalary(salaryCalc.net_pay ?? netSalary);
+      setFixedNetLocked(true);
+
+      // show modal payslip with preview data
+      setShowPayslip(true);
+      setSuccess('Payslip preview generated');
+
+      // Then trigger PDF download in background (best-effort)
+      try {
+        const payload = {
+          employee_id: selectedEmployee.id,
+          month: selectedMonth,
+          year: selectedYear,
+          allowances: totalAllowances,
+          deductions: totalDeductions,
+          allowance_items: allowances.map(a => ({ allowance_type: a.allowance_type || a.name || a.type || '', amount: a.amount || 0 })),
+          deduction_items: deductions.map(d => ({ deduction_type: d.deduction_type || d.name || d.type || '', amount: d.amount || 0 })),
+        };
+
+        const pdfRes = await api.post('/payroll/generate_preview_payslip/', payload, { responseType: 'blob' });
+        const blob = new Blob([pdfRes.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Payslip_${selectedEmployee.id}_${selectedMonth}_${selectedYear}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (pdfErr) {
+        console.warn('PDF download failed (preview shown):', pdfErr);
+      }
+
+    } catch (err) {
+      console.error("Payslip generation failed:", err);
+      // If server returned JSON error blob, try to extract it for debugging
+      try {
+        if (err.response && err.response.data && err.response.data instanceof Blob) {
+          const text = await err.response.data.text();
+          try {
+            const json = JSON.parse(text);
+            console.error('Server error JSON:', json);
+            setError(json.error || json.detail || 'Server error generating payslip');
+          } catch (e) {
+            setError(text || 'Server error generating payslip');
+          }
+        } else if (err.response && err.response.data) {
+          setError(err.response.data.error || err.response.data.detail || 'Server error generating payslip');
+        } else {
+          setError('Failed to generate payslip');
+        }
+      } catch (parseErr) {
+        console.error('Error parsing payslip error response', parseErr);
+        setError('Failed to generate payslip');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClosePayslip = () => {
+    setShowPayslip(false);
   };
 
   // Generate calendar for selected month
@@ -162,11 +465,8 @@ export default function Payroll() {
           // Determine day type (simplified logic for demo)
           let dayType = "working";
           if (dayOfWeek === 0 || dayOfWeek === 6) dayType = "weekend";
-          else if ([15, 26].includes(day)) dayType = "holiday";
-          else if ([10].includes(day)) dayType = "sick";
-          else if ([22].includes(day)) dayType = "casual";
-          else if ([18].includes(day)) dayType = "paid";
-          else if ([25].includes(day)) dayType = "absent";
+          else if ([15].includes(day)) dayType = "holiday";
+          else if ([10, 20].includes(day)) dayType = "casual";
           
           weekDays.push({ day, type: dayType });
           day++;
@@ -180,12 +480,90 @@ export default function Payroll() {
     return calendar;
   };
 
-  const totalAllowances = allowances.reduce((sum, item) => sum + item.amount, 0);
-  const totalDeductions = deductions.reduce((sum, item) => sum + item.amount, 0);
-  const grossSalary = basicSalary + totalAllowances;
+  // Normalize amounts: some backends return negative values for deductions — use absolute values
+  const totalDeductions = deductions.reduce((sum, item) => sum + (Math.abs(Number(item.amount)) || 0), 0);
+  const totalAllowances = allowances.reduce((sum, item) => sum + (Math.abs(Number(item.amount)) || 0), 0);
+  const totalSalary = (Number(basicSalary) || 0) + totalAllowances;
+  const computedNetLocal = (Number(basicSalary) || 0) + (Number(totalAllowances) || 0) - (Number(totalDeductions) || 0);
+  // Display the total calculation (basic + allowances - deductions)
+  const displayNet = Number(computedNetLocal) || 0;
+
+  // Recompute net pay whenever basic, allowances or deductions change
+  useEffect(() => {
+    // If net has been locked by a preview or saved payroll, do not auto-recompute
+    if (fixedNetLocked) return;
+    // Prefer backend-provided salaryCalculation.net_pay when available
+    if (salaryCalculation && (salaryCalculation.net_pay !== undefined && salaryCalculation.net_pay !== null)) {
+      const val = Number(salaryCalculation.net_pay) || 0;
+      setNetSalary(val);
+      return;
+    }
+
+    const computedNet = (Number(basicSalary) || 0) + (Number(totalAllowances) || 0) - (Number(totalDeductions) || 0);
+    setNetSalary(Number(computedNet));
+  }, [basicSalary, totalAllowances, totalDeductions, salaryCalculation]);
 
   return (
     <div style={styles.container}>
+      {/* Payslip Modal */}
+      {showPayslip && selectedEmployee && (
+        (() => {
+          // Normalize data shapes expected by Payslip.jsx
+          const earningsForPayslip = {
+            basicPay: Number(basicSalary) || 0,
+            otherAllowance: Number(totalAllowances) || 0,
+            teaAllowance: 0,
+            spIncentive: 0,
+            avgPay: 0,
+          };
+
+          // Map deductions array to a simple deductions object for display
+          const deductionsTotal = Number(totalDeductions) || 0;
+          const deductionsForPayslip = {
+            leaveDeduction: 0,
+            latePunchDeduction: 0,
+            punchMissCd: 0,
+            purchase: 0,
+            advance: 0,
+            healthInsurance: 0,
+            reimbursement: 0,
+            // provide total as well
+            total: deductionsTotal,
+          };
+
+          // If we have itemized deductions/allowances try to populate some fields
+          if (allowances && allowances.length > 0) {
+            // put first allowance amount into otherAllowance for visibility
+            earningsForPayslip.otherAllowance = allowances.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+          }
+          if (deductions && deductions.length > 0) {
+            deductionsForPayslip.advance = deductions.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+          }
+
+          const attendanceForPayslip = {
+            workingDays: attendance.workingDays || 0,
+            casualLeave: attendance.casualLeave || 0,
+            sickDays: attendance.sickLeave || 0,
+            totalLeave: (attendance.casualLeave || 0) + (attendance.sickLeave || 0) || 0,
+            workedDays: attendance.workingDays || 0,
+            punchMiss: attendance.punchMiss || 0,
+            latePunch: attendance.latePunch || 0,
+          };
+
+          return (
+            <Payslip
+              employee={selectedEmployee}
+              month={selectedMonth}
+              year={selectedYear}
+              earnings={earningsForPayslip}
+              deductions={deductionsForPayslip}
+              attendance={attendanceForPayslip}
+              onClose={handleClosePayslip}
+            />
+          );
+        })()
+      )}
+
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.titleSection}>
@@ -197,11 +575,11 @@ export default function Payroll() {
             <p style={styles.subtitle}>Generate monthly pay slips for employees</p>
           </div>
           <button 
-            onClick={() => setLoading(!loading)}
+            onClick={fetchEmployees}
             style={styles.refreshButton}
             disabled={loading}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             Refresh
           </button>
         </div>
@@ -247,11 +625,7 @@ export default function Payroll() {
                 onFocus={() => setShowEmployeeDropdown(true)}
                 style={styles.searchInput}
               />
-              {selectedEmployee && (
-                <button onClick={handleClearSelection} style={styles.clearBtn}>
-                  <X size={16} />
-                </button>
-              )}
+              {/* Clear button intentionally removed for Employee Name field */}
             </div>
 
             {/* Employee Dropdown */}
@@ -265,12 +639,12 @@ export default function Payroll() {
                       style={styles.dropdownItem}
                     >
                       <div style={styles.employeeAvatar}>
-                        {emp.name.charAt(0)}
+                        {emp.name?.charAt(0) || '?'}
                       </div>
                       <div style={styles.employeeInfo}>
                         <div style={styles.employeeName}>{emp.name}</div>
                         <div style={styles.employeeMeta}>
-                          {emp.employee_id} • {emp.designation}
+                          {emp.employee_id} • {emp.designation || 'N/A'}
                         </div>
                       </div>
                     </div>
@@ -329,10 +703,6 @@ export default function Payroll() {
               </div>
               <div style={styles.salaryGrid}>
                 <div style={styles.salaryItem}>
-                  <div style={styles.salaryLabel}>Annual Salary</div>
-                  <div style={styles.salaryValue}>₹ {selectedEmployee.basic_salary.toLocaleString('en-IN')}</div>
-                </div>
-                <div style={styles.salaryItem}>
                   <div style={styles.salaryLabel}>Monthly Salary</div>
                   <div style={styles.salaryValue}>₹ {basicSalary.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
                 </div>
@@ -349,18 +719,19 @@ export default function Payroll() {
                   <span style={styles.adSubtext}>Additional earnings</span>
                 </div>
                 <div style={styles.adList}>
-                  {allowances.map((item, index) => (
-                    <div key={index} style={styles.adItem}>
-                      <div style={styles.adItemLeft}>
-                        <div style={styles.adItemIcon}>+</div>
-                        <span style={styles.adItemName}>{item.name}</span>
-                        {item.percentage && (
-                          <span style={styles.adItemPercentage}>{item.percentage}</span>
-                        )}
+                  {allowances.length > 0 ? (
+                    allowances.map((item, index) => (
+                      <div key={index} style={styles.adItem}>
+                        <div style={styles.adItemLeft}>
+                          <div style={styles.adItemIcon}>+</div>
+                          <span style={styles.adItemName}>{item.allowance_type || item.name || item.type}</span>
+                        </div>
+                        <span style={styles.adItemAmount}>+₹{(item.amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                       </div>
-                      <span style={styles.adItemAmount}>+₹{item.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div style={styles.emptyText}>No allowances</div>
+                  )}
                   <div style={styles.adTotal}>
                     <span>Total Allowances</span>
                     <span>+₹{totalAllowances.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
@@ -373,21 +744,22 @@ export default function Payroll() {
                 <div style={{...styles.adHeader, ...styles.deductionHeader}}>
                   <TrendingDown size={18} />
                   <span>Deductions</span>
-                  <span style={styles.adSubtext}>Mandatory deductions</span>
+                  <span style={styles.adSubtext}>Salary deductions</span>
                 </div>
                 <div style={styles.adList}>
-                  {deductions.map((item, index) => (
-                    <div key={index} style={styles.adItem}>
-                      <div style={styles.adItemLeft}>
-                        <div style={{...styles.adItemIcon, ...styles.deductionIcon}}>−</div>
-                        <span style={styles.adItemName}>{item.name}</span>
-                        {item.percentage && (
-                          <span style={{...styles.adItemPercentage, ...styles.deductionPercentage}}>{item.percentage}</span>
-                        )}
+                  {deductions.length > 0 ? (
+                    deductions.map((item, index) => (
+                      <div key={index} style={styles.adItem}>
+                        <div style={styles.adItemLeft}>
+                          <div style={{...styles.adItemIcon, ...styles.deductionIcon}}>−</div>
+                          <span style={styles.adItemName}>{item.deduction_type || item.name || item.type}</span>
+                        </div>
+                        <span style={{...styles.adItemAmount, ...styles.deductionAmount}}>-₹{(item.amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                       </div>
-                      <span style={{...styles.adItemAmount, ...styles.deductionAmount}}>-₹{item.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div style={styles.emptyText}>No deductions</div>
+                  )}
                   <div style={{...styles.adTotal, ...styles.deductionTotal}}>
                     <span>Total Deductions</span>
                     <span>-₹{totalDeductions.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
@@ -395,6 +767,24 @@ export default function Payroll() {
                 </div>
               </div>
             </div>
+
+            {/* Other Components */}
+            {otherComponents.length > 0 && (
+              <div style={styles.componentsCard}>
+                <div style={styles.componentsHeader}>
+                  <FileText size={18} />
+                  <span>Attendance & Other Details</span>
+                </div>
+                <div style={styles.componentsGrid}>
+                  {otherComponents.map((item, index) => (
+                    <div key={index} style={styles.componentItem}>
+                      <span style={styles.componentLabel}>{item.name}</span>
+                      <span style={styles.componentValue}>{item.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Attendance Calendar */}
             <div style={styles.attendanceCard}>
@@ -408,31 +798,19 @@ export default function Payroll() {
               <div style={styles.legend}>
                 <div style={styles.legendItem}>
                   <div style={{...styles.legendDot, background: '#10b981'}}></div>
-                  <span>Working Days: {attendance.workingDays}</span>
+                  <span>Working Days: {attendance.workingDays || 0}</span>
                 </div>
                 <div style={styles.legendItem}>
                   <div style={{...styles.legendDot, background: '#fbbf24'}}></div>
-                  <span>Weekends: {attendance.weekends}</span>
+                  <span>Weekends: {attendance.weekends || 0}</span>
                 </div>
                 <div style={styles.legendItem}>
                   <div style={{...styles.legendDot, background: '#c084fc'}}></div>
-                  <span>Holidays: {attendance.holidays}</span>
+                  <span>Holidays: {attendance.holidays || 0}</span>
                 </div>
                 <div style={styles.legendItem}>
                   <div style={{...styles.legendDot, background: '#60a5fa'}}></div>
-                  <span>Casual Leave: {attendance.casualLeave}</span>
-                </div>
-                <div style={styles.legendItem}>
-                  <div style={{...styles.legendDot, background: '#f87171'}}></div>
-                  <span>Sick Leave: {attendance.sickLeave}</span>
-                </div>
-                <div style={styles.legendItem}>
-                  <div style={{...styles.legendDot, background: '#94a3b8'}}></div>
-                  <span>Paid Leave: {attendance.paidLeave}</span>
-                </div>
-                <div style={styles.legendItem}>
-                  <div style={{...styles.legendDot, background: '#ffffff', border: '2px solid #e2e8f0'}}></div>
-                  <span>Absent: {attendance.absentDays}</span>
+                  <span>Casual Leave: {attendance.casualLeave || 0}</span>
                 </div>
               </div>
 
@@ -461,19 +839,19 @@ export default function Payroll() {
               {/* Summary Stats */}
               <div style={styles.attendanceStats}>
                 <div style={styles.statItem}>
-                  <div style={styles.statValue}>31</div>
+                  <div style={styles.statValue}>30</div>
                   <div style={styles.statLabel}>Total Days</div>
                 </div>
                 <div style={styles.statItem}>
-                  <div style={{...styles.statValue, color: '#10b981'}}>{attendance.workingDays}</div>
+                  <div style={{...styles.statValue, color: '#10b981'}}>{attendance.workingDays || 0}</div>
                   <div style={styles.statLabel}>Working Days</div>
                 </div>
                 <div style={styles.statItem}>
-                  <div style={{...styles.statValue, color: '#60a5fa'}}>{attendance.casualLeave + attendance.sickLeave + attendance.paidLeave}</div>
-                  <div style={styles.statLabel}>Total Leaves</div>
+                  <div style={{...styles.statValue, color: '#60a5fa'}}>{attendance.casualLeave || 0}</div>
+                  <div style={styles.statLabel}>Leaves Taken</div>
                 </div>
                 <div style={styles.statItem}>
-                  <div style={{...styles.statValue, color: '#c084fc'}}>{attendance.holidays}</div>
+                  <div style={{...styles.statValue, color: '#c084fc'}}>{attendance.holidays || 0}</div>
                   <div style={styles.statLabel}>Holidays</div>
                 </div>
               </div>
@@ -498,27 +876,82 @@ export default function Payroll() {
                   <span>Allowances</span>
                   <span style={styles.breakdownAmount}>+₹{totalAllowances.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                 </div>
+                {/* show allowance items */}
+                {allowances && allowances.length > 0 && (
+                  <div style={{ padding: '6px 12px 10px 44px' }}>
+                    {allowances.map((a, i) => (
+                      <div key={i} style={{ fontSize: 13, color: '#065f46' }}>{(a.allowance_type || a.name || a.type || 'Allowance')} : ₹{(Number(a.amount) || 0).toLocaleString('en-IN')}</div>
+                    ))}
+                  </div>
+                )}
+                <div style={styles.breakdownItem}>
+                  <span style={styles.breakdownLabel}>Total Salary</span>
+                  <span style={styles.breakdownAmount}>₹{totalSalary.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
                 <div style={styles.breakdownItem}>
                   <TrendingDown size={16} color="#ef4444" />
                   <span>Deductions</span>
                   <span style={{...styles.breakdownAmount, color: '#ef4444'}}>-₹{totalDeductions.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                 </div>
-                <div style={styles.breakdownItem}>
-                  <span style={styles.breakdownLabel}>Gross Salary</span>
-                  <span style={styles.breakdownAmount}>₹{grossSalary.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                </div>
+                {deductions && deductions.length > 0 && (
+                  <div style={{ padding: '6px 12px 10px 44px' }}>
+                    {deductions.map((d, i) => (
+                      <div key={i} style={{ fontSize: 13, color: '#991B1B' }}>{(d.deduction_type || d.name || d.type || 'Deduction')} : -₹{(Number(d.amount) || 0).toLocaleString('en-IN')}</div>
+                    ))}
+                  </div>
+                )}
+                
               </div>
 
               <div style={styles.netPayableSection}>
                 <div style={styles.netPayableLabel}>Net Payable Amount</div>
-                <div style={styles.netPayableNote}>Based on {attendance.workingDays} working days of 15 scheduled days</div>
-                <div style={styles.netPayableAmount}>₹ {netSalary.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                <div style={styles.netPayableNote}>Based on {attendance.workingDays || 0} working days</div>
+                <div style={styles.netPayableAmount}>₹ {displayNet.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
               </div>
+              {attendanceList && attendanceList.length > 0 && (
+                <div style={{ padding: '12px 18px', background: '#fff7f7', borderRadius: 8, marginTop: 12 }}>
+                  <strong style={{ display: 'block', marginBottom: 8 }}>Attendance Breakdown</strong>
+                  {attendanceList.map((it, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0' }}>
+                      <div style={{ color: '#6b7280' }}>{it.label}</div>
+                      <div style={{ color: '#111827' }}>{it.value}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              <button onClick={handleGeneratePayslip} style={styles.generateBtn}>
+              <button onClick={handleGeneratePayslip} style={styles.generateBtn} disabled={loading}>
                 <FileText size={18} />
-                Generate Payslip
+                {loading ? 'Generating...' : 'Generate Payslip'}
               </button>
+            </div>
+            {/* Payslip history table */}
+            <div style={{ marginTop: 18 }}>
+              <h4 style={{ margin: '8px 0' }}>Payslip History</h4>
+              {payrollRecords.length > 0 ? (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: 8 }}>Month</th>
+                      <th style={{ textAlign: 'left', padding: 8 }}>Year</th>
+                      <th style={{ textAlign: 'right', padding: 8 }}>Net Pay</th>
+                      <th style={{ textAlign: 'left', padding: 8 }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payrollRecords.map((p) => (
+                      <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
+                        <td style={{ padding: 8 }}>{p.month}</td>
+                        <td style={{ padding: 8 }}>{p.year}</td>
+                        <td style={{ padding: 8, textAlign: 'right' }}>₹{(p.net_pay || p.net || 0).toLocaleString('en-IN')}</td>
+                        <td style={{ padding: 8 }}>{p.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ color: '#6b7280' }}>No payslips generated yet for this employee.</div>
+              )}
             </div>
           </>
         ) : (
@@ -745,6 +1178,12 @@ const styles = {
     color: '#9ca3af',
     fontSize: '14px',
   },
+  emptyText: {
+    padding: '12px',
+    textAlign: 'center',
+    color: '#9ca3af',
+    fontSize: '12px',
+  },
   salaryCard: {
     background: 'linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%)',
     padding: '18px',
@@ -858,18 +1297,6 @@ const styles = {
     color: '#374151',
     fontWeight: '500',
   },
-  adItemPercentage: {
-    fontSize: '9px',
-    color: '#10b981',
-    background: '#d1fae5',
-    padding: '2px 6px',
-    borderRadius: '3px',
-    fontWeight: '600',
-  },
-  deductionPercentage: {
-    color: '#ef4444',
-    background: '#fee2e2',
-  },
   adItemAmount: {
     fontSize: '13px',
     fontWeight: '700',
@@ -891,6 +1318,46 @@ const styles = {
   deductionTotal: {
     borderTopColor: '#ef4444',
     color: '#ef4444',
+  },
+  componentsCard: {
+    background: '#f0fdf4',
+    padding: '16px',
+    borderRadius: '10px',
+    border: '1px solid #bbf7d0',
+    marginBottom: '16px',
+  },
+  componentsHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px',
+    color: '#16a34a',
+    fontSize: '14px',
+    fontWeight: '600',
+  },
+  componentsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: '10px',
+  },
+  componentItem: {
+    background: '#fff',
+    padding: '10px 12px',
+    borderRadius: '6px',
+    border: '1px solid #dcfce7',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  componentLabel: {
+    fontSize: '11px',
+    color: '#166534',
+    fontWeight: '500',
+  },
+  componentValue: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#15803d',
   },
   attendanceCard: {
     background: '#f8fafc',
@@ -986,21 +1453,6 @@ const styles = {
     color: '#1e40af',
     borderColor: '#60a5fa',
   },
-  calendarDay_sick: {
-    background: '#fee2e2',
-    color: '#991b1b',
-    borderColor: '#f87171',
-  },
-  calendarDay_paid: {
-    background: '#e2e8f0',
-    color: '#475569',
-    borderColor: '#94a3b8',
-  },
-  calendarDay_absent: {
-    background: '#fff',
-    color: '#9ca3af',
-    borderColor: '#e5e7eb',
-  },
   attendanceStats: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
@@ -1024,10 +1476,11 @@ const styles = {
     fontWeight: '500',
   },
   netSalaryCard: {
-    background: 'linear-gradient(135deg, #fca5a5 0%, #ef4444 100%)',
+    background: 'linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%)',
     padding: '20px',
     borderRadius: '12px',
-    color: '#fff',
+    color: '#7f1d1d',
+    border: '1px solid #fecaca',
   },
   netSalaryHeader: {
     display: 'flex',
@@ -1078,7 +1531,7 @@ const styles = {
     fontSize: '12px',
     fontWeight: '600',
     marginBottom: '6px',
-    opacity: 0.9,
+    opacity: '0.9',
   },
   netPayableNote: {
     fontSize: '10px',

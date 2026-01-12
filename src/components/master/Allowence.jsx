@@ -1,22 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Briefcase, Plus, Trash2, Edit2, X, Check, RefreshCw, Calendar, User } from "lucide-react";
-
-// Mock API client - replace with your actual api import
-const api = {
-  get: async (url) => {
-    return { data: { data: [] } };
-  },
-  post: async (url, data) => {
-    return { data: { data: { id: Date.now(), ...data } } };
-  },
-  put: async (url, data) => {
-    return { data: { data } };
-  },
-  delete: async (url) => {
-    return { data: {} };
-  }
-};
+import api from "../../api/client";
 
 export default function Allowance() {
   const [allowances, setAllowances] = useState([]);
@@ -55,28 +40,8 @@ export default function Allowance() {
 
   const fetchEmployees = async () => {
     try {
-      let response;
-      try {
-        response = await api.get("cv-management/employees/");
-      } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.get("cv-management/employees");
-        } else {
-          throw err;
-        }
-      }
-      
-      let employeeData;
-      if (response.data.data) {
-        employeeData = response.data.data;
-      } else if (response.data.results) {
-        employeeData = response.data.results;
-      } else if (Array.isArray(response.data)) {
-        employeeData = response.data;
-      } else {
-        employeeData = [];
-      }
-      
+      const response = await api.get("employee-management/employees/");
+      const employeeData = response.data.results || response.data.data || response.data || [];
       setEmployees(Array.isArray(employeeData) ? employeeData : []);
     } catch (err) {
       console.error("Error fetching employees:", err);
@@ -88,30 +53,11 @@ export default function Allowance() {
       setLoading(true);
       setError("");
       
-      let response;
-      try {
-        response = await api.get("cv-management/allowances/");
-      } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.get("cv-management/allowances");
-        } else {
-          throw err;
-        }
-      }
-      
-      let allowanceData;
-      if (response.data.data) {
-        allowanceData = response.data.data;
-      } else if (response.data.results) {
-        allowanceData = response.data.results;
-      } else if (Array.isArray(response.data)) {
-        allowanceData = response.data;
-      } else {
-        allowanceData = [];
-      }
-      
+      const response = await api.get("payroll/allowances/");
+      const allowanceData = response.data.results || response.data.data || response.data || [];
       setAllowances(Array.isArray(allowanceData) ? allowanceData : []);
     } catch (err) {
+      console.error("Error fetching allowances:", err);
       let errorMessage = "Unable to load allowance data";
       
       if (err.response?.status === 404) {
@@ -156,29 +102,13 @@ export default function Allowance() {
     try {
       setLoading(true);
       setError("");
-      
-      let response;
-      try {
-        response = await api.post("cv-management/allowances/", {
-          employee_id: formData.employee_id,
-          name: formData.name.trim(),
-          year: formData.year,
-          month: formData.month,
-          amount: parseFloat(formData.amount)
-        });
-      } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.post("cv-management/allowances", {
-            employee_id: formData.employee_id,
-            name: formData.name.trim(),
-            year: formData.year,
-            month: formData.month,
-            amount: parseFloat(formData.amount)
-          });
-        } else {
-          throw err;
-        }
-      }
+      const response = await api.post("payroll/payroll/add-allowance/", {
+        employee_id: formData.employee_id,
+        allowance_type: formData.name.trim().toUpperCase(),
+        year: formData.year,
+        month: formData.month,
+        amount: parseFloat(formData.amount)
+      });
 
       const newAllowance = response.data.data || response.data;
       setAllowances((prev) => [...prev, newAllowance]);
@@ -192,6 +122,7 @@ export default function Allowance() {
       setSuccess("Allowance added successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
+      console.error("Error adding allowance:", err);
       let errorMsg = "Unable to add allowance";
       
       if (err.response?.status === 400) {
@@ -202,6 +133,7 @@ export default function Allowance() {
       }
       
       setError(errorMsg);
+      setTimeout(() => setError(""), 5000);
     } finally {
       setLoading(false);
     }
@@ -223,7 +155,7 @@ export default function Allowance() {
     setEditingId(allowance.id);
     setEditData({
       employee_id: allowance.employee_id || "",
-      name: allowance.name,
+      name: allowance.allowance_type,
       year: allowance.year,
       month: allowance.month,
       amount: allowance.amount
@@ -258,28 +190,13 @@ export default function Allowance() {
       setLoading(true);
       setError("");
       
-      let response;
-      try {
-        response = await api.put(`cv-management/allowances/${id}/`, {
-          employee_id: editData.employee_id,
-          name: editData.name.trim(),
-          year: editData.year,
-          month: editData.month,
-          amount: parseFloat(editData.amount)
-        });
-      } catch (err) {
-        if (err.response?.status === 404) {
-          response = await api.put(`cv-management/allowances/${id}`, {
-            employee_id: editData.employee_id,
-            name: editData.name.trim(),
-            year: editData.year,
-            month: editData.month,
-            amount: parseFloat(editData.amount)
-          });
-        } else {
-          throw err;
-        }
-      }
+      const response = await api.put(`payroll/allowances/${id}/`, {
+        employee_id: editData.employee_id,
+        allowance_type: editData.name.trim().toUpperCase(),
+        year: editData.year,
+        month: editData.month,
+        amount: parseFloat(editData.amount)
+      });
 
       const updatedAllowance = response.data.data || response.data;
       setAllowances((prev) =>
@@ -290,6 +207,7 @@ export default function Allowance() {
       setSuccess("Allowance updated successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
+      console.error("Error updating allowance:", err);
       let errorMsg = "Unable to update allowance";
       
       if (err.response?.status === 400) {
@@ -302,6 +220,7 @@ export default function Allowance() {
       }
       
       setError(errorMsg);
+      setTimeout(() => setError(""), 5000);
     } finally {
       setLoading(false);
     }
@@ -316,20 +235,12 @@ export default function Allowance() {
       setLoading(true);
       setError("");
       
-      try {
-        await api.delete(`cv-management/allowances/${id}/`);
-      } catch (err) {
-        if (err.response?.status === 404) {
-          await api.delete(`cv-management/allowances/${id}`);
-        } else {
-          throw err;
-        }
-      }
-      
+      await api.delete(`payroll/allowances/${id}/`);
       setAllowances((prev) => prev.filter((allow) => allow.id !== id));
       setSuccess("Allowance deleted successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
+      console.error("Error deleting allowance:", err);
       let errorMsg = "Unable to delete allowance";
       
       if (err.response?.status === 404) {
@@ -342,6 +253,7 @@ export default function Allowance() {
       }
       
       setError(errorMsg);
+      setTimeout(() => setError(""), 5000);
     } finally {
       setLoading(false);
     }
@@ -351,6 +263,7 @@ export default function Allowance() {
     setError("");
     setSuccess("");
     fetchAllowances();
+    fetchEmployees();
   };
 
   const formatCurrency = (amount) => {
@@ -363,7 +276,7 @@ export default function Allowance() {
 
   const getEmployeeName = (employeeId) => {
     const employee = employees.find(emp => emp.id === employeeId);
-    return employee ? employee.name : 'Unknown';
+    return employee ? (employee.full_name || employee.employee_id || employee.id) : 'Unknown';
   };
 
   return (
@@ -422,7 +335,7 @@ export default function Allowance() {
             >
               <option value="">Select Employee</option>
               {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>{employee.name}</option>
+                <option key={employee.id} value={employee.id}>{employee.full_name || employee.employee_id || employee.id}</option>
               ))}
             </select>
           </div>
@@ -433,7 +346,7 @@ export default function Allowance() {
               type="text"
               placeholder="Enter Allowance Name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
               style={styles.input}
               disabled={loading}
             />
@@ -497,14 +410,14 @@ export default function Allowance() {
             <Plus size={18} />
             Add Allowance
           </button>
-          <button
+          {/* <button
             onClick={handleAddMore}
             style={styles.addMoreButton}
             disabled={loading}
           >
             <Plus size={18} />
             Add More
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -542,14 +455,13 @@ export default function Allowance() {
             <table style={styles.table}>
               <thead>
                 <tr style={styles.tableHeader}>
-                  <th style={{ ...styles.th, width: "60px" }}>#</th>
-                  <th style={styles.th}>Employee</th>
-                  <th style={styles.th}>Allowance Name</th>
-                  <th style={{ ...styles.th, width: "100px" }}>Year</th>
-                  <th style={{ ...styles.th, width: "120px" }}>Month</th>
-                  <th style={{ ...styles.th, width: "120px", textAlign: "right" }}>Amount</th>
-                  <th style={{ ...styles.th, width: "200px", textAlign: "center" }}>Actions</th>
-                </tr>
+                    <th style={{ ...styles.th, width: "60px" }}>#</th>
+                    <th style={styles.th}>Employee</th>
+                    <th style={styles.th}>Allowance Name</th>
+                    <th style={{ ...styles.th, width: "100px" }}>Year</th>
+                    <th style={{ ...styles.th, width: "120px" }}>Month</th>
+                    <th style={{ ...styles.th, width: "120px", textAlign: "right" }}>Amount</th>
+                  </tr>
               </thead>
               <tbody>
                 {allowances.map((allowance, index) => (
@@ -565,13 +477,13 @@ export default function Allowance() {
                         >
                           <option value="">Select Employee</option>
                           {employees.map((employee) => (
-                            <option key={employee.id} value={employee.id}>{employee.name}</option>
+                            <option key={employee.id} value={employee.id}>{employee.full_name || employee.employee_id || employee.id}</option>
                           ))}
                         </select>
                       ) : (
                         <div style={styles.employeeName}>
                           <User size={16} color="#64748b" />
-                          <span>{getEmployeeName(allowance.employee_id)}</span>
+                          <span>{allowance.employee_name || "Unknown"}</span>
                         </div>
                       )}
                     </td>
@@ -580,7 +492,7 @@ export default function Allowance() {
                         <input
                           type="text"
                           value={editData.name}
-                          onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                          onChange={(e) => setEditData({ ...editData, name: e.target.value.toUpperCase() })}
                           style={styles.editInput}
                           autoFocus
                           disabled={loading}
@@ -588,7 +500,7 @@ export default function Allowance() {
                       ) : (
                         <div style={styles.allowanceName}>
                           <Briefcase size={16} color="#64748b" />
-                          <span>{allowance.name}</span>
+                          <span>{allowance.allowance_type}</span>
                         </div>
                       )}
                     </td>
@@ -642,67 +554,7 @@ export default function Allowance() {
                         <span style={styles.amount}>{formatCurrency(allowance.amount)}</span>
                       )}
                     </td>
-                    <td style={{ ...styles.td, textAlign: "center" }}>
-                      {editingId === allowance.id ? (
-                        <div style={styles.actionButtons}>
-                          <button
-                            onClick={() => handleUpdateAllowance(allowance.id)}
-                            style={{
-                              ...styles.saveButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Save changes"
-                          >
-                            <Check size={16} />
-                            Save
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            style={{
-                              ...styles.cancelButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Cancel editing"
-                          >
-                            <X size={16} />
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={styles.actionButtons}>
-                          <button
-                            onClick={() => startEdit(allowance)}
-                            style={{
-                              ...styles.editButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Edit allowance"
-                          >
-                            <Edit2 size={16} />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteAllowance(allowance.id)}
-                            style={{
-                              ...styles.deleteButton,
-                              opacity: loading ? 0.5 : 1,
-                              cursor: loading ? "not-allowed" : "pointer",
-                            }}
-                            disabled={loading}
-                            title="Delete allowance"
-                          >
-                            <Trash2 size={16} />
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
+                    
                   </tr>
                 ))}
               </tbody>
