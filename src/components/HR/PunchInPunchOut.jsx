@@ -293,18 +293,24 @@ setCalendarSummary(summary);
           punch_records: punchRecords,
           total_working_hours: response.data.total_working_hours || 0
         });
-        
-        // Check if user is currently punched in (last punch is IN)
+        // Prefer server-provided allowed flags to avoid client/server mismatch
+        if (typeof response.data.can_punch_out !== 'undefined') {
+          setIsCurrentlyPunchedIn(!!response.data.can_punch_out);
+        } else {
+          // fallback: determine from last punch record
+          if (punchRecords.length > 0) {
+            const lastPunch = punchRecords[punchRecords.length - 1];
+            setIsCurrentlyPunchedIn(lastPunch.punch_type === 'in');
+          } else {
+            setIsCurrentlyPunchedIn(false);
+          }
+        }
+
+        // Set last punch time if available
         if (punchRecords.length > 0) {
           const lastPunch = punchRecords[punchRecords.length - 1];
-          setIsCurrentlyPunchedIn(lastPunch.punch_type === 'in');
-          
-          // Set last punch time
-          if (lastPunch.punch_time) {
-            setLastPunchTime(new Date(lastPunch.punch_time));
-          }
+          if (lastPunch.punch_time) setLastPunchTime(new Date(lastPunch.punch_time));
         } else {
-          setIsCurrentlyPunchedIn(false);
           setLastPunchTime(null);
         }
       }
@@ -360,15 +366,35 @@ setCalendarSummary(summary);
   return;
 }
 
-await api.post('/hr/attendance/punch_in/', {
-  location: location.address || 'Office',
-  latitude: location.latitude,
-  longitude: location.longitude,
-});
+      const response = await api.post('/hr/attendance/punch_in/', {
+        location: location.address || 'Office',
+        latitude: location.latitude,
+        longitude: location.longitude,
+        note: ''
+      });
 
-      setIsCurrentlyPunchedIn(true);
-      setLastPunchTime(new Date());
-      await fetchTodayAttendance();
+      // Use server response to update UI state
+      const data = response.data || {};
+      // If API returned attendance data, update today's status and last punch
+      if (data.punch_records) {
+        setTodayStatus({
+          punch_records: data.punch_records,
+          total_working_hours: data.total_working_hours || 0
+        });
+
+        const lastPunch = data.punch_records[data.punch_records.length - 1];
+        if (lastPunch && lastPunch.punch_time) {
+          setLastPunchTime(new Date(lastPunch.punch_time));
+        }
+      }
+
+      // Server provides can_punch_out flag which indicates user is punched in
+      if (typeof data.can_punch_out !== 'undefined') {
+        setIsCurrentlyPunchedIn(!!data.can_punch_out);
+      } else {
+        setIsCurrentlyPunchedIn(true);
+      }
+
       await fetchMonthlySummary();
       await fetchMyRecords();
       setSuccessType('punchin');
@@ -389,16 +415,37 @@ await api.post('/hr/attendance/punch_in/', {
   return;
 }
 
-await api.post('/hr/attendance/punch_out/', {
-  location: location.address || 'Office',
-  latitude: location.latitude,
-  longitude: location.longitude,
-  note: 'Punch Out'
-});
+      const response = await api.post('/hr/attendance/punch_out/', {
+        location: location.address || 'Office',
+        latitude: location.latitude,
+        longitude: location.longitude,
+        note: 'Punch Out'
+      });
 
-      setIsCurrentlyPunchedIn(false);
-      setLastPunchTime(null);
-      await fetchTodayAttendance();
+      const data = response.data || {};
+      if (data.punch_records) {
+        setTodayStatus({
+          punch_records: data.punch_records,
+          total_working_hours: data.total_working_hours || 0
+        });
+
+        const lastPunch = data.punch_records[data.punch_records.length - 1];
+        // For punch out, set last punch time to the last 'out' if available
+        if (lastPunch && lastPunch.punch_time) {
+          setLastPunchTime(new Date(lastPunch.punch_time));
+        } else {
+          setLastPunchTime(null);
+        }
+      } else {
+        setLastPunchTime(null);
+      }
+
+      if (typeof data.can_punch_out !== 'undefined') {
+        setIsCurrentlyPunchedIn(!!data.can_punch_out);
+      } else {
+        setIsCurrentlyPunchedIn(false);
+      }
+
       await fetchMonthlySummary();
       await fetchMyRecords();
       setSuccessType('punchout');
