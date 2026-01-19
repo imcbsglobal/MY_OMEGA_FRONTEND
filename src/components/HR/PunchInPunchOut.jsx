@@ -111,35 +111,55 @@ const PunchInPunchOut = () => {
     });
   };
 
-  const getUserLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setLocation({ latitude, longitude, address: '' });
-          try {
-            const response = await api.post('/hr/reverse-geocode-bigdata/', { latitude, longitude });
-            if (response.data?.address) {
-              setLocation(prev => ({ ...prev, address: response.data.address }));
-              setBranch(response.data.address);
-            }
-          } catch (error) {
-            console.error('Error getting address:', error);
+const getUserLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocation({ latitude, longitude, address: '' });
+        
+        try {
+          const response = await api.post('/hr/reverse-geocode-bigdata/', { 
+            latitude, 
+            longitude 
+          });
+          
+          if (response.data?.address) {
+            setLocation(prev => ({ 
+              ...prev, 
+              address: response.data.address 
+            }));
+            setBranch(response.data.address);
           }
-        },
-     (error) => {
-  console.error('Error getting location:', error);
-  setLocation({ latitude: 10.921047, longitude: 75.926051, address: 'Thirur, Kerala' });
-}
-
-
-      );
- } else {
-  setLocation({ latitude: 10.921047, longitude: 75.926051, address: 'Thirur, Kerala' });
-}
-
-
-  };
+        } catch (error) {
+          console.error('Error getting address:', error);
+        }
+      },
+      (error) => {
+        console.error('⚠️ Geolocation Error:', error);
+        
+        // ❌ DO NOT set fallback coordinates
+        alert('📍 Location access is required to punch in/out. Please enable location services and try again.');
+        
+        // Set location to null to prevent punch attempts
+        setLocation({ 
+          latitude: null, 
+          longitude: null, 
+          address: 'Location not available' 
+        });
+      }
+    );
+  } else {
+    console.error('⚠️ Geolocation not supported');
+    alert('📍 Your browser does not support geolocation. Please use a modern browser.');
+    
+    setLocation({ 
+      latitude: null, 
+      longitude: null, 
+      address: 'Geolocation not supported' 
+    });
+  }
+};
 
 const fetchUserProfile = async () => {
   try {
@@ -358,22 +378,21 @@ setCalendarSummary(summary);
     return { hours: diffHours, minutes: diffMinutes, seconds: diffSeconds };
   };
 
-  const handlePunchIn = async () => {
+const handlePunchIn = async () => {
   setLoading(true);
   try {
-    // Validate location is available
+    // ✅ Validate location is available
     if (!location.latitude || !location.longitude) {
       alert("⚠️ Location not available. Please enable GPS and try again.");
       setLoading(false);
       return;
     }
 
-    // Show loading message
     console.log("Attempting punch in...");
     console.log("Location:", location);
 
     const response = await api.post('/hr/attendance/punch_in/', {
-      location: location.address || 'Thirur ,kerala',
+      location: location.address || 'Unknown location',
       latitude: location.latitude,
       longitude: location.longitude,
       note: ''
@@ -407,17 +426,23 @@ setCalendarSummary(summary);
   } catch (error) {
     console.error('Punch in failed:', error);
     
-    // Handle geofence rejection
+    // ✅ Handle geofence rejection with detailed message
     if (error.response?.status === 403) {
       const errorData = error.response?.data || {};
       const distance = errorData.distance_meters || 'unknown';
-      const errorMessage = errorData.error || 'You are outside the office premises';
-      const detail = errorData.detail || `You are ${distance}m away from office. Please move closer.`;
+      const allowedRadius = errorData.allowed_radius || 100;
+      const excessDistance = errorData.excess_distance || 0;
       
-      alert(`🚫 ${errorMessage}\n\n${detail}\n\nDistance: ${distance}m\nAllowed: 250m`);
-    } 
-    // Handle other errors
-    else {
+      alert(
+        `🚫 PUNCH IN DENIED\n\n` +
+        `❌ You are outside the office premises\n\n` +
+        `📍 Your distance from office: ${distance}m\n` +
+        `✅ Allowed distance: ${allowedRadius}m\n` +
+        `⚠️ You are ${excessDistance}m too far\n\n` +
+        `Please move closer to the office and try again.`
+      );
+    } else {
+      // Handle other errors
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.message || 
                           error.message ||
@@ -429,10 +454,10 @@ setCalendarSummary(summary);
   }
 };
 
-  const handlePunchOut = async () => {
+const handlePunchOut = async () => {
   setLoading(true);
   try {
-    // Validate location is available
+    // ✅ Validate location is available
     if (!location.latitude || !location.longitude) {
       alert("⚠️ Location not available. Please enable GPS and try again.");
       setLoading(false);
@@ -443,7 +468,7 @@ setCalendarSummary(summary);
     console.log("Location:", location);
 
     const response = await api.post('/hr/attendance/punch_out/', {
-      location: location.address || 'Thirur,kerala',
+      location: location.address || 'Unknown location',
       latitude: location.latitude,
       longitude: location.longitude,
       note: 'Punch Out'
@@ -481,17 +506,22 @@ setCalendarSummary(summary);
   } catch (error) {
     console.error('Punch out failed:', error);
     
-    // Handle geofence rejection
+    // ✅ Handle geofence rejection
     if (error.response?.status === 403) {
       const errorData = error.response?.data || {};
       const distance = errorData.distance_meters || 'unknown';
-      const errorMessage = errorData.error || 'You are outside the office premises';
-      const detail = errorData.detail || `You are ${distance}m away from office. Please move closer.`;
+      const allowedRadius = errorData.allowed_radius || 100;
+      const excessDistance = errorData.excess_distance || 0;
       
-      alert(`🚫 ${errorMessage}\n\n${detail}\n\nDistance: ${distance}m\nAllowed: 250m`);
-    }
-    // Handle other errors
-    else {
+      alert(
+        `🚫 PUNCH OUT DENIED\n\n` +
+        `❌ You are outside the office premises\n\n` +
+        `📍 Your distance from office: ${distance}m\n` +
+        `✅ Allowed distance: ${allowedRadius}m\n` +
+        `⚠️ You are ${excessDistance}m too far\n\n` +
+        `Please move closer to the office and try again.`
+      );
+    } else {
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.message || 
                           error.message ||
@@ -531,9 +561,9 @@ const checkDistanceFromOffice = () => {
 
   const R = 6371000; // Earth radius in meters
   const lat1 = location.latitude * Math.PI / 180;
-  const lat2 = 10.921047 * Math.PI / 180; // Office latitude
-  const dLat = (10.921047 - location.latitude) * Math.PI / 180;
-  const dLon = (75.926051 - location.longitude) * Math.PI / 180;
+  const lat2 = 11.921047 * Math.PI / 180; // Office latitude
+  const dLat = (11.921047 - location.latitude) * Math.PI / 180;
+  const dLon = (76.926051 - location.longitude) * Math.PI / 180;
 
   const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
             Math.cos(lat1) * Math.cos(lat2) *

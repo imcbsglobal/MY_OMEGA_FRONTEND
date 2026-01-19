@@ -1612,9 +1612,5 @@ const styles = {
     color: '#374151',
     margin: '20px 0 8px',
   },
-  emptyText: {
-    fontSize: '14px',
-    color: '#9ca3af',
-    margin: 0,
-  },
+ 
 }
