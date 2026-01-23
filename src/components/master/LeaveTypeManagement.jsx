@@ -28,7 +28,7 @@ export default function LeaveTypeManagement() {
       setLoading(true);
       setError('');
       
-      const response = await api.get('/leaves/');
+      const response = await api.get('/master/');
       
       console.log('API Response:', response.data);
       
@@ -67,7 +67,7 @@ export default function LeaveTypeManagement() {
       setError('');
       setSuccess('');
       
-      const response = await api.post('/leaves/', {
+      const response = await api.post('/master/', {
         leave_name: formData.leave_name.trim(),
         leave_date: formData.date || null,
         category: formData.category,
@@ -139,7 +139,7 @@ export default function LeaveTypeManagement() {
       setError('');
       setSuccess('');
       
-      const response = await api.put(`/leaves/${id}/`, {
+      const response = await api.put(`/master/${id}/`, {
         leave_name: editingData.leave_name.trim(),
         leave_date: editingData.date || null,
         category: editingData.category,
@@ -190,7 +190,7 @@ export default function LeaveTypeManagement() {
       setError('');
       setSuccess('');
       
-      const response = await api.delete(`/leaves/${id}/`);
+      const response = await api.delete(`/master/${id}/`);
       
       console.log('Delete Response:', response.data);
       

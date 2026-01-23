@@ -19,28 +19,21 @@ export default function LateRequest() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      date: form.date,
+      late_by_minutes: parseInt(form.minutesLate),
+      reason: form.reason,
+    };
+
+    console.log("🔥 PAYLOAD SENT:", payload);
 
     try {
-      setLoading(true);
-
-      const payload = {
-        date: form.date,
-        late_by_minutes: parseInt(form.minutesLate),
-        reason: form.reason,
-      };
-
-      console.log("Payload:", payload);
-
       await api.post("/hr/late-requests/", payload);
-
-      alert("✅ Late request submitted successfully!");
-      navigate(-1);
+      navigate(-1); // success toast handled globally
     } catch (err) {
-      console.error("Late request failed:", err);
-      alert(
-        "❌ Failed to submit late request. " +
-          (err?.response?.data?.detail || err?.message)
-      );
+      // error toast is handled by axios interceptor
     } finally {
       setLoading(false);
     }

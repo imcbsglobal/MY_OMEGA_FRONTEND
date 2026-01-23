@@ -12,18 +12,27 @@ export default function LeaveList() {
       setLoading(true);
       const res = await api.get("/hr/leave-requests/");
 
-      const data = Array.isArray(res.data)
-        ? res.data
-        : Array.isArray(res.data?.results)
-        ? res.data.results
-        : Array.isArray(res.data?.data)
-        ? res.data.data
-        : [];
+      console.log("📡 Raw API Response:", res);
+      console.log("📡 res.data:", res.data);
+      console.log("📡 Type of res.data:", typeof res.data);
 
+      // Backend returns { success: true, data: [...], count: ... }
+      let data = [];
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        data = res.data.data;
+      } else if (Array.isArray(res.data?.results)) {
+        data = res.data.results;
+      } else if (Array.isArray(res.data)) {
+        data = res.data;
+      }
+
+      console.log("✅ Processed leave data:", data);
+      console.log("✅ Data length:", data.length);
+      
       setLeaveData(data);
     } catch (err) {
-      console.error(err);
-      alert("Failed to load leave list");
+      console.error("❌ Failed to load leave list:", err);
+      console.error("❌ Error response:", err?.response?.data);
     } finally {
       setLoading(false);
     }
@@ -31,6 +40,15 @@ export default function LeaveList() {
 
   useEffect(() => {
     loadLeave();
+
+    // Auto-refresh when component comes into focus
+    const handleFocus = () => {
+      console.log("📍 Leave List component came into focus - refreshing...");
+      loadLeave();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const updateStatus = async (id, status) => {
@@ -105,31 +123,31 @@ export default function LeaveList() {
                 <td style={styles.tableCell}>
                   <span
                     style={
-                      row.status === "Approved"
+                      row.status_display === "Approved"
                         ? styles.statusApproved
-                        : row.status === "Rejected"
+                        : row.status_display === "Rejected"
                         ? styles.statusRejected
                         : styles.statusPending
                     }
                   >
-                    {row.status}
+                    {row.status_display || row.status || "Pending"}
                   </span>
                 </td>
                 <td style={styles.tableCell}>{row.reviewed_by_name || "-"}</td>
 
                 <td style={styles.tableCell}>
-                  {row.status === "Pending" ? (
+                  {row.status === "pending" ? (
                     <div style={styles.actionButtons}>
                       <button
                         style={styles.approveBtn}
-                        onClick={() => updateStatus(row.id, "Approved")}
+                        onClick={() => updateStatus(row.id, "approved")}
                       >
                         Approve
                       </button>
 
                       <button
                         style={styles.rejectBtn}
-                        onClick={() => updateStatus(row.id, "Rejected")}
+                        onClick={() => updateStatus(row.id, "rejected")}
                       >
                         Reject
                       </button>

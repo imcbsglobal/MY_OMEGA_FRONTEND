@@ -15,23 +15,21 @@ export default function EarlyRequest() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      date: form.date,
+      early_by_minutes: parseInt(form.minutesEarly, 10),
+      reason: form.reason,
+    };
+
+    console.log("🔥 PAYLOAD SENT:", payload);
+
     try {
-      setLoading(true);
-
-      await api.post("/hr/early-requests/", {
-        date: form.date,
-        early_by_minutes: parseInt(form.minutesEarly, 10),
-        reason: form.reason,
-      });
-
-      alert("✅ Early request submitted successfully!");
-      window.history.back();
+      await api.post("/hr/early-requests/", payload);
+      window.history.back(); // success toast handled globally
     } catch (err) {
-      console.error("❌ Early request failed:", err);
-      alert(
-        "❌ Failed to submit early request. " +
-          (err?.response?.data?.detail || err.message)
-      );
+      // error toast is handled by axios interceptor
     } finally {
       setLoading(false);
     }
