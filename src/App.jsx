@@ -49,6 +49,7 @@ import Department from "./components/master/Department";
 import LeaveTypeManagement from "./components/master/LeaveTypeManagement";
 import Deduction from "./components/master/Deduction";
 import Allowence from "./components/master/Allowence";
+import WhatsAppAdmin from "./components/master/WhatsAppAdmin";
 
 // User Management
 import UserControl from "./components/UserManagement/UserControl";
@@ -137,6 +138,7 @@ function App() {
           <Route path="master/leave-types" element={<LeaveTypeManagement />} />
           <Route path="master/deductions" element={<Deduction />} />
           <Route path="master/allowences" element={<Allowence />} />
+          <Route path="master/whatsapp-admin" element={<WhatsAppAdmin />} />
 
           <Route path="payroll" element={<Payroll />} />
           <Route path="payroll/processing" element={<Payroll />} />

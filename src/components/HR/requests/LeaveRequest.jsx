@@ -3,7 +3,7 @@ import api from "@/api/client";
 
 export default function LeaveRequest() {
   const [form, setForm] = useState({
-    leaveType: "",
+    leaveMaster: "",
     startDate: "",
     endDate: "",
     reason: "",
@@ -13,12 +13,13 @@ export default function LeaveRequest() {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetchingUser, setFetchingUser] = useState(true);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [loadingLeaveTypes, setLoadingLeaveTypes] = useState(true);
 
   // Fetch logged-in user's information
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        // Try multiple possible endpoints for getting current user
         let response;
         try {
           response = await api.get("/users/me/");
@@ -37,26 +38,53 @@ export default function LeaveRequest() {
         console.log("✅ User data loaded:", response.data);
       } catch (err) {
         console.error("❌ Failed to fetch user info:", err);
-        console.error("Response:", err?.response?.data);
-        
-        // If all endpoints fail, we can still allow submission if token exists
         const token = localStorage.getItem("accessToken") || 
                      localStorage.getItem("access") || 
                      localStorage.getItem("token");
         
         if (token) {
-          // Set a minimal employee object - backend will use token to identify user
           setEmployee({ 
             name: "Current User",
             note: "User details will be fetched from authentication token"
           });
-        } else {        }
+        }
       } finally {
         setFetchingUser(false);
       }
     };
 
     fetchCurrentUser();
+  }, []);
+
+  // Fetch available leave types from Leave Master
+  useEffect(() => {
+    const fetchLeaveTypes = async () => {
+      try {
+        setLoadingLeaveTypes(true);
+        console.log("🔍 Fetching leave types from Leave Master...");
+        
+        // Call the active-leaves endpoint
+        const response = await api.get("/hr/leave-masters/active-leaves/");
+        
+        console.log("📦 Leave types response:", response.data);
+        
+        if (response.data.success && response.data.data) {
+          setLeaveTypes(response.data.data);
+          console.log(`✅ Loaded ${response.data.count} leave types`);
+        } else {
+          console.warn("⚠️ No leave types found");
+          setLeaveTypes([]);
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch leave types:", err);
+        console.error("Error details:", err?.response?.data);
+        setLeaveTypes([]);
+      } finally {
+        setLoadingLeaveTypes(false);
+      }
+    };
+
+    fetchLeaveTypes();
   }, []);
 
   const handleChange = (e) => {
@@ -71,34 +99,37 @@ export default function LeaveRequest() {
       return;
     }
 
+    if (!form.leaveMaster) {
+      alert("❌ Please select a leave type");
+      return;
+    }
+
     setLoading(true);
 
-    // If we have employee.id, send it; otherwise backend should get user from token
     const payload = {
-      leave_type: form.leaveType,
+      leave_master: parseInt(form.leaveMaster),
       from_date: form.startDate,
       to_date: form.endDate,
       reason: form.reason,
-      note: form.note,
     };
 
-    // Only add user field if we have an ID
-    if (employee.id || employee.emp_id || employee.user_id) {
-      payload.user = employee.id || employee.emp_id || employee.user_id;
-    }
 
     console.log("🔥 PAYLOAD SENT:", payload);
 
     try {
-  await api.post("/hr/leave-requests/", payload);
-  window.history.back(); // success toast handled globally
-} catch (err) {
-  // ❌ DO NOTHING
-  // error toast is handled by axios interceptor
-} finally {
-  setLoading(false);
-}
-
+      await api.post("/hr/leave/", payload);
+      alert("✅ Leave request submitted successfully!");
+      window.history.back();
+    } catch (err) {
+      console.error("❌ Leave request failed:", err);
+      console.error("Error response:", err?.response?.data);
+      alert(
+        "❌ Failed to submit leave request. " +
+        (err?.response?.data?.detail || err?.response?.data?.error || err.message)
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (fetchingUser) {
@@ -157,20 +188,53 @@ export default function LeaveRequest() {
 
               <div style={styles.formGroup}>
                 <label style={styles.label}>Leave Type *</label>
-                <select
-                  name="leaveType"
-                  value={form.leaveType}
-                  onChange={handleChange}
-                  style={styles.select}
-                  required
-                >
-                  <option value="">Select Type</option>
-                  <option value="sick">Sick Leave</option>
-                  <option value="casual">Casual Leave</option>
-                  <option value="earned">Earned Leave</option>
-                  <option value="unpaid">Unpaid Leave</option>
-                  <option value="emergency">Emergency Leave</option>
-                </select>
+                {loadingLeaveTypes ? (
+                  <select style={styles.select} disabled>
+                    <option>Loading leave types...</option>
+                  </select>
+                ) : leaveTypes.length === 0 ? (
+                  <div>
+                    <select style={styles.select} disabled>
+                      <option>No leave types available</option>
+                    </select>
+                    <p style={styles.warningText}>
+                      ⚠️ No leave types found. Please contact HR to add leave types in the Leave Master section.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    name="leaveMaster"
+                    value={form.leaveMaster}
+                    onChange={handleChange}
+                    style={styles.select}
+                    required
+                  >
+                    <option value="">Select Leave Type</option>
+                    {leaveTypes.map((leave) => (
+                      <option key={leave.id} value={leave.id}>
+                        {leave.leave_name} 
+                        {leave.leave_date && ` (${new Date(leave.leave_date).toLocaleDateString()})`}
+                        {leave.payment_status === 'paid' ? ' - Paid' : ' - Unpaid'}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {form.leaveMaster && leaveTypes.length > 0 && (
+                  <p style={styles.helpText}>
+                    {(() => {
+                      const selectedLeave = leaveTypes.find(l => l.id === parseInt(form.leaveMaster));
+                      return selectedLeave ? (
+                        <>
+                          <strong>Category:</strong> {selectedLeave.category_display} | 
+                          <strong> Status:</strong> {selectedLeave.payment_status_display}
+                          {selectedLeave.description && (
+                            <><br/><strong>Description:</strong> {selectedLeave.description}</>
+                          )}
+                        </>
+                      ) : null;
+                    })()}
+                  </p>
+                )}
               </div>
 
               <div style={styles.formGroup}>
@@ -235,7 +299,12 @@ export default function LeaveRequest() {
             <button type="button" onClick={() => window.history.back()} style={styles.btnLight}>
               Cancel
             </button>
-            <button type="button" onClick={handleSubmit} style={styles.btnPrimary} disabled={loading}>
+            <button 
+              type="button" 
+              onClick={handleSubmit} 
+              style={styles.btnPrimary} 
+              disabled={loading || loadingLeaveTypes || leaveTypes.length === 0}
+            >
               {loading ? "Submitting..." : "Submit Request"}
             </button>
           </div>
@@ -361,4 +430,18 @@ const styles = {
     cursor: "pointer", 
     fontWeight: "500" 
   },
+  helpText: {
+    fontSize: "12px",
+    color: "#6b7280",
+    marginTop: "5px",
+    lineHeight: "1.4"
+  },
+  warningText: {
+    fontSize: "12px",
+    color: "#dc2626",
+    marginTop: "5px",
+    padding: "8px",
+    backgroundColor: "#fef2f2",
+    borderRadius: "4px"
+  }
 };

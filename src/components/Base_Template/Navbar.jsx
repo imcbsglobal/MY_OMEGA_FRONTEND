@@ -214,6 +214,7 @@
               { name: "Experience Certificate", path: "/hr/experience-certificate", icon: Award },
               { name: "Deductions", path: "/master/deductions", icon: DollarSign },
               { name: "Allowences", path: "/master/allowences", icon: DollarSign },
+              { name: "WhatsApp Admin", path: "/master/whatsapp-admin", icon: FileText },
 
 
             ]
