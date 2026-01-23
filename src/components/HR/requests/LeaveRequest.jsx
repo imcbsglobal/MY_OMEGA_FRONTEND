@@ -7,7 +7,6 @@ export default function LeaveRequest() {
     startDate: "",
     endDate: "",
     reason: "",
-    note: "",
   });
 
   const [employee, setEmployee] = useState(null);
@@ -73,20 +72,15 @@ export default function LeaveRequest() {
 
     setLoading(true);
 
-    // If we have employee.id, send it; otherwise backend should get user from token
+    // Build payload according to backend LeaveRequestCreateSerializer
     const payload = {
       leave_type: form.leaveType,
       from_date: form.startDate,
       to_date: form.endDate,
       reason: form.reason,
-      note: form.note,
     };
 
-    // Only add user field if we have an ID
-    if (employee.id || employee.emp_id || employee.user_id) {
-      payload.user = employee.id || employee.emp_id || employee.user_id;
-    }
-
+    // Backend uses authenticated user from token, no need to send user field
     console.log("🔥 PAYLOAD SENT:", payload);
 
     try {
@@ -210,22 +204,10 @@ export default function LeaveRequest() {
                   name="reason"
                   value={form.reason}
                   onChange={handleChange}
-                  rows="3"
+                  rows="4"
                   style={styles.textarea}
                   required
-                  placeholder="Brief reason for leave request"
-                />
-              </div>
-
-              <div style={{ ...styles.formGroup, flex: 1 }}>
-                <label style={styles.label}>Additional Details</label>
-                <textarea
-                  name="note"
-                  value={form.note}
-                  onChange={handleChange}
-                  rows="3"
-                  style={styles.textarea}
-                  placeholder="Any additional information (optional)"
+                  placeholder="Please provide detailed reason for your leave request"
                 />
               </div>
             </div>
