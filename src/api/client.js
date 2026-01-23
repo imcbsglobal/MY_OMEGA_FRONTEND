@@ -1,9 +1,9 @@
-// src/api/client.jsclass AddDeduct
+// src/api/client.js
 import axios from "axios";
 import { notifyError, notifySuccess } from "../utils/notification";
 
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000/api/",
+  baseURL: "http://127.0.0.1:8000/api",  // Remove trailing slash to handle both /url and url formats
   headers: {
     "Content-Type": "application/json",
   },
@@ -63,14 +63,25 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Log error details
-    console.error('[API Response Error]', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
+    // Don't log errors for endpoints that have fallback handling
+    const silentEndpoints = [
+      'hr/attendance/my_summary',
+      'hr/leave/my_requests'
+    ];
+    const shouldSilence = silentEndpoints.some(endpoint => 
+      error.config?.url?.includes(endpoint)
+    );
+    
+    if (!shouldSilence) {
+      // Log error details
+      console.error('[API Response Error]', {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+    }
 
     const status = error.response?.status;
     const data = error.response?.data;

@@ -29,6 +29,7 @@ export default function AttendanceManagement() {
   const [leaveMasters, setLeaveMasters] = useState([]);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedCell, setSelectedCell] = useState(null);
+  const [selectedLeaveType, setSelectedLeaveType] = useState(null); // NEW: track which leave type was selected
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken") ||
@@ -50,16 +51,25 @@ export default function AttendanceManagement() {
 
   async function fetchLeaveMasters() {
     try {
-      const response = await api.get('/master/');
-      console.log("Leave Masters Response:", response.data);
+      const response = await api.get('master/');
+      console.log("=".repeat(80));
+      console.log("📥 Leave Masters Response:", response.data);
       
       if (response.data.success && response.data.data) {
         // Filter for special and mandatory leaves only
         const specialAndMandatory = response.data.data.filter(leave => 
           leave.is_active && (leave.category === 'special' || leave.category === 'mandatory_holiday')
         );
+        
+        console.log("📋 FILTERED LEAVE MASTERS:", specialAndMandatory.map(l => ({
+          id: l.id,
+          name: l.leave_name,
+          category: l.category,
+          is_active: l.is_active
+        })));
+        console.log("=".repeat(80));
+        
         setLeaveMasters(specialAndMandatory);
-        console.log("Filtered Leave Masters:", specialAndMandatory);
       }
     } catch (error) {
       console.error("Failed to fetch leave masters:", error);
@@ -130,12 +140,34 @@ export default function AttendanceManagement() {
             const formattedDate =
               typeof date === "string" ? date.slice(0, 10) : date;
 
+            // Log any record with mandatory_holiday or special_leave status for debugging
+            if (record.status && (record.status.includes('holiday') || record.status.includes('leave'))) {
+              console.log('🔍 Raw API Response for', formattedDate, ':', {
+                status: record.status,
+                verification_status: record.verification_status,
+                user_name: record.user_name,
+                full_record: record
+              });
+            }
+
+            const finalStatus = record.status || record.attendance_status;
+            
+            // Debug: log mandatory/special leave statuses
+            if (finalStatus && (finalStatus.includes('holiday') || finalStatus.includes('leave'))) {
+              console.log('💾 STORING RECORD:', {
+                date: formattedDate,
+                finalStatus: finalStatus,
+                backend_record_status: record.status,
+                attendance_status_fallback: record.attendance_status,
+              });
+            }
+
             emp.records[formattedDate] = {
               ...record,
               attendanceId: record.id,
               punch_in: record.punch_in || record.punch_in_time || record.in_time,
               punch_out: record.punch_out || record.punch_out_time || record.out_time,
-              status: record.status || record.attendance_status,
+              status: finalStatus,
               leave_master: record.leave_master,
               leave_master_details: record.leave_master_details,
 
@@ -226,7 +258,7 @@ export default function AttendanceManagement() {
         const statusValue = type === "VERIFIED" ? "full" : "half";
 
         if (existingRecord && existingRecord.attendanceId) {
-          await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, {
+          await api.patch(`/hr/attendance/${existingRecord.attendanceId}/update_status/`, {
             status: statusValue,
             admin_note: `Status changed to ${typeConfig.label} on ${new Date().toLocaleString()}`
           });
@@ -280,8 +312,9 @@ export default function AttendanceManagement() {
     }
   };
 
-  const handleSpecialLeaveClick = (employeeId, date) => {
+  const handleSpecialLeaveClick = (employeeId, date, leaveType = null) => {
     setSelectedCell({ employeeId, date });
+    setSelectedLeaveType(leaveType); // Store which leave type was selected
     setShowLeaveModal(true);
   };
 
@@ -297,30 +330,84 @@ export default function AttendanceManagement() {
 
       const existingRecord = employee.records[selectedCell.date];
 
-      // Determine the status based on leave category
-      const leaveStatus = leaveMaster.category === 'mandatory_holiday' ? 'holiday' : 'leave';
+      // Debug: log the leave master object
+      console.log('='.repeat(60));
+      console.log('🎯 LEAVE MASTER OBJECT:', {
+        id: leaveMaster.id,
+        leave_name: leaveMaster.leave_name,
+        category: leaveMaster.category,
+        category_display: leaveMaster.category_display,
+        payment_status: leaveMaster.payment_status,
+        payment_status_display: leaveMaster.payment_status_display,
+      });
+
+      // Determine the status based on leave category - use the exact status values from backend
+      const leaveStatus = leaveMaster.category === 'mandatory_holiday' 
+        ? 'mandatory_holiday' 
+        : 'special_leave';
+
+      console.log('📝 STATUS CALCULATION:', {
+        leaveMasterCategory: leaveMaster.category,
+        categoryType: typeof leaveMaster.category,
+        isEqual_mandatory_holiday: leaveMaster.category === 'mandatory_holiday',
+        calculatedStatus: leaveStatus,
+      });
+      console.log('='.repeat(60));
 
       if (existingRecord && existingRecord.attendanceId) {
         // Update existing record
-        await api.patch(`/hr/attendance/${existingRecord.attendanceId}/`, {
+        const updateResponse = await api.patch(`/hr/attendance/${existingRecord.attendanceId}/update_status/`, {
           status: leaveStatus,
-          leave_master: leaveMaster.id,
-          is_leave: true,
-          is_paid_day: leaveMaster.payment_status === 'paid',
           admin_note: `Marked as ${leaveMaster.leave_name} (${leaveMaster.category === 'mandatory_holiday' ? 'Mandatory Holiday' : 'Special Leave'}) - ${leaveMaster.payment_status === 'paid' ? 'Paid' : 'Unpaid'} by admin on ${new Date().toLocaleString()}`
         });
+
+        console.log('✅ Update Response:', {
+          status: updateResponse.data?.attendance?.status,
+          expected: leaveStatus,
+          match: updateResponse.data?.attendance?.status === leaveStatus
+        });
+
+        // Now verify it
+        try {
+          const verifyResponse = await api.post(`/hr/attendance/${existingRecord.attendanceId}/verify/`, {
+            admin_note: `Verified as ${leaveMaster.leave_name}`
+          });
+          console.log('✅ Verify Response:', {
+            status: verifyResponse.data?.attendance?.status,
+            verification_status: verifyResponse.data?.attendance?.verification_status
+          });
+        } catch (verifyError) {
+          console.log("Verify endpoint not fully available:", verifyError.message);
+        }
       } else {
         // Create new record
-        await api.post('/hr/attendance/', {
+        const createResponse = await api.post('/hr/attendance/', {
           user: selectedCell.employeeId,
           date: selectedCell.date,
           status: leaveStatus,
-          leave_master: leaveMaster.id,
-          is_leave: true,
-          is_paid_day: leaveMaster.payment_status === 'paid',
-          verification_status: 'verified',
           admin_note: `Created as ${leaveMaster.leave_name} (${leaveMaster.category === 'mandatory_holiday' ? 'Mandatory Holiday' : 'Special Leave'}) - ${leaveMaster.payment_status === 'paid' ? 'Paid' : 'Unpaid'} by admin`
         });
+
+        console.log('✅ Create Response:', {
+          status: createResponse.data?.status,
+          expected: leaveStatus,
+          match: createResponse.data?.status === leaveStatus
+        });
+
+        // Verify the newly created record
+        if (createResponse.data && createResponse.data.id) {
+          try {
+            const verifyResponse = await api.post(`/hr/attendance/${createResponse.data.id}/verify/`, {
+              admin_note: `Verified as ${leaveMaster.leave_name}`
+            });
+            console.log('✅ Verify Create Response:', {
+              status: verifyResponse.data?.attendance?.status,
+              verification_status: verifyResponse.data?.attendance?.verification_status
+            });
+          } catch (verifyError) {
+            console.log("Verify endpoint not available for new record:", verifyError.message);
+          }
+        }
       }
 
       setShowLeaveModal(false);
@@ -347,11 +434,38 @@ export default function AttendanceManagement() {
 
     const backendStatus = (rec.status || "").toString().toLowerCase();
 
+    // Check backend status for special leave types FIRST (highest priority)
+    if (backendStatus === 'mandatory_holiday') {
+      console.log('✅ MANDATORY_HOLIDAY DETECTED:', {
+        date,
+        rec_status: rec.status,
+        lowercased: backendStatus,
+        returning: 'MANDATORY_LEAVE'
+      });
+      return "MANDATORY_LEAVE";
+    }
+    if (backendStatus === 'special_leave') {
+      console.log('✅ SPECIAL_LEAVE DETECTED:', {
+        date,
+        rec_status: rec.status,
+        lowercased: backendStatus,
+        returning: 'SPECIAL_LEAVE'
+      });
+      return "SPECIAL_LEAVE";
+    }
+    
     // Check if it's a special leave or mandatory holiday from leave_master
     if (rec.leave_master_details) {
-      const category = rec.leave_master_details.category;
-      if (category === 'special') return "SPECIAL_LEAVE";
-      if (category === 'mandatory_holiday') return "MANDATORY_LEAVE";
+      const category = (rec.leave_master_details.category || "").toString().toLowerCase();
+      console.log('Leave Master Category:', date, category);
+      if (category === 'special') {
+        console.log('✅ Detected SPECIAL_LEAVE from leave_master');
+        return "SPECIAL_LEAVE";
+      }
+      if (category === 'mandatory_holiday') {
+        console.log('✅ Detected MANDATORY_LEAVE from leave_master');
+        return "MANDATORY_LEAVE";
+      }
     }
 
     const isVerified =
@@ -439,7 +553,7 @@ export default function AttendanceManagement() {
     const handleClick = async (type) => {
       setShowMenu(false);
       if (type === 'SPECIAL_LEAVE' || type === 'MANDATORY_LEAVE') {
-        handleSpecialLeaveClick(employee.id, date);
+        handleSpecialLeaveClick(employee.id, date, type);
       } else {
         await handleAttendanceChange(employee.id, date, type);
       }
@@ -748,44 +862,56 @@ export default function AttendanceManagement() {
         <div style={styles.modalOverlay} onClick={() => setShowLeaveModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Select Leave Type</h2>
+              <h2 style={styles.modalTitle}>
+                Select {selectedLeaveType === 'MANDATORY_LEAVE' ? 'Mandatory Holiday' : 'Special Leave'}
+              </h2>
               <button onClick={() => setShowLeaveModal(false)} style={styles.closeButton}>
                 <X size={24} />
               </button>
             </div>
             <div style={styles.modalContent}>
               {leaveMasters.length === 0 ? (
-                <p style={styles.noLeaves}>No special or mandatory leaves available. Please add them in the Leave Master section.</p>
+                <p style={styles.noLeaves}>No leaves available. Please add them in the Leave Master section.</p>
               ) : (
                 <div style={styles.leaveList}>
-                  {leaveMasters.map((leave) => (
-                    <button
-                      key={leave.id}
-                      onClick={() => handleLeaveSelection(leave)}
-                      style={styles.leaveItem}
-                    >
-                      <div style={styles.leaveInfo}>
-                        <div style={styles.leaveName}>{leave.leave_name}</div>
-                        <div style={styles.leaveDetails}>
-                          <span style={styles.leaveCategory}>
-                            {leave.category === 'mandatory_holiday' ? 'Mandatory Holiday' : 'Special Leave'}
-                          </span>
-                          <span style={{ 
-                            ...styles.leavePayment,
-                            backgroundColor: leave.payment_status === 'paid' ? '#dcfce7' : '#fee2e2',
-                            color: leave.payment_status === 'paid' ? '#166534' : '#991b1b'
-                          }}>
-                            {leave.payment_status_display}
-                          </span>
-                        </div>
-                        {leave.leave_date && (
-                          <div style={styles.leaveDate}>
-                            Date: {new Date(leave.leave_date).toLocaleDateString()}
+                  {leaveMasters
+                    .filter(leave => {
+                      // Filter based on selected leave type
+                      if (selectedLeaveType === 'MANDATORY_LEAVE') {
+                        return leave.category === 'mandatory_holiday';
+                      } else if (selectedLeaveType === 'SPECIAL_LEAVE') {
+                        return leave.category === 'special';
+                      }
+                      return true; // Show all if no specific type selected
+                    })
+                    .map((leave) => (
+                      <button
+                        key={leave.id}
+                        onClick={() => handleLeaveSelection(leave)}
+                        style={styles.leaveItem}
+                      >
+                        <div style={styles.leaveInfo}>
+                          <div style={styles.leaveName}>{leave.leave_name}</div>
+                          <div style={styles.leaveDetails}>
+                            <span style={styles.leaveCategory}>
+                              {leave.category === 'mandatory_holiday' ? 'Mandatory Holiday' : 'Special Leave'}
+                            </span>
+                            <span style={{ 
+                              ...styles.leavePayment,
+                              backgroundColor: leave.payment_status === 'paid' ? '#dcfce7' : '#fee2e2',
+                              color: leave.payment_status === 'paid' ? '#166534' : '#991b1b'
+                            }}>
+                              {leave.payment_status_display}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                          {leave.leave_date && (
+                            <div style={styles.leaveDate}>
+                              Date: {new Date(leave.leave_date).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
                 </div>
               )}
             </div>

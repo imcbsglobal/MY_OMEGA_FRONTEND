@@ -57,8 +57,8 @@ import ConfigureAccess from "./components/UserManagement/ConfigureAccess";
 import AddUser from "./components/UserManagement/AddUser";
 
 // Payroll
-import Payroll from "./components/Payroll/Payroll";
-import Payslip from "./components/Payroll/Payslip";
+import PayrollPage from "./components/Payroll/PayrollPage";
+import PayslipPage from "./components/Payroll/PayslipPage";
 
 // 🔐 Private Route
 function PrivateRoute({ children }) {
@@ -140,9 +140,9 @@ function App() {
           <Route path="master/allowences" element={<Allowence />} />
           <Route path="master/whatsapp-admin" element={<WhatsAppAdmin />} />
 
-          <Route path="payroll" element={<Payroll />} />
-          <Route path="payroll/processing" element={<Payroll />} />
-          <Route path="payslip" element={<Payslip />} />
+          <Route path="payroll" element={<PayrollPage />} />
+          <Route path="payroll/processing" element={<PayrollPage />} />
+          <Route path="payslip" element={<PayslipPage />} />
 
           <Route path="add-user" element={<AddUser />} />
           <Route path="user-control" element={<UserControl />} />

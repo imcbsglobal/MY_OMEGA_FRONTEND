@@ -7,7 +7,6 @@ export default function LeaveRequest() {
     startDate: "",
     endDate: "",
     reason: "",
-    note: "",
   });
 
   const [employee, setEmployee] = useState(null);
@@ -112,7 +111,6 @@ export default function LeaveRequest() {
       to_date: form.endDate,
       reason: form.reason,
     };
-
 
     console.log("🔥 PAYLOAD SENT:", payload);
 
@@ -274,22 +272,10 @@ export default function LeaveRequest() {
                   name="reason"
                   value={form.reason}
                   onChange={handleChange}
-                  rows="3"
+                  rows="4"
                   style={styles.textarea}
                   required
-                  placeholder="Brief reason for leave request"
-                />
-              </div>
-
-              <div style={{ ...styles.formGroup, flex: 1 }}>
-                <label style={styles.label}>Additional Details</label>
-                <textarea
-                  name="note"
-                  value={form.note}
-                  onChange={handleChange}
-                  rows="3"
-                  style={styles.textarea}
-                  placeholder="Any additional information (optional)"
+                  placeholder="Please provide detailed reason for your leave request"
                 />
               </div>
             </div>

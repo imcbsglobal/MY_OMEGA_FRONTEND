@@ -13,14 +13,8 @@ export default function RequestLeave() {
     note: "",
   });
 
-  const leaveTypes = [
-    "Full Day",
-    "Half Day",
-    "Sick Leave",
-    "Emergency Leave",
-    "Casual Leave",
-    "Special Leave",
-  ];
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [loadingLeaveTypes, setLoadingLeaveTypes] = useState(true);
 
   useEffect(() => {
     const today = new Date();
@@ -31,6 +25,27 @@ export default function RequestLeave() {
       startDate: formattedDate,
       endDate: formattedDate,
     }));
+
+    // Fetch leave types
+    const fetchLeaveTypes = async () => {
+      try {
+        setLoadingLeaveTypes(true);
+        const response = await api.get("/hr/leave-masters/active-leaves/");
+        
+        if (response.data.success && response.data.data) {
+          setLeaveTypes(response.data.data);
+        } else {
+          setLeaveTypes([]);
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch leave types:", err);
+        setLeaveTypes([]);
+      } finally {
+        setLoadingLeaveTypes(false);
+      }
+    };
+
+    fetchLeaveTypes();
   }, []);
 
   const handleInputChange = (e) => {
@@ -49,14 +64,13 @@ export default function RequestLeave() {
 
     try {
       const payload = {
-        leave_type: leaveData.leaveType,
+        leave_master: parseInt(leaveData.leaveType),
         from_date: leaveData.startDate,
         to_date: leaveData.endDate,
         reason: leaveData.reason,
-        note: leaveData.note,
       };
 
-      await api.post("/hr/leave-requests/", payload);
+      await api.post("/hr/leave/", payload);
 
       alert("Leave request submitted successfully!");
       navigate("/leave-management");
@@ -104,11 +118,12 @@ export default function RequestLeave() {
                   value={leaveData.leaveType}
                   onChange={handleInputChange}
                   required
+                  disabled={loadingLeaveTypes}
                 >
-                  <option value="">Select Leave Type</option>
-                  {leaveTypes.map((type, index) => (
-                    <option key={index} value={type}>
-                      {type}
+                  <option value="">{loadingLeaveTypes ? "Loading..." : "Select Leave Type"}</option>
+                  {leaveTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.leave_name}
                     </option>
                   ))}
                 </select>

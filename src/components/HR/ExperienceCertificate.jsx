@@ -45,8 +45,36 @@ function CertificateModal({ certificate, onClose }) {
   };
 
   return (
-    <div style={modalStyles.overlay} onClick={onClose}>
-      <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+    <div style={modalStyles.overlay} className="overlay-print-container" onClick={onClose}>
+      <style>{`
+        @media print {
+          * { margin: 0 !important; padding: 0 !important; }
+          html, body {
+            width: 210mm !important;
+            height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            overflow: hidden !important;
+          }
+
+          /* hide everything by default */
+          body * { display: none !important; }
+          
+          /* show only certificate overlay and its children */
+          .overlay-print-container { display: block !important; position: static !important; width: 210mm !important; height: 297mm !important; background: white !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }
+          .overlay-print-container * { display: block !important; }
+          
+          /* hide print buttons */
+          .no-print { display: none !important; }
+
+          /* certificate modal takes full page */
+          .certificate-modal { display: block !important; position: static !important; width: 210mm !important; height: 297mm !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; overflow: hidden !important; background: white !important; }
+
+          @page { size: A4; margin: 0mm; padding: 0mm; }
+        }
+      `}</style>
+      <div style={modalStyles.modal} className="certificate-modal" onClick={(e) => e.stopPropagation()}>
         <button style={modalStyles.closeBtn} onClick={onClose} className="no-print">✕</button>
         
         <div style={modalStyles.certificateContainer}>
@@ -57,15 +85,17 @@ function CertificateModal({ certificate, onClose }) {
             </div>
             <div style={modalStyles.companyInfo}>
               <h1 style={modalStyles.companyName}>BASIL ENTERPRISES</h1>
-              <p style={modalStyles.companyDetails}><strong>GSTIN:</strong> 32AEYFA5342B1ZN</p>
-              <p style={modalStyles.companyDetails}>
-                Omega Trade Centre, Opp City Hospital<br/>
-                Mavoor Road, Kozhikode - 673101<br/>
-                Malappuram District, Kerala, India
+              <p style={modalStyles.companyAddress}>
+                Omega Trade centre, Opp.City Hospital<br/>
+                Madrasa road, Tirur - 676101<br/>
+                Malappuram Dt Kerala, India
               </p>
-              <p style={modalStyles.companyDetails}>
-                <strong>Phone:</strong> +91 9961 282 899 | <strong>Landline:</strong> 0494 242 5702<br/>
-                <strong>Email:</strong> hr@myomega.in | <strong>Web:</strong> www.myomega.in
+            </div>
+            <div style={modalStyles.contactInfo}>
+              <p style={modalStyles.gstinLine}><strong>GSTIN :</strong> 32AEYFA5342P1ZN</p>
+              <p style={modalStyles.contactLine}>
+                <strong>Mob |</strong> 9961 282 899<br/>
+                <span style={modalStyles.whatsappIcon}>📱</span> 0494 242 5702
               </p>
             </div>
           </div>
@@ -73,66 +103,53 @@ function CertificateModal({ certificate, onClose }) {
           {/* Divider */}
           <div style={modalStyles.divider}></div>
 
-          {/* Reference and Date */}
-          <div style={modalStyles.refSection}>
-            <div style={modalStyles.refNumber}>
-              <strong>REF NO:</strong> BE/HR/EXP/{new Date().getFullYear()}/{String(certificate.id || Math.floor(Math.random() * 1000)).padStart(4, '0')}
-            </div>
-            <div style={modalStyles.dateSection}>
-              <strong>Date:</strong> {getCurrentDate()}
+          {/* Certificate Title and Date */}
+          <div style={modalStyles.titleSection}>
+            <h2 style={modalStyles.certificateTitle}>Experience Certificate</h2>
+            <div style={modalStyles.dateBox}>
+              <strong>{new Date().getDate()}<sup>{(() => {
+                const day = new Date().getDate();
+                if (day === 1 || day === 21 || day === 31) return 'st';
+                if (day === 2 || day === 22) return 'nd';
+                if (day === 3 || day === 23) return 'rd';
+                return 'th';
+              })()}</sup></strong>
+              <div>{new Date().toLocaleString('en-US', { month: 'short' })}{new Date().getFullYear()}</div>
             </div>
           </div>
 
           {/* TO WHOMSOEVER Section */}
           <div style={modalStyles.toWhomSection}>
-            <h2 style={modalStyles.toWhomTitle}>EXPERIENCE CERTIFICATE</h2>
-            <p style={modalStyles.toWhomText}>TO WHOMSOEVER IT MAY CONCERN</p>
+            <p style={modalStyles.toWhomText}>To Whom soever It May Concern</p>
           </div>
 
-          {/* Certificate Body with Watermark */}
+          {/* Certificate Body */}
           <div style={modalStyles.bodySection}>
-            <div style={modalStyles.watermark}>
-              <img src="/assets/omega-logo.png" alt="Watermark" style={modalStyles.watermarkImg} />
-            </div>
-
             <div style={modalStyles.contentWrapper}>
               <p style={modalStyles.openingText}>
-                This is to certify that
-              </p>
-
-              <p style={modalStyles.employeeName}>
-                <strong>Mr./Ms. {certificate.emp_name?.toUpperCase() || "[EMPLOYEE NAME]"}</strong>
+                Dear sir/madam
               </p>
 
               <p style={modalStyles.bodyText}>
-                was employed with <strong>Basil Enterprises</strong> in the capacity of <strong>{certificate.emp_designation || "[Designation]"}</strong> from{" "}
-                <strong>{formatDate(certificate.joining_date) || "[Start Date]"}</strong> to{" "}
-                <strong>{certificate.end_date === "present" ? "Present" : formatDate(certificate.end_date) || "[End Date]"}</strong>, 
-                spanning a total period of approximately <strong>{calculateTenure(certificate.joining_date, certificate.end_date)}</strong>.
+                <span style={modalStyles.indentSpace}></span>This is to certify that <strong>Mr. {certificate.emp_name || "[Employee Name]"} P.C S/O Saidulavi P.C</strong> worked as <strong>{certificate.emp_designation || "Warehouse Manager And Team Leader"}</strong> in our company from <strong>{(() => {
+                  const startDate = new Date(certificate.joining_date || "2022-12-12");
+                  return `${startDate.getDate()}${'th'} Dec ${startDate.getFullYear()}`;
+                })()}</strong> to <strong>{(() => {
+                  const endDate = certificate.end_date && certificate.end_date !== "present" ? new Date(certificate.end_date) : new Date("2023-12-31");
+                  return `${endDate.getDate()}${'st'} Dec ${endDate.getFullYear()}`;
+                })()}</strong> with our entire satisfaction.
               </p>
 
               <p style={modalStyles.bodyText}>
-                During the tenure with our organization, {certificate.emp_name?.split(' ')[0] || "[Name]"} demonstrated exceptional 
-                dedication, professionalism, and proficiency in assigned responsibilities. {certificate.emp_name?.split(' ')[0] || "The employee"} 
-                consistently exhibited strong work ethics, excellent communication skills, and the ability to work effectively both 
-                independently and as part of a team.
+                <span style={modalStyles.indentSpace}></span>During his work period we found him a sincere, honest, hardworking, dedicated employee with well disciplined attitude and very good job knowledge.
               </p>
 
               <p style={modalStyles.bodyText}>
-                {certificate.emp_name?.split(' ')[0] || "The employee"}'s contributions were valuable to our organization, 
-                and {certificate.emp_name?.split(' ')[0]?.toLowerCase() === certificate.emp_name?.split(' ')[0] ? "they" : "he/she"} maintained 
-                a high standard of performance throughout the employment period. {certificate.emp_name?.split(' ')[0] || "The employee"} 
-                was found to be sincere, hardworking, and committed to organizational goals.
+                <span style={modalStyles.indentSpace}></span>He is amiable in nature and character is well. We have no objection to allow him in any better position and have no liabilities in our company.
               </p>
 
               <p style={modalStyles.bodyText}>
-                We hereby confirm that {certificate.emp_name?.split(' ')[0] || "the employee"} left our organization on good terms, 
-                and all dues and obligations have been cleared. There are no pending disciplinary actions or financial matters.
-              </p>
-
-              <p style={modalStyles.closingText}>
-                We wish {certificate.emp_name || "[Employee Name]"} all the very best for future endeavors and continued success 
-                in professional career.
+                <span style={modalStyles.indentSpace}></span>We wish him all the best in his future endeavours.
               </p>
             </div>
           </div>
@@ -140,11 +157,10 @@ function CertificateModal({ certificate, onClose }) {
           {/* Signature Section */}
           <div style={modalStyles.signatureSection}>
             <div style={modalStyles.signatureBlock}>
-              <p style={modalStyles.signatureText}>For <strong>BASIL ENTERPRISES</strong></p>
               <div style={modalStyles.signatureSpace}></div>
-              <div style={modalStyles.signatureLine}></div>
-              <p style={modalStyles.signatureLabel}>Authorized Signatory</p>
-              <p style={modalStyles.signatureDesignation}>Human Resources Department</p>
+              <p style={modalStyles.signatureLabel}>Yours Truely</p>
+              <p style={modalStyles.signatureName}>C. Aboobacker</p>
+              <p style={modalStyles.signatureDesignation}>Proprietor Basil Enterprises</p>
             </div>
           </div>
 
@@ -152,10 +168,7 @@ function CertificateModal({ certificate, onClose }) {
           <div style={modalStyles.footer}>
             <div style={modalStyles.footerContent}>
               <p style={modalStyles.footerText}>
-                <strong>Note:</strong> This is a system-generated certificate. For verification, please contact our HR department.
-              </p>
-              <p style={modalStyles.footerContact}>
-                www.myomega.in | hr@myomega.in | +91 9961 282 899
+                www.myomega.in - email: hr@myomega.in
               </p>
             </div>
           </div>
@@ -429,12 +442,13 @@ const modalStyles = {
     maxHeight: "95vh", 
     overflow: "auto", 
     boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)", 
-    position: "relative" 
+    position: "relative",
+    zIndex: 1
   },
   closeBtn: { 
     position: "absolute", 
-    top: "20px", 
-    right: "20px", 
+    top: "15px", 
+    right: "15px", 
     fontSize: "28px", 
     fontWeight: "400", 
     color: "#666", 
@@ -447,16 +461,17 @@ const modalStyles = {
     alignItems: "center", 
     justifyContent: "center", 
     borderRadius: "50%", 
-    zIndex: 100, 
+    zIndex: 1000, 
     boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
     transition: "all 0.2s"
   },
   certificateContainer: { 
-    padding: "25mm 20mm", 
+    padding: "40px 50px 100px 50px", 
     backgroundColor: "#ffffff", 
     minHeight: "297mm", 
     position: "relative",
-    fontFamily: "'Arial', 'Helvetica', sans-serif"
+    fontFamily: "'Times New Roman', serif",
+    color: "#333"
   },
   
   // Header Section
@@ -464,213 +479,189 @@ const modalStyles = {
     display: "flex", 
     justifyContent: "space-between", 
     alignItems: "flex-start", 
-    paddingBottom: "20px", 
-    marginBottom: "15px" 
+    paddingBottom: "15px", 
+    marginBottom: "10px" 
   },
   logoSection: { 
-    flex: "0 0 140px",
+    flex: "0 0 80px",
     display: "flex",
-    alignItems: "center"
+    alignItems: "flex-start"
   },
   logo: { 
-    width: "140px", 
+    width: "70px", 
     height: "auto", 
-    maxHeight: "90px", 
+    maxHeight: "70px", 
     objectFit: "contain" 
   },
   companyInfo: { 
     flex: 1, 
-    textAlign: "right", 
-    paddingLeft: "30px" 
+    textAlign: "center", 
+    paddingLeft: "20px",
+    paddingRight: "20px"
   },
   companyName: { 
-    fontSize: "24px", 
+    fontSize: "22px", 
     fontWeight: "700", 
     color: "#00BCD4", 
-    margin: "0 0 10px 0", 
-    letterSpacing: "3px",
+    margin: "0 0 8px 0", 
+    letterSpacing: "2px",
     lineHeight: "1.2"
   },
-  companyDetails: { 
-    fontSize: "11px", 
-    color: "#444", 
-    margin: "4px 0", 
-    lineHeight: "1.6" 
+  companyAddress: { 
+    fontSize: "10px", 
+    color: "#333", 
+    margin: "0", 
+    lineHeight: "1.5" 
+  },
+  contactInfo: {
+    flex: "0 0 140px",
+    textAlign: "right"
+  },
+  gstinLine: {
+    fontSize: "9px",
+    color: "#333",
+    margin: "0 0 20px 0",
+    lineHeight: "1.4"
+  },
+  contactLine: {
+    fontSize: "10px",
+    color: "#333",
+    margin: "0",
+    lineHeight: "1.5"
+  },
+  whatsappIcon: {
+    fontSize: "12px",
+    marginRight: "2px"
   },
 
   // Divider
   divider: {
     height: "3px",
-    background: "linear-gradient(to right, #00BCD4, #0097A7)",
-    marginBottom: "25px",
-    borderRadius: "2px"
+    background: "linear-gradient(to right, #00BCD4, #00BCD4)",
+    marginBottom: "20px"
   },
 
-  // Reference Section
-  refSection: { 
-    display: "flex", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-    fontSize: "12px", 
-    color: "#333", 
-    marginBottom: "35px", 
-    fontWeight: "500",
-    padding: "10px 0"
+  // Title Section
+  titleSection: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "30px",
+    paddingTop: "10px"
   },
-  refNumber: {
-    letterSpacing: "0.5px"
+  certificateTitle: {
+    fontSize: "16px",
+    fontWeight: "700",
+    color: "#333",
+    margin: 0,
+    textDecoration: "underline"
   },
-  dateSection: {
-    letterSpacing: "0.5px"
+  dateBox: {
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "right",
+    lineHeight: "1.3"
   },
 
   // To Whom Section
   toWhomSection: { 
-    marginBottom: "35px",
+    marginBottom: "25px",
     textAlign: "center",
-    padding: "20px 0"
-  },
-  toWhomTitle: {
-    fontSize: "18px",
-    fontWeight: "700",
-    color: "#00BCD4",
-    margin: "0 0 15px 0",
-    letterSpacing: "4px",
-    textTransform: "uppercase"
+    padding: "0"
   },
   toWhomText: { 
     fontSize: "13px", 
-    fontWeight: "600", 
+    fontWeight: "400", 
     color: "#333", 
     margin: 0,
-    letterSpacing: "1px"
+    textDecoration: "underline"
   },
 
   // Body Section
- bodySection: { 
-  position: "relative",
-  paddingBottom: "40px",
-  marginBottom: "40px"
-},
-
- watermark: {
-  position: "absolute",
-  top: "45%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  opacity: 0.05,
-  zIndex: 0,
-  pointerEvents: "none"
-},
-
-  watermarkImg: { 
-    width: "500px", 
-    height: "auto" 
+  bodySection: { 
+    paddingBottom: "20px",
+    marginBottom: "20px"
   },
   contentWrapper: {
-    position: "relative",
-    zIndex: 2
+    position: "relative"
   },
   openingText: {
     fontSize: "13px",
     color: "#333",
-    marginBottom: "15px",
+    marginBottom: "20px",
     lineHeight: "1.8"
   },
-  employeeName: { 
-    fontSize: "16px", 
-    fontWeight: "700", 
-    color: "#000", 
-    marginBottom: "25px", 
-    position: "relative", 
-    zIndex: 2,
-    textAlign: "center",
-    letterSpacing: "1px"
+  indentSpace: {
+    display: "inline-block",
+    width: "30px"
   },
- bodyText: {
-  fontSize: "13px",
-  lineHeight: "2.2",
-  marginBottom: "24px",
-  textAlign: "justify",
-  position: "relative",
-  zIndex: 2
-},
-
-  closingText: {
+  bodyText: {
     fontSize: "13px",
-    lineHeight: "2.2",
-    color: "#333",
-    marginTop: "25px",
+    lineHeight: "2",
+    marginBottom: "20px",
     textAlign: "justify",
-    position: "relative",
-    zIndex: 2,
-    fontWeight: "500"
+    color: "#333"
   },
 
   // Signature Section
- signatureSection: {
-  marginTop: "60px",
-  paddingTop: "40px",
-  display: "flex",
-  justifyContent: "flex-start"
-},
-
-  signatureBlock: {
-    textAlign: "center",
-    minWidth: "250px"
+  signatureSection: {
+    marginTop: "40px",
+    paddingTop: "10px",
+    display: "flex",
+    justifyContent: "flex-end",
+    paddingRight: "50px",
+    marginBottom: "20px"
   },
-  signatureText: { 
-    fontSize: "13px", 
-    fontWeight: "600", 
-    color: "#333", 
-    marginBottom: "60px",
-    textAlign: "left"
+  signatureBlock: {
+    textAlign: "right",
+    minWidth: "200px"
   },
   signatureSpace: {
-    height: "50px",
-    marginBottom: "5px"
-  },
-  signatureLine: { 
-    width: "100%", 
-    height: "2px", 
-    backgroundColor: "#333", 
-    marginBottom: "10px" 
+    height: "60px",
+    marginBottom: "0px"
   },
   signatureLabel: { 
     fontSize: "13px", 
     color: "#333", 
+    fontWeight: "400",
+    marginBottom: "2px",
+    margin: 0
+  },
+  signatureName: {
+    fontSize: "13px",
+    color: "#333",
     fontWeight: "600",
-    marginBottom: "5px"
+    margin: 0,
+    marginBottom: "2px"
   },
   signatureDesignation: {
-    fontSize: "11px",
-    color: "#666",
-    fontStyle: "italic"
+    fontSize: "13px",
+    color: "#333",
+    fontWeight: "400",
+    margin: 0
   },
 
   // Footer
   footer: {
-  marginTop: "40px",
-  padding: "12px 0",
-  textAlign: "center",
-  borderTop: "1px solid #00BCD4"
-},
-
+    position: "fixed",
+    bottom: "0",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "210mm",
+    padding: "12px 0",
+    textAlign: "center",
+    background: "linear-gradient(to right, #00BCD4, #00BCD4)",
+    marginTop: "auto"
+  },
   footerContent: {
     textAlign: "center"
   },
   footerText: {
     fontSize: "10px",
     color: "white",
-    margin: "0 0 8px 0",
-    fontWeight: "500"
-  },
-  footerContact: {
-    fontSize: "11px",
-    color: "white",
     margin: 0,
-    fontWeight: "600",
-    letterSpacing: "0.5px"
+    fontWeight: "500"
   },
 
   // Print Button
@@ -678,7 +669,10 @@ const modalStyles = {
     textAlign: "center", 
     marginTop: "30px", 
     paddingTop: "25px", 
-    borderTop: "2px solid #e5e7eb" 
+    borderTop: "2px solid #e5e7eb",
+    position: "relative",
+    zIndex: 1,
+    marginBottom: "50px"
   },
   printButton: { 
     padding: "16px 50px", 

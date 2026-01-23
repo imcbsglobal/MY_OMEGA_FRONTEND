@@ -210,8 +210,8 @@
               { name: "Employee Management", path: "/employee-management", icon: Users },
               { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
               { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
-              { name: "Salary Certificate", path: "/hr/salary-certificate", icon: DollarSign },
-              { name: "Experience Certificate", path: "/hr/experience-certificate", icon: Award },
+              { name: "Salary Certificate", path: "/salary-certificate", icon: DollarSign },
+              { name: "Experience Certificate", path: "/experience-certificate", icon: Award },
               { name: "Deductions", path: "/master/deductions", icon: DollarSign },
               { name: "Allowences", path: "/master/allowences", icon: DollarSign },
               { name: "WhatsApp Admin", path: "/master/whatsapp-admin", icon: FileText },
@@ -253,7 +253,14 @@
         ]
       },
        // ✅ ADD THIS NEW MENU ITEM
-      { name: "Payroll Processing", path: "/payroll", icon: Wallet },
+      { 
+        name: "Payroll", 
+        icon: Wallet,
+        children: [
+          { name: "Payroll", path: "/payroll", icon: Wallet },
+          { name: "Payslip", path: "/payslip", icon: FileText },
+        ]
+      },
       { 
         name: "Master", 
         icon: Settings,

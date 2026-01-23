@@ -16,6 +16,15 @@ export default function LateRequest() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      date: form.date,
+      late_by_minutes: parseInt(form.minutesLate),
+      reason: form.reason,
+    };
+
+    console.log("🔥 PAYLOAD SENT:", payload);
 
     // Validate form
     if (!form.date || !form.minutesLate || !form.reason) {
