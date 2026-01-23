@@ -1,9 +1,9 @@
-// src/api/client.jsclass AddDeduct
+// src/api/client.js
 import axios from "axios";
 import { notifyError, notifySuccess } from "../utils/notification";
 
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000/api/",
+  baseURL: "http://127.0.0.1:8000/api",  // Remove trailing slash to handle both /url and url formats
   headers: {
     "Content-Type": "application/json",
   },

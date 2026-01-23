@@ -114,35 +114,55 @@ const PunchInPunchOut = () => {
     });
   };
 
-  const getUserLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setLocation({ latitude, longitude, address: '' });
-          try {
-            const response = await api.post('hr/reverse-geocode-bigdata/', { latitude, longitude });
-            if (response.data?.address) {
-              setLocation(prev => ({ ...prev, address: response.data.address }));
-              setBranch(response.data.address);
-            }
-          } catch (error) {
-            console.error('Error getting address:', error);
+const getUserLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocation({ latitude, longitude, address: '' });
+        
+        try {
+          const response = await api.post('/hr/reverse-geocode-bigdata/', { 
+            latitude, 
+            longitude 
+          });
+          
+          if (response.data?.address) {
+            setLocation(prev => ({ 
+              ...prev, 
+              address: response.data.address 
+            }));
+            setBranch(response.data.address);
           }
-        },
-     (error) => {
-  console.error('Error getting location:', error);
-  setLocation({ latitude: 11.618056, longitude: 76.081333, address: 'Office' });
-}
-
-
-      );
- } else {
-  setLocation({ latitude: 11.618056, longitude: 76.081333, address: 'Office' });
-}
-
-
-  };
+        } catch (error) {
+          console.error('Error getting address:', error);
+        }
+      },
+      (error) => {
+        console.error('⚠️ Geolocation Error:', error);
+        
+        // ❌ DO NOT set fallback coordinates
+        alert('📍 Location access is required to punch in/out. Please enable location services and try again.');
+        
+        // Set location to null to prevent punch attempts
+        setLocation({ 
+          latitude: null, 
+          longitude: null, 
+          address: 'Location not available' 
+        });
+      }
+    );
+  } else {
+    console.error('⚠️ Geolocation not supported');
+    alert('📍 Your browser does not support geolocation. Please use a modern browser.');
+    
+    setLocation({ 
+      latitude: null, 
+      longitude: null, 
+      address: 'Geolocation not supported' 
+    });
+  }
+};
 
 const fetchUserProfile = async () => {
   try {
@@ -431,73 +451,160 @@ setCalendarSummary(summary);
     return { hours: diffHours, minutes: diffMinutes, seconds: diffSeconds };
   };
 
-  const handlePunchIn = async () => {
-    setConfirmMessage('Are you sure you want to punch in?');
-    setPendingAction('punchin');
-    setShowConfirmDialog(true);
-  };
+const handlePunchIn = async () => {
+  setLoading(true);
+  try {
+    // ✅ Validate location is available
+    if (!location.latitude || !location.longitude) {
+      alert("⚠️ Location not available. Please enable GPS and try again.");
+      setLoading(false);
+      return;
+    }
 
-  const handlePunchOut = async () => {
-    setConfirmMessage('Are you sure you want to punch out?');
-    setPendingAction('punchout');
-    setShowConfirmDialog(true);
-  };
+    console.log("Attempting punch in...");
+    console.log("Location:", location);
 
-  const executePendingAction = async () => {
-    if (!pendingAction) return;
+    const response = await api.post('/hr/attendance/punch_in/', {
+      location: location.address || 'Unknown location',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      note: ''
+    });
 
-    setLoading(true);
-    try {
-      if (!location.latitude || !location.longitude) {
-        alert("Location not available. Please enable GPS and try again.");
-        return;
-      }
-
-      const endpoint = pendingAction === 'punchin' ? '/hr/attendance/punch_in/' : '/hr/attendance/punch_out/';
-      const response = await api.post(endpoint, {
-        location: location.address || 'Office',
-        latitude: location.latitude,
-        longitude: location.longitude,
-        note: pendingAction === 'punchout' ? 'Punch Out' : ''
+    // Success handling
+    const data = response.data || {};
+    if (data.punch_records) {
+      setTodayStatus({
+        punch_records: data.punch_records,
+        total_working_hours: data.total_working_hours || 0
       });
 
-      const data = response.data || {};
-      if (data.punch_records) {
-        setTodayStatus({
-          punch_records: data.punch_records,
-          total_working_hours: data.total_working_hours || 0
-        });
+      const lastPunch = data.punch_records[data.punch_records.length - 1];
+      if (lastPunch && lastPunch.punch_time) {
+        setLastPunchTime(new Date(lastPunch.punch_time));
+      }
+    }
 
-        const lastPunch = data.punch_records[data.punch_records.length - 1];
-        if (lastPunch && lastPunch.punch_time) {
-          setLastPunchTime(new Date(lastPunch.punch_time));
-        } else {
-          setLastPunchTime(null);
-        }
+    if (typeof data.can_punch_out !== 'undefined') {
+      setIsCurrentlyPunchedIn(!!data.can_punch_out);
+    } else {
+      setIsCurrentlyPunchedIn(true);
+    }
+
+    await fetchMonthlySummary();
+    await fetchMyRecords();
+    setSuccessType('punchin');
+    setShowSuccessScreen(true);
+
+  } catch (error) {
+    console.error('Punch in failed:', error);
+    
+    // ✅ Handle geofence rejection with detailed message
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data || {};
+      const distance = errorData.distance_meters || 'unknown';
+      const allowedRadius = errorData.allowed_radius || 100;
+      const excessDistance = errorData.excess_distance || 0;
+      
+      alert(
+        `🚫 PUNCH IN DENIED\n\n` +
+        `❌ You are outside the office premises\n\n` +
+        `📍 Your distance from office: ${distance}m\n` +
+        `✅ Allowed distance: ${allowedRadius}m\n` +
+        `⚠️ You are ${excessDistance}m too far\n\n` +
+        `Please move closer to the office and try again.`
+      );
+    } else {
+      // Handle other errors
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message ||
+                          'Punch in failed. Please try again.';
+      alert(`❌ ${errorMessage}`);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handlePunchOut = async () => {
+  setLoading(true);
+  try {
+    // ✅ Validate location is available
+    if (!location.latitude || !location.longitude) {
+      alert("⚠️ Location not available. Please enable GPS and try again.");
+      setLoading(false);
+      return;
+    }
+
+    console.log("Attempting punch out...");
+    console.log("Location:", location);
+
+    const response = await api.post('/hr/attendance/punch_out/', {
+      location: location.address || 'Unknown location',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      note: 'Punch Out'
+    });
+
+    // Success handling
+    const data = response.data || {};
+    if (data.punch_records) {
+      setTodayStatus({
+        punch_records: data.punch_records,
+        total_working_hours: data.total_working_hours || 0
+      });
+
+      const lastPunch = data.punch_records[data.punch_records.length - 1];
+      if (lastPunch && lastPunch.punch_time) {
+        setLastPunchTime(new Date(lastPunch.punch_time));
       } else {
         setLastPunchTime(null);
       }
-
-      if (typeof data.can_punch_out !== 'undefined') {
-        setIsCurrentlyPunchedIn(!!data.can_punch_out);
-      } else {
-        setIsCurrentlyPunchedIn(pendingAction === 'punchin');
-      }
-
-      await fetchMonthlySummary();
-      await fetchMyRecords();
-      setSuccessType(pendingAction);
-      setShowSuccessScreen(true);
-    } catch (error) {
-      console.error(`${pendingAction} failed:`, error);
-      const message = error.response?.data?.error || error.response?.data?.message || `${pendingAction === 'punchin' ? 'Punch in' : 'Punch out'} failed`;
-      alert(message);
-    } finally {
-      setLoading(false);
-      setShowConfirmDialog(false);
-      setPendingAction(null);
+    } else {
+      setLastPunchTime(null);
     }
-  };
+
+    if (typeof data.can_punch_out !== 'undefined') {
+      setIsCurrentlyPunchedIn(!!data.can_punch_out);
+    } else {
+      setIsCurrentlyPunchedIn(false);
+    }
+
+    await fetchMonthlySummary();
+    await fetchMyRecords();
+    setSuccessType('punchout');
+    setShowSuccessScreen(true);
+
+  } catch (error) {
+    console.error('Punch out failed:', error);
+    
+    // ✅ Handle geofence rejection
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data || {};
+      const distance = errorData.distance_meters || 'unknown';
+      const allowedRadius = errorData.allowed_radius || 100;
+      const excessDistance = errorData.excess_distance || 0;
+      
+      alert(
+        `🚫 PUNCH OUT DENIED\n\n` +
+        `❌ You are outside the office premises\n\n` +
+        `📍 Your distance from office: ${distance}m\n` +
+        `✅ Allowed distance: ${allowedRadius}m\n` +
+        `⚠️ You are ${excessDistance}m too far\n\n` +
+        `Please move closer to the office and try again.`
+      );
+    } else {
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message ||
+                          'Punch out failed. Please try again.';
+      alert(`❌ ${errorMessage}`);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const isDateOnLeave = (date) => {
     return leaveRequests.some(leave => {
@@ -519,7 +626,27 @@ setCalendarSummary(summary);
     currentMonth.getMonth(),
     day
   );
+const checkDistanceFromOffice = () => {
+  if (!location.latitude || !location.longitude) {
+    console.log("Location not available");
+    return;
+  }
 
+  const R = 6371000; // Earth radius in meters
+  const lat1 = location.latitude * Math.PI / 180;
+  const lat2 = 11.921047 * Math.PI / 180; // Office latitude
+  const dLat = (11.921047 - location.latitude) * Math.PI / 180;
+  const dLon = (76.926051 - location.longitude) * Math.PI / 180;
+
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1) * Math.cos(lat2) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c;
+
+  console.log(`Distance from office: ${distance.toFixed(2)}m`);
+  return distance;
+};
   const today = new Date();
 
   const isToday =

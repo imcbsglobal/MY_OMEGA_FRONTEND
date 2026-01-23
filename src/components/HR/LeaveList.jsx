@@ -10,7 +10,7 @@ export default function LeaveList() {
   const loadLeave = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/hr/leave-requests/");
+      const res = await api.get("/hr/leave/");
 
       console.log("📡 Raw API Response:", res);
       console.log("📡 res.data:", res.data);
@@ -53,7 +53,7 @@ export default function LeaveList() {
 
   const updateStatus = async (id, status) => {
     try {
-      await api.post(`/hr/leave-requests/${id}/review/`, {
+      await api.post(`/hr/leave/${id}/review/`, {
         status,
         admin_comment: "",
       });

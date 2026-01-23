@@ -38,7 +38,7 @@ export default function LeaveManagement() {
 
       // Load Leave Requests
       try {
-        const leaveRes = await api.get("/hr/leave-requests/");
+        const leaveRes = await api.get("/hr/leave/");
         const allLeave = extractData(leaveRes.data);
         setLeaveData(allLeave.filter(r => r.user === user.id));
       } catch (error) {
@@ -93,7 +93,7 @@ export default function LeaveManagement() {
     if (window.confirm("Are you sure you want to delete this record?")) {
       try {
         let endpoint = "";
-        if (activeTab === "leave") endpoint = `/hr/leave-requests/${id}/`;
+        if (activeTab === "leave") endpoint = `/hr/leave/${id}/`;
         else if (activeTab === "early") endpoint = `/hr/early-requests/${id}/`;
         else if (activeTab === "late") endpoint = `/hr/late-requests/${id}/`;
 

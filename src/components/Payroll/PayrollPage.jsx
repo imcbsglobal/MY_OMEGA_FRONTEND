@@ -215,59 +215,135 @@ export default function PayrollPage() {
     return emp?.full_name || emp?.name || emp?.employee_id || "Unknown";
   };
 
-  const handleSelectEmployee = (emp) => {
+  const handleSelectEmployee = async (emp) => {
     setSelectedEmployee(emp);
     setSearchTerm("");
     setShowEmployeeDropdown(false);
     setHasEmployeeSelected(true);
     // Fetch employee's allowances and deductions
-    fetchEmployeeAllowancesAndDeductions(emp);
+    await fetchEmployeeAllowancesAndDeductions(emp);
+    // Immediately fetch attendance for current month/year
+    setTimeout(() => {
+      fetchAttendanceStats();
+    }, 500);
   };
 
   const fetchAttendanceStats = async () => {
     try {
-      if (!selectedEmployee?.id) return;
+      if (!selectedEmployee?.id) {
+        console.log("No employee selected for attendance fetch");
+        return;
+      }
       
+      console.log("=== Fetching Attendance Stats ===");
+      console.log("Employee ID:", selectedEmployee.id);
+      console.log("Month:", selectedMonth);
+      console.log("Year:", selectedYear);
+      
+      // Get month name for the API
+      const monthName = months.find((m) => m.value === selectedMonth)?.label;
+      
+      // Use the attendance-summary API endpoint
       const response = await api.get(
-        `hr/attendance/?user_id=${selectedEmployee.id}&month=${selectedMonth}&year=${selectedYear}`
+        `payroll/attendance-summary/?employee_id=${selectedEmployee.id}&month=${monthName}&year=${selectedYear}`
       );
       
-      const attendanceRecords = Array.isArray(response.data) 
-        ? response.data 
-        : response.data.results || [];
+      console.log("✓ Attendance Summary API Response:", response.data);
       
-      // Process attendance data to calculate stats
+      const data = response.data;
+      
+      // Extract attendance stats from the comprehensive response matching backend structure
       const statsObj = {
-        workingDays: 0,
-        paidLeaveDays: 0,
-        unpaidLeaveDays: 0,
-        absentDays: 0,
+        // Days Summary
+        totalDaysInMonth: data.days_summary?.total_days_in_month || 0,
+        totalWorkingDays: data.days_summary?.total_working_days || 0,
+        sundays: data.days_summary?.sundays || 0,
+        holidays: {
+          mandatory: data.days_summary?.holidays?.mandatory || 0,
+          special: data.days_summary?.holidays?.special || 0,
+          total_paid: data.days_summary?.holidays?.total_paid || 0,
+        },
+        
+        // Attendance Breakdown
+        fullDaysWorked: data.attendance?.full_days_worked || 0,
+        halfDaysWorked: data.attendance?.half_days_worked || 0,
+        wfhDays: data.attendance?.wfh_days || 0,
+        totalWorked: data.attendance?.total_worked || 0,
+        
+        // Leaves Breakdown
+        casualLeave: {
+          taken_paid: data.leaves?.casual_leave?.taken_paid || 0,
+          taken_this_month: data.leaves?.casual_leave?.taken_this_month || 0,
+          balance: data.leaves?.casual_leave?.balance || 0,
+          used_total: data.leaves?.casual_leave?.used_total || 0,
+          remaining: data.leaves?.casual_leave?.remaining || 0,
+        },
+        sickLeave: {
+          taken_paid: data.leaves?.sick_leave?.taken_paid || 0,
+          taken_this_month: data.leaves?.sick_leave?.taken_this_month || 0,
+          balance: data.leaves?.sick_leave?.balance || 0,
+          used_total: data.leaves?.sick_leave?.used_total || 0,
+          remaining: data.leaves?.sick_leave?.remaining || 0,
+        },
+        specialLeave: {
+          taken_paid: data.leaves?.special_leave?.taken_paid || 0,
+          taken_this_month: data.leaves?.special_leave?.taken_this_month || 0,
+          balance: data.leaves?.special_leave?.balance || 0,
+          used_total: data.leaves?.special_leave?.used_total || 0,
+          remaining: data.leaves?.special_leave?.remaining || 0,
+        },
+        mandatoryHolidayLeaves: data.leaves?.mandatory_holiday_leaves || 0,
+        unpaidLeave: {
+          this_month: data.leaves?.unpaid_leave?.this_month || 0,
+          total_year: data.leaves?.unpaid_leave?.total_year || 0,
+        },
+        
+        // Payroll Summary (for salary calculation)
+        paidWorkingDays: data.payroll_summary?.paid_working_days || 0,
+        totalPaidDays: data.payroll_summary?.total_paid_days || 0,
+        effectivePaidDays: data.payroll_summary?.effective_paid_days || 0,
+        daysToDeduct: data.payroll_summary?.days_to_deduct || 0,
+        notMarkedDays: data.payroll_summary?.not_marked_days || 0,
+        
+        // Quick Stats
+        attendancePercentage: data.quick_stats?.attendance_percentage || 0,
+        totalLeavesTaken: data.quick_stats?.total_leaves_taken || 0,
+        paidLeavesTaken: data.quick_stats?.paid_leaves_taken || 0,
+        
+        // Employee info
+        employee: data.employee || {},
+        period: data.period || {}
       };
       
-      attendanceRecords.forEach(record => {
-        const status = record.status?.toLowerCase() || '';
-        
-        if (status === 'full' || status === 'wfh') {
-          statsObj.workingDays += 1;
-        } else if (status === 'half') {
-          statsObj.workingDays += 0.5;
-        } else if (status === 'casual_leave' || status === 'sick_leave' || status === 'special_leave') {
-          statsObj.paidLeaveDays += 1;
-        } else if (status === 'unpaid_leave') {
-          statsObj.unpaidLeaveDays += 1;
-        } else if (status === 'absent') {
-          statsObj.absentDays += 1;
-        }
-      });
+      console.log("✓ Attendance Stats Extracted:", statsObj);
+      console.log("=== Attendance Fetch Complete ===");
       
       setAttendanceStats(statsObj);
     } catch (err) {
-      console.error("Failed to fetch attendance stats:", err);
+      console.error("❌ Failed to fetch attendance stats:", err);
+      console.error("Error details:", err.response?.data || err.message);
       setAttendanceStats({
-        workingDays: 0,
-        paidLeaveDays: 0,
-        unpaidLeaveDays: 0,
-        absentDays: 0,
+        totalDaysInMonth: 0,
+        totalWorkingDays: 0,
+        sundays: 0,
+        holidays: { mandatory: 0, special: 0, total_paid: 0 },
+        fullDaysWorked: 0,
+        halfDaysWorked: 0,
+        wfhDays: 0,
+        totalWorked: 0,
+        casualLeave: {},
+        sickLeave: {},
+        specialLeave: {},
+        mandatoryHolidayLeaves: 0,
+        unpaidLeave: { this_month: 0, total_year: 0 },
+        paidWorkingDays: 0,
+        totalPaidDays: 0,
+        effectivePaidDays: 0,
+        daysToDeduct: 0,
+        notMarkedDays: 0,
+        attendancePercentage: 0,
+        totalLeavesTaken: 0,
+        paidLeavesTaken: 0,
       });
     }
   };
@@ -595,23 +671,188 @@ export default function PayrollPage() {
 
             {/* Attendance Summary */}
             <div style={styles.attendanceSummary}>
-              <h3 style={styles.sectionSubtitle}>Attendance Summary</h3>
-              <div style={styles.attendanceStatsGrid}>
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>Working Days</div>
-                  <div style={{...styles.statValue, color: '#166534'}}>{attendanceStats.workingDays}</div>
+
+              {/* Days Breakdown */}
+              <div style={styles.attendanceDetails}>
+                <h4 style={styles.detailsTitle}>Days Breakdown</h4>
+                <div style={styles.detailsGrid}>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Total Days in Month:</span>
+                    <span style={styles.detailValue}>{attendanceStats.totalDaysInMonth}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Total Working Days:</span>
+                    <span style={styles.detailValue}>{attendanceStats.totalWorkingDays}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Sundays (Non-working):</span>
+                    <span style={styles.detailValue}>{attendanceStats.sundays}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Mandatory Holidays:</span>
+                    <span style={styles.detailValue}>{attendanceStats.holidays?.mandatory || 0}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Special Holidays:</span>
+                    <span style={styles.detailValue}>{attendanceStats.holidays?.special || 0}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Total Paid Holidays:</span>
+                    <span style={styles.detailValue}><strong>{attendanceStats.holidays?.total_paid || 0}</strong></span>
+                  </div>
                 </div>
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>Paid Leave</div>
-                  <div style={{...styles.statValue, color: '#b45309'}}>{attendanceStats.paidLeaveDays}</div>
+              </div>
+
+              {/* Attendance Details */}
+              <div style={styles.attendanceDetails}>
+                <h4 style={styles.detailsTitle}>Attendance Details</h4>
+                <div style={styles.detailsGrid}>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Full Days Worked:</span>
+                    <span style={styles.detailValue}>{attendanceStats.fullDaysWorked}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Half Days Worked:</span>
+                    <span style={styles.detailValue}>{attendanceStats.halfDaysWorked}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>WFH Days:</span>
+                    <span style={styles.detailValue}>{attendanceStats.wfhDays}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Total Days Worked:</span>
+                    <span style={styles.detailValue}><strong>{attendanceStats.totalWorked}</strong></span>
+                  </div>
                 </div>
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>Unpaid Leave</div>
-                  <div style={{...styles.statValue, color: '#4b5563'}}>{attendanceStats.unpaidLeaveDays}</div>
+              </div>
+
+              {/* Leave Breakdown */}
+              <div style={styles.attendanceDetails}>
+                <h4 style={styles.detailsTitle}>Leave Breakdown</h4>
+                <div style={styles.leaveGrid}>
+                  {/* Casual Leave */}
+                  <div style={styles.leaveCard}>
+                    <div style={styles.leaveCardTitle}>Casual Leave</div>
+                    <div style={styles.leaveCardDetails}>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Taken (Paid):</span>
+                        <span style={{fontWeight: '600'}}>{attendanceStats.casualLeave?.taken_paid || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>This Month:</span>
+                        <span>{attendanceStats.casualLeave?.taken_this_month || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Used Total:</span>
+                        <span>{attendanceStats.casualLeave?.used_total || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Remaining:</span>
+                        <span style={{fontWeight: '600', color: '#059669'}}>{attendanceStats.casualLeave?.remaining || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sick Leave */}
+                  <div style={styles.leaveCard}>
+                    <div style={styles.leaveCardTitle}>Sick Leave</div>
+                    <div style={styles.leaveCardDetails}>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Taken (Paid):</span>
+                        <span style={{fontWeight: '600'}}>{attendanceStats.sickLeave?.taken_paid || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>This Month:</span>
+                        <span>{attendanceStats.sickLeave?.taken_this_month || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Used Total:</span>
+                        <span>{attendanceStats.sickLeave?.used_total || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Remaining:</span>
+                        <span style={{fontWeight: '600', color: '#059669'}}>{attendanceStats.sickLeave?.remaining || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Special Leave */}
+                  <div style={styles.leaveCard}>
+                    <div style={styles.leaveCardTitle}>Special Leave</div>
+                    <div style={styles.leaveCardDetails}>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Taken (Paid):</span>
+                        <span style={{fontWeight: '600'}}>{attendanceStats.specialLeave?.taken_paid || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>This Month:</span>
+                        <span>{attendanceStats.specialLeave?.taken_this_month || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Used Total:</span>
+                        <span>{attendanceStats.specialLeave?.used_total || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Remaining:</span>
+                        <span style={{fontWeight: '600', color: '#059669'}}>{attendanceStats.specialLeave?.remaining || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Unpaid Leave */}
+                  <div style={styles.leaveCard}>
+                    <div style={styles.leaveCardTitle}>Unpaid Leave</div>
+                    <div style={styles.leaveCardDetails}>
+                      <div style={styles.leaveDetailRow}>
+                        <span>This Month:</span>
+                        <span style={{fontWeight: '600', color: '#dc2626'}}>{attendanceStats.unpaidLeave?.this_month || 0}</span>
+                      </div>
+                      <div style={styles.leaveDetailRow}>
+                        <span>Total Year:</span>
+                        <span>{attendanceStats.unpaidLeave?.total_year || 0}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>Absent Days</div>
-                  <div style={{...styles.statValue, color: '#b91c1c'}}>{attendanceStats.absentDays}</div>
+
+                <div style={styles.leaveRow}>
+                  <span style={styles.detailLabel}>Mandatory Holiday Leaves:</span>
+                  <span style={styles.detailValue}>{attendanceStats.mandatoryHolidayLeaves}</span>
+                </div>
+              </div>
+
+              {/* Payroll Impact Summary */}
+              <div style={styles.attendanceDetails}>
+                <h4 style={styles.detailsTitle}>Payroll Impact Summary</h4>
+                <div style={styles.detailsGrid}>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Paid Working Days:</span>
+                    <span style={styles.detailValue}>{attendanceStats.paidWorkingDays}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Total Paid Days:</span>
+                    <span style={styles.detailValue}>{attendanceStats.totalPaidDays}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Effective Paid Days:</span>
+                    <span style={styles.detailValue}><strong style={{color: '#059669'}}>{attendanceStats.effectivePaidDays}</strong></span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Days to Deduct:</span>
+                    <span style={styles.detailValue}><strong style={{color: '#dc2626'}}>{attendanceStats.daysToDeduct}</strong></span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Not Marked Days:</span>
+                    <span style={styles.detailValue}>{attendanceStats.notMarkedDays}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Total Leaves Taken:</span>
+                    <span style={styles.detailValue}>{attendanceStats.totalLeavesTaken}</span>
+                  </div>
+                  <div style={styles.detailRow}>
+                    <span style={styles.detailLabel}>Paid Leaves Taken:</span>
+                    <span style={styles.detailValue}><strong>{attendanceStats.paidLeavesTaken}</strong></span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -960,6 +1201,41 @@ const styles = {
     color: "#111827",
     fontWeight: "600",
   },
+  attendanceDetails: {
+    marginTop: "16px",
+    padding: "12px",
+    backgroundColor: "#ffffff",
+    borderRadius: "8px",
+    border: "1px solid #e5e7eb",
+  },
+  detailsTitle: {
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: "12px",
+    margin: "0 0 12px 0",
+  },
+  detailsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "8px",
+  },
+  detailRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 0",
+    fontSize: "12px",
+    borderBottom: "1px solid #f3f4f6",
+  },
+  detailLabel: {
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+  detailValue: {
+    color: "#111827",
+    fontWeight: "600",
+  },
   buttonSection: {
     display: "flex",
     justifyContent: "flex-end",
@@ -979,4 +1255,40 @@ const styles = {
     cursor: "pointer",
     transition: "background-color 0.2s",
   },
-};
+  leaveGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+  leaveCard: {
+    backgroundColor: "#f9fafb",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    padding: "12px",
+  },
+  leaveCardTitle: {
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#1f2937",
+    marginBottom: "8px",
+    paddingBottom: "8px",
+    borderBottom: "2px solid #d1d5db",
+  },
+  leaveCardDetails: {
+    fontSize: "12px",
+  },
+  leaveDetailRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "4px 0",
+    color: "#4b5563",
+  },
+  leaveRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "8px 0",
+    borderTop: "1px solid #e5e7eb",
+    marginTop: "12px",
+    paddingTop: "12px",
+  },};

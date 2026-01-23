@@ -28,7 +28,7 @@ export default function LeaveTypeManagement() {
       setLoading(true);
       setError('');
       
-      const response = await api.get('/master/');
+      const response = await api.get('master/');
       
       console.log('API Response:', response.data);
       
