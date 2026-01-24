@@ -358,6 +358,7 @@ export default function AttendanceManagement() {
         // Update existing record
         const updateResponse = await api.patch(`/hr/attendance/${existingRecord.attendanceId}/update_status/`, {
           status: leaveStatus,
+          leave_master: leaveMaster.id,
           admin_note: `Marked as ${leaveMaster.leave_name} (${leaveMaster.category === 'mandatory_holiday' ? 'Mandatory Holiday' : 'Special Leave'}) - ${leaveMaster.payment_status === 'paid' ? 'Paid' : 'Unpaid'} by admin on ${new Date().toLocaleString()}`
         });
 
@@ -385,6 +386,8 @@ export default function AttendanceManagement() {
           user: selectedCell.employeeId,
           date: selectedCell.date,
           status: leaveStatus,
+          leave_master: leaveMaster.id,
+          is_leave: true,
           admin_note: `Created as ${leaveMaster.leave_name} (${leaveMaster.category === 'mandatory_holiday' ? 'Mandatory Holiday' : 'Special Leave'}) - ${leaveMaster.payment_status === 'paid' ? 'Paid' : 'Unpaid'} by admin`
         });
 
