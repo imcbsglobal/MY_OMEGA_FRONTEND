@@ -68,8 +68,14 @@ export default function LeaveRequest() {
         console.log("📦 Leave types response:", response.data);
         
         if (response.data.success && response.data.data) {
-          setLeaveTypes(response.data.data);
-          console.log(`✅ Loaded ${response.data.count} leave types`);
+          // Filter to show only CASUAL LEAVE and SICK LEAVE
+          const filteredLeaves = response.data.data.filter(
+            leave => leave.leave_name && 
+                     (leave.leave_name.toUpperCase().includes('CASUAL') || 
+                      leave.leave_name.toUpperCase().includes('SICK'))
+          );
+          setLeaveTypes(filteredLeaves);
+          console.log(`✅ Loaded ${filteredLeaves.length} leave types (filtered to casual and sick)`);
         } else {
           console.warn("⚠️ No leave types found");
           setLeaveTypes([]);
@@ -210,9 +216,8 @@ export default function LeaveRequest() {
                     <option value="">Select Leave Type</option>
                     {leaveTypes.map((leave) => (
                       <option key={leave.id} value={leave.id}>
-                        {leave.leave_name} 
+                        {leave.leave_name}
                         {leave.leave_date && ` (${new Date(leave.leave_date).toLocaleDateString()})`}
-                        {leave.payment_status === 'paid' ? ' - Paid' : ' - Unpaid'}
                       </option>
                     ))}
                   </select>
