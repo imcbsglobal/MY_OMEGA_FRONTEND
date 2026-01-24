@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import api from "@/api/client";
 
 export default function LeaveManagement() {
@@ -148,10 +148,6 @@ export default function LeaveManagement() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <button style={styles.addBtn} className="add-btn">
-            <Plus size={18} />
-            <span className="btn-text">Add New</span>
-          </button>
         </div>
       </div>
 
@@ -166,9 +162,6 @@ export default function LeaveManagement() {
           onClick={() => setActiveTab("leave")}
         >
           <span className="tab-label">Leave Requests</span>
-          {leaveData.length > 0 && (
-            <span style={styles.tabBadge}>{leaveData.length}</span>
-          )}
         </button>
         <button
           style={{
@@ -264,16 +257,16 @@ export default function LeaveManagement() {
                       {row.status}
                     </span>
                   </td>
-                  <td style={styles.td}>
-                    <div style={styles.actions}>
-                      <Pencil size={18} style={styles.editIcon} />
-                      <Trash2 
-                        size={18} 
-                        style={styles.deleteIcon}
-                        onClick={() => handleDelete(row.id)}
-                      />
-                    </div>
-                  </td>
+                 <td style={styles.td}>
+                  <div style={styles.actions}>
+                    <Trash2
+                      size={18}
+                      style={styles.deleteIcon}
+                      onClick={() => handleDelete(row.id)}
+                    />
+                  </div>
+                </td>
+
                 </tr>
               ))
             )}
@@ -342,10 +335,10 @@ export default function LeaveManagement() {
               </div>
 
               <div style={styles.mobileCardFooter}>
-                <button style={styles.mobileActionBtn}>
+                {/* <button style={styles.mobileActionBtn}>
                   <Pencil size={16} />
                   Edit
-                </button>
+                </button> */}
                 <button 
                   style={{...styles.mobileActionBtn, ...styles.mobileDeleteBtn}}
                   onClick={() => handleDelete(row.id)}
@@ -398,10 +391,7 @@ export default function LeaveManagement() {
             width: 100% !important;
           }
 
-          .add-btn {
-            width: 100%;
-            justify-content: center;
-          }
+          
 
           .tabs-responsive {
             overflow-x: auto;
@@ -501,20 +491,6 @@ const styles = {
     width: "320px",
     fontSize: "14px",
     outline: "none",
-  },
-
-  addBtn: {
-    padding: "10px 20px",
-    background: "#3b82f6",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
   },
 
   tabsContainer: {
@@ -625,11 +601,6 @@ const styles = {
     display: "flex",
     gap: "12px",
     alignItems: "center",
-  },
-
-  editIcon: {
-    color: "#6b7280",
-    cursor: "pointer",
   },
 
   deleteIcon: {

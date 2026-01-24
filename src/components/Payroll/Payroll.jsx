@@ -12,27 +12,30 @@ import {
   FileText,
   DollarSign
 } from "lucide-react";
+import Payslip from "./Payslip";
 
 export default function Payroll() {
   const [employees, setEmployees] = useState([
-    { id: 1, name: "John Smith", employee_id: "EMP001", email: "john@example.com", department: "Engineering", designation: "Senior Developer", basic_salary: 75000 },
-    { id: 2, name: "Sarah Johnson", employee_id: "EMP002", email: "sarah@example.com", department: "Marketing", designation: "Marketing Manager", basic_salary: 65000 },
-    { id: 3, name: "Mike Wilson", employee_id: "EMP003", email: "mike@example.com", department: "Sales", designation: "Sales Executive", basic_salary: 55000 }
+    { id: 1, name: "Rasheed", employee_id: "EMP001", email: "rasheed@example.com", department: "Engineering", designation: "Store Keeper", basic_salary: 144000, pfAccount: "AA/AAA/0000000/000/0000000", uanNumber: "101010101010", dateOfJoining: "21-09-2014" },
+    { id: 2, name: "Sarah Johnson", employee_id: "EMP002", email: "sarah@example.com", department: "Marketing", designation: "Marketing Manager", basic_salary: 180000, pfAccount: "AA/AAA/0000000/000/0000001", uanNumber: "202020202020", dateOfJoining: "15-03-2016" },
+    { id: 3, name: "Mike Wilson", employee_id: "EMP003", email: "mike@example.com", department: "Sales", designation: "Sales Executive", basic_salary: 156000, pfAccount: "AA/AAA/0000000/000/0000002", uanNumber: "303030303030", dateOfJoining: "10-07-2018" }
   ]);
   
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState("December");
+  const [selectedMonth, setSelectedMonth] = useState("November");
   const [selectedYear, setSelectedYear] = useState(2025);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [showPayslip, setShowPayslip] = useState(false);
   
   // Payroll Data
   const [basicSalary, setBasicSalary] = useState(0);
   const [allowances, setAllowances] = useState([]);
   const [deductions, setDeductions] = useState([]);
+  const [otherComponents, setOtherComponents] = useState([]);
   const [netSalary, setNetSalary] = useState(0);
   const [attendance, setAttendance] = useState({
     workingDays: 0,
@@ -61,52 +64,62 @@ export default function Payroll() {
   const calculatePayroll = () => {
     if (!selectedEmployee) return;
 
-    // Set basic salary
+    // Set basic salary (annual / 12)
     const annualSalary = selectedEmployee.basic_salary;
     const monthlySalary = annualSalary / 12;
     setBasicSalary(monthlySalary);
 
-    // Sample allowances
+    // Allowances as per the image
     const sampleAllowances = [
-      { name: "House Rent Allowance", amount: 15000 },
-      { name: "Transport Allowance", amount: 5000 },
-      { name: "Medical Allowance", amount: 3000 },
-      { name: "Special Allowance", amount: 8000 },
-      { name: "Performance Bonus", amount: monthlySalary * 0.1, percentage: "10%" }
+      { name: "Other allowance", amount: 6000 },
+      { name: "Tea Allow.", amount: 0 },
+      { name: "SP.INCENTIVE", amount: 3800 },
+      { name: "Avg Pay", amount: 600 }
     ];
     setAllowances(sampleAllowances);
 
-    // Sample deductions
+    // Other components (non-deduction items shown separately)
+    const components = [
+      { name: "WorkingDys", amount: 25 },
+      { name: "Casual Leave", amount: 2 },
+      { name: "SickDys", amount: 0 },
+      { name: "Total Leave", amount: 1 },
+      { name: "Worked Days", amount: 24 },
+      { name: "Punch Miss", amount: 1 },
+      { name: "Late Punch", amount: 0 }
+    ];
+    setOtherComponents(components);
+
+    // Deductions as per the image
     const sampleDeductions = [
-      { name: "Provident Fund", amount: 750, percentage: "12%" },
-      { name: "Professional Tax", amount: 200 },
-      { name: "Income Tax", amount: monthlySalary * 0.05, percentage: "5%" },
-      { name: "Health Insurance", amount: 1500 }
+      { name: "Leave Ded.", amount: 600 },
+      { name: "Late Punch", amount: 0 },
+      { name: "Punch Miss C/d", amount: 0 },
+      { name: "Reimburs", amount: 0 },
+      { name: "Purchase", amount: 1081 },
+      { name: "Advance", amount: 0 },
+      { name: "Health Ins.", amount: 500 }
     ];
     setDeductions(sampleDeductions);
 
-    // Sample attendance for December 2025
+    // Sample attendance for November 2025
     const monthAttendance = {
-      workingDays: 15,
-      weekends: 8,
-      holidays: 3,
+      workingDays: 24,
+      weekends: 4,
+      holidays: 1,
       casualLeave: 2,
-      sickLeave: 1,
-      paidLeave: 1,
-      absentDays: 1
+      sickLeave: 0,
+      paidLeave: 0,
+      absentDays: 0
     };
     setAttendance(monthAttendance);
 
-    // Calculate net salary based on working days
+    // Calculate net salary
     const totalAllowances = sampleAllowances.reduce((sum, item) => sum + item.amount, 0);
     const totalDeductions = sampleDeductions.reduce((sum, item) => sum + item.amount, 0);
-    const grossSalary = monthlySalary + totalAllowances;
+    const totalSalary = monthlySalary + totalAllowances;
     
-    // Calculate based on actual working days (15 scheduled working days)
-    const actualWorkingDays = monthAttendance.workingDays;
-    const totalScheduledDays = 15; // Assuming 15 working days in December
-    const payableAmount = (grossSalary / totalScheduledDays) * actualWorkingDays;
-    const finalNetSalary = payableAmount - totalDeductions;
+    const finalNetSalary = totalSalary - totalDeductions;
     
     setNetSalary(finalNetSalary);
   };
@@ -130,6 +143,7 @@ export default function Payroll() {
     setBasicSalary(0);
     setAllowances([]);
     setDeductions([]);
+    setOtherComponents([]);
     setNetSalary(0);
   };
 
@@ -140,8 +154,13 @@ export default function Payroll() {
       return;
     }
 
+    setShowPayslip(true);
     setSuccess("Payslip generated successfully!");
     setTimeout(() => setSuccess(""), 3000);
+  };
+
+  const handleClosePayslip = () => {
+    setShowPayslip(false);
   };
 
   // Generate calendar for selected month
@@ -162,11 +181,8 @@ export default function Payroll() {
           // Determine day type (simplified logic for demo)
           let dayType = "working";
           if (dayOfWeek === 0 || dayOfWeek === 6) dayType = "weekend";
-          else if ([15, 26].includes(day)) dayType = "holiday";
-          else if ([10].includes(day)) dayType = "sick";
-          else if ([22].includes(day)) dayType = "casual";
-          else if ([18].includes(day)) dayType = "paid";
-          else if ([25].includes(day)) dayType = "absent";
+          else if ([15].includes(day)) dayType = "holiday";
+          else if ([10, 20].includes(day)) dayType = "casual";
           
           weekDays.push({ day, type: dayType });
           day++;
@@ -182,10 +198,27 @@ export default function Payroll() {
 
   const totalAllowances = allowances.reduce((sum, item) => sum + item.amount, 0);
   const totalDeductions = deductions.reduce((sum, item) => sum + item.amount, 0);
-  const grossSalary = basicSalary + totalAllowances;
+  const totalSalary = basicSalary + totalAllowances;
 
   return (
     <div style={styles.container}>
+      {/* Payslip Modal */}
+      {showPayslip && selectedEmployee && (
+        <Payslip
+          employee={selectedEmployee}
+          month={selectedMonth}
+          year={selectedYear}
+          basicSalary={basicSalary}
+          allowances={allowances}
+          deductions={deductions}
+          otherComponents={otherComponents}
+          totalSalary={totalSalary}
+          netSalary={netSalary}
+          attendance={attendance}
+          onClose={handleClosePayslip}
+        />
+      )}
+
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.titleSection}>
@@ -249,7 +282,7 @@ export default function Payroll() {
               />
               {selectedEmployee && (
                 <button onClick={handleClearSelection} style={styles.clearBtn}>
-                  <X size={16} />
+                
                 </button>
               )}
             </div>
@@ -354,9 +387,6 @@ export default function Payroll() {
                       <div style={styles.adItemLeft}>
                         <div style={styles.adItemIcon}>+</div>
                         <span style={styles.adItemName}>{item.name}</span>
-                        {item.percentage && (
-                          <span style={styles.adItemPercentage}>{item.percentage}</span>
-                        )}
                       </div>
                       <span style={styles.adItemAmount}>+₹{item.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                     </div>
@@ -373,7 +403,7 @@ export default function Payroll() {
                 <div style={{...styles.adHeader, ...styles.deductionHeader}}>
                   <TrendingDown size={18} />
                   <span>Deductions</span>
-                  <span style={styles.adSubtext}>Mandatory deductions</span>
+                  <span style={styles.adSubtext}>Salary deductions</span>
                 </div>
                 <div style={styles.adList}>
                   {deductions.map((item, index) => (
@@ -381,9 +411,6 @@ export default function Payroll() {
                       <div style={styles.adItemLeft}>
                         <div style={{...styles.adItemIcon, ...styles.deductionIcon}}>−</div>
                         <span style={styles.adItemName}>{item.name}</span>
-                        {item.percentage && (
-                          <span style={{...styles.adItemPercentage, ...styles.deductionPercentage}}>{item.percentage}</span>
-                        )}
                       </div>
                       <span style={{...styles.adItemAmount, ...styles.deductionAmount}}>-₹{item.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                     </div>
@@ -393,6 +420,22 @@ export default function Payroll() {
                     <span>-₹{totalDeductions.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Other Components */}
+            <div style={styles.componentsCard}>
+              <div style={styles.componentsHeader}>
+                <FileText size={18} />
+                <span>Attendance & Other Details</span>
+              </div>
+              <div style={styles.componentsGrid}>
+                {otherComponents.map((item, index) => (
+                  <div key={index} style={styles.componentItem}>
+                    <span style={styles.componentLabel}>{item.name}</span>
+                    <span style={styles.componentValue}>{item.amount}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -422,18 +465,6 @@ export default function Payroll() {
                   <div style={{...styles.legendDot, background: '#60a5fa'}}></div>
                   <span>Casual Leave: {attendance.casualLeave}</span>
                 </div>
-                <div style={styles.legendItem}>
-                  <div style={{...styles.legendDot, background: '#f87171'}}></div>
-                  <span>Sick Leave: {attendance.sickLeave}</span>
-                </div>
-                <div style={styles.legendItem}>
-                  <div style={{...styles.legendDot, background: '#94a3b8'}}></div>
-                  <span>Paid Leave: {attendance.paidLeave}</span>
-                </div>
-                <div style={styles.legendItem}>
-                  <div style={{...styles.legendDot, background: '#ffffff', border: '2px solid #e2e8f0'}}></div>
-                  <span>Absent: {attendance.absentDays}</span>
-                </div>
               </div>
 
               {/* Calendar Grid */}
@@ -461,7 +492,7 @@ export default function Payroll() {
               {/* Summary Stats */}
               <div style={styles.attendanceStats}>
                 <div style={styles.statItem}>
-                  <div style={styles.statValue}>31</div>
+                  <div style={styles.statValue}>30</div>
                   <div style={styles.statLabel}>Total Days</div>
                 </div>
                 <div style={styles.statItem}>
@@ -469,8 +500,8 @@ export default function Payroll() {
                   <div style={styles.statLabel}>Working Days</div>
                 </div>
                 <div style={styles.statItem}>
-                  <div style={{...styles.statValue, color: '#60a5fa'}}>{attendance.casualLeave + attendance.sickLeave + attendance.paidLeave}</div>
-                  <div style={styles.statLabel}>Total Leaves</div>
+                  <div style={{...styles.statValue, color: '#60a5fa'}}>{attendance.casualLeave}</div>
+                  <div style={styles.statLabel}>Leaves Taken</div>
                 </div>
                 <div style={styles.statItem}>
                   <div style={{...styles.statValue, color: '#c084fc'}}>{attendance.holidays}</div>
@@ -499,19 +530,19 @@ export default function Payroll() {
                   <span style={styles.breakdownAmount}>+₹{totalAllowances.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                 </div>
                 <div style={styles.breakdownItem}>
+                  <span style={styles.breakdownLabel}>Total Salary</span>
+                  <span style={styles.breakdownAmount}>₹{totalSalary.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                <div style={styles.breakdownItem}>
                   <TrendingDown size={16} color="#ef4444" />
                   <span>Deductions</span>
                   <span style={{...styles.breakdownAmount, color: '#ef4444'}}>-₹{totalDeductions.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                </div>
-                <div style={styles.breakdownItem}>
-                  <span style={styles.breakdownLabel}>Gross Salary</span>
-                  <span style={styles.breakdownAmount}>₹{grossSalary.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
               <div style={styles.netPayableSection}>
                 <div style={styles.netPayableLabel}>Net Payable Amount</div>
-                <div style={styles.netPayableNote}>Based on {attendance.workingDays} working days of 15 scheduled days</div>
+                <div style={styles.netPayableNote}>Based on {attendance.workingDays} working days</div>
                 <div style={styles.netPayableAmount}>₹ {netSalary.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
               </div>
 
@@ -858,18 +889,6 @@ const styles = {
     color: '#374151',
     fontWeight: '500',
   },
-  adItemPercentage: {
-    fontSize: '9px',
-    color: '#10b981',
-    background: '#d1fae5',
-    padding: '2px 6px',
-    borderRadius: '3px',
-    fontWeight: '600',
-  },
-  deductionPercentage: {
-    color: '#ef4444',
-    background: '#fee2e2',
-  },
   adItemAmount: {
     fontSize: '13px',
     fontWeight: '700',
@@ -891,6 +910,46 @@ const styles = {
   deductionTotal: {
     borderTopColor: '#ef4444',
     color: '#ef4444',
+  },
+  componentsCard: {
+    background: '#f0fdf4',
+    padding: '16px',
+    borderRadius: '10px',
+    border: '1px solid #bbf7d0',
+    marginBottom: '16px',
+  },
+  componentsHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px',
+    color: '#16a34a',
+    fontSize: '14px',
+    fontWeight: '600',
+  },
+  componentsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: '10px',
+  },
+  componentItem: {
+    background: '#fff',
+    padding: '10px 12px',
+    borderRadius: '6px',
+    border: '1px solid #dcfce7',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  componentLabel: {
+    fontSize: '11px',
+    color: '#166534',
+    fontWeight: '500',
+  },
+  componentValue: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#15803d',
   },
   attendanceCard: {
     background: '#f8fafc',
@@ -986,21 +1045,6 @@ const styles = {
     color: '#1e40af',
     borderColor: '#60a5fa',
   },
-  calendarDay_sick: {
-    background: '#fee2e2',
-    color: '#991b1b',
-    borderColor: '#f87171',
-  },
-  calendarDay_paid: {
-    background: '#e2e8f0',
-    color: '#475569',
-    borderColor: '#94a3b8',
-  },
-  calendarDay_absent: {
-    background: '#fff',
-    color: '#9ca3af',
-    borderColor: '#e5e7eb',
-  },
   attendanceStats: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
@@ -1023,12 +1067,14 @@ const styles = {
     color: '#6b7280',
     fontWeight: '500',
   },
-  netSalaryCard: {
-    background: 'linear-gradient(135deg, #fca5a5 0%, #ef4444 100%)',
-    padding: '20px',
-    borderRadius: '12px',
-    color: '#fff',
-  },
+ netSalaryCard: {
+  background: 'linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%)',
+  padding: '20px',
+  borderRadius: '12px',
+  color: '#7f1d1d',
+  border: '1px solid #fecaca',
+},
+
   netSalaryHeader: {
     display: 'flex',
     alignItems: 'center',
@@ -1078,7 +1124,7 @@ const styles = {
     fontSize: '12px',
     fontWeight: '600',
     marginBottom: '6px',
-    opacity: 0.9,
+    opacity: '0.9',
   },
   netPayableNote: {
     fontSize: '10px',
