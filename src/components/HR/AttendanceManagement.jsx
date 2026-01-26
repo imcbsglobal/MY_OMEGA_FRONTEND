@@ -77,109 +77,134 @@ export default function AttendanceManagement() {
   }
 
   async function fetchAttendance() {
-  setLoading(true);
-  try {
-    const [year, month] = selectedMonth.split("-");
-
-    // Fetch employees
-    const employeesResponse = await api.get("/users/");
-    let employeesList = employeesResponse.data;
-
-    if (!Array.isArray(employeesList)) {
-      employeesList = employeesList.results || employeesList.data || [];
-    }
-
-    // 🔴 CHANGE IS HERE: remove month/year filter
-    let attendanceList = [];
+    setLoading(true);
     try {
-      const attendanceResponse = await api.get(`/hr/attendance/`);
-      attendanceList = attendanceResponse.data;
-    } catch (adminError) {
-      console.log("Admin endpoint failed, trying user endpoint:", adminError.message);
-      try {
-        const userAttendanceResponse = await api.get(`/hr/attendance/my_records/`);
-        attendanceList = userAttendanceResponse.data;
-      } catch (userError) {
-        console.error("Both attendance endpoints failed:", userError);
-        attendanceList = [];
+      const [year, month] = selectedMonth.split("-");
+
+      const employeesResponse = await api.get("/users/");
+      let employeesList = employeesResponse.data;
+
+      if (!Array.isArray(employeesList)) {
+        employeesList = employeesList.results || employeesList.data || [];
       }
-    }
 
-    if (!Array.isArray(attendanceList)) {
-      attendanceList =
-        attendanceList.results ||
-        attendanceList.data ||
-        attendanceList.records ||
-        [];
-    }
-
-    const empMap = new Map();
-
-    employeesList.forEach(emp => {
-      empMap.set(emp.id, {
-        id: emp.id,
-        name: emp.name || emp.full_name || emp.username || `Employee ${emp.id}`,
-        userId: emp.user_id || emp.email || emp.username || "",
-        dutyStart: emp.duty_start || "09:30",
-        dutyEnd: emp.duty_end || "17:30",
-        records: {},
-      });
-    });
-
-    // Map attendance to employees
-    attendanceList.forEach((record) => {
-      const empId =
-        record.user ||
-        record.employee_id ||
-        record.user_id ||
-        record.user?.id ||
-        record.employee?.id;
-
-      if (empId && empMap.has(empId)) {
-        const emp = empMap.get(empId);
-        const date = record.date || record.attendance_date;
-
-        if (date) {
-          const formattedDate =
-            typeof date === "string" ? date.slice(0, 10) : date;
-
-          emp.records[formattedDate] = {
-            ...record,
-            attendanceId: record.id,
-            punch_in: record.punch_in || record.punch_in_time || record.in_time,
-            punch_out: record.punch_out || record.punch_out_time || record.out_time,
-            status: record.status || record.attendance_status,
-            leave_master: record.leave_master,
-            leave_master_details: record.leave_master_details,
-            verification_status:
-              record.verification_status ??
-              record.is_verified ??
-              record.verified ??
-              "unverified",
-            is_verified:
-              record.is_verified ??
-              (record.verification_status === "verified") ??
-              record.verified ??
-              false,
-            date: formattedDate,
-          };
+      let attendanceList = [];
+      try {
+        const attendanceResponse = await api.get(`/hr/attendance/`, {
+          params: { month: Number(month), year: year }
+        });
+        attendanceList = attendanceResponse.data;
+      } catch (adminError) {
+        console.log("Admin endpoint failed, trying user endpoint:", adminError.message);
+        try {
+          const userAttendanceResponse = await api.get(`/hr/attendance/my_records/`, {
+            params: { month: Number(month), year: year }
+          });
+          attendanceList = userAttendanceResponse.data;
+        } catch (userError) {
+          console.error("Both attendance endpoints failed:", userError);
+          attendanceList = [];
         }
       }
-    });
 
-    const sortedEmployees = Array.from(empMap.values()).sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "")
-    );
+      if (!Array.isArray(attendanceList)) {
+        attendanceList = attendanceList.results || attendanceList.data || attendanceList.records || [];
+      }
 
-    setEmployees(sortedEmployees);
-  } catch (err) {
-    console.error("Failed to fetch attendance:", err);
-    alert("Failed to load attendance data.");
-  } finally {
-    setLoading(false);
+      const empMap = new Map();
+
+      employeesList.forEach(emp => {
+        empMap.set(emp.id, {
+          id: emp.id,
+          name: emp.name || emp.full_name || emp.username || `Employee ${emp.id}`,
+          userId: emp.user_id || emp.email || emp.username || "",
+          dutyStart: emp.duty_start || "09:30",
+          dutyEnd: emp.duty_end || "17:30",
+          records: {},
+        });
+      });
+
+      attendanceList.forEach((record) => {
+        const empId =
+          record.user ||
+          record.employee_id ||
+          record.user_id ||
+          record.user?.id ||
+          record.employee?.id;
+
+        if (empId && empMap.has(empId)) {
+          const emp = empMap.get(empId);
+          const date = record.date || record.attendance_date;
+
+          if (date) {
+            const formattedDate =
+              typeof date === "string" ? date.slice(0, 10) : date;
+
+            // Log any record with mandatory_holiday or special_leave status for debugging
+            if (record.status && (record.status.includes('holiday') || record.status.includes('leave'))) {
+              console.log('🔍 Raw API Response for', formattedDate, ':', {
+                status: record.status,
+                verification_status: record.verification_status,
+                user_name: record.user_name,
+                full_record: record
+              });
+            }
+
+            const finalStatus = record.status || record.attendance_status;
+            
+            // Debug: log mandatory/special leave statuses
+            if (finalStatus && (finalStatus.includes('holiday') || finalStatus.includes('leave'))) {
+              console.log('💾 STORING RECORD:', {
+                date: formattedDate,
+                finalStatus: finalStatus,
+                backend_record_status: record.status,
+                attendance_status_fallback: record.attendance_status,
+              });
+            }
+
+            emp.records[formattedDate] = {
+              ...record,
+              attendanceId: record.id,
+              punch_in: record.punch_in || record.punch_in_time || record.in_time,
+              punch_out: record.punch_out || record.punch_out_time || record.out_time,
+              status: finalStatus,
+              leave_master: record.leave_master,
+              leave_master_details: record.leave_master_details,
+
+              verification_status:
+                record.verification_status ??
+                record.is_verified ??
+                record.verified ??
+                "unverified",
+
+              is_verified:
+                record.is_verified ??
+                (record.verification_status === "verified") ??
+                record.verified ??
+                false,
+
+              date: formattedDate,
+            };
+          }
+        }
+      });
+
+      const sortedEmployees = Array.from(empMap.values()).sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "")
+      );
+
+      setEmployees(sortedEmployees);
+    } catch (err) {
+      console.error("Failed to fetch attendance:", err);
+      if (err.response?.status === 404) {
+        alert("API endpoint not found. Please check your backend configuration.");
+      } else {
+        alert("Failed to load attendance data. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   }
-}
-
 
   const getDaysInMonth = (yearMonth) => {
     const [year, month] = yearMonth.split('-').map(Number);
