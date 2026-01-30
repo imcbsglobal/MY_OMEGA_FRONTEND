@@ -428,6 +428,17 @@ export default function AttendanceManagement() {
     }
   };
 
+  const isDateTodayOrPast = (dateString) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const checkDate = new Date(year, month - 1, day);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return checkDate <= today;
+  };
+
   const determineStatus = (date, emp) => {
     const isSunday = getDayOfWeek(selectedMonth, Number(date.split("-").pop())) === 0;
     const rec = emp.records && emp.records[date];
@@ -563,7 +574,13 @@ export default function AttendanceManagement() {
     };
 
     const toggleMenu = () => {
-      setShowMenu(prev => !prev);
+      // Only allow menu to open for past/current dates
+      if (isDateTodayOrPast(date)) {
+        setShowMenu(prev => !prev);
+      } else {
+        // Ensure menu is closed for future dates
+        setShowMenu(false);
+      }
     };
 
     const tooltipContent = record ? (
@@ -614,11 +631,12 @@ export default function AttendanceManagement() {
           onClick={toggleMenu}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
-          disabled={saving}
+          disabled={saving || !isDateTodayOrPast(date)}
           style={{
             ...styles.starButton,
             color: status === "PUNCH_IN_ONLY" ? "transparent" : config.color,
-            opacity: saving ? 0.5 : 1,
+            opacity: saving || !isDateTodayOrPast(date) ? 0.5 : 1,
+            cursor: isDateTodayOrPast(date) ? "pointer" : "not-allowed",
           }}
         >
           {renderStar()}
@@ -630,7 +648,7 @@ export default function AttendanceManagement() {
           </div>
         )}
 
-        {showMenu && (
+        {showMenu && isDateTodayOrPast(date) && (
           <div style={styles.dropdown}>
             <button
               onClick={() => handleClick('VERIFIED')}
@@ -705,6 +723,7 @@ export default function AttendanceManagement() {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
+              max={defaultMonthISO()}
               style={styles.monthInput}
             />
           </div>

@@ -60,6 +60,12 @@ import AddUser from "./components/UserManagement/AddUser";
 import PayrollPage from "./components/Payroll/PayrollPage";
 import PayslipPage from "./components/Payroll/PayslipPage";
 
+// Vehicle Management
+import FuelManagement from "./components/VehicleManagement/FuelManagement";
+import Travel from "./components/VehicleManagement/Travel";
+import VehicleChallan from "./components/VehicleManagement/VehicleChallan";
+
+
 // 🔐 Private Route
 function PrivateRoute({ children }) {
   const isAuthenticated = !!localStorage.getItem("accessToken");
@@ -143,6 +149,10 @@ function App() {
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="payroll/processing" element={<PayrollPage />} />
           <Route path="payslip" element={<PayslipPage />} />
+
+          <Route path="vehicle/fuel-management" element={<FuelManagement />} />
+          <Route path="vehicle/travel" element={<Travel />} />
+          <Route path="vehicle/challan" element={<VehicleChallan />} />
 
           <Route path="add-user" element={<AddUser />} />
           <Route path="user-control" element={<UserControl />} />

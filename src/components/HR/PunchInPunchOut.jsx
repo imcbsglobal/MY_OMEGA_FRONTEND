@@ -120,23 +120,6 @@ const getUserLocation = () => {
       async (position) => {
         const { latitude, longitude } = position.coords;
         setLocation({ latitude, longitude, address: '' });
-        
-        try {
-          const response = await api.post('/hr/reverse-geocode-bigdata/', { 
-            latitude, 
-            longitude 
-          });
-          
-          if (response.data?.address) {
-            setLocation(prev => ({ 
-              ...prev, 
-              address: response.data.address 
-            }));
-            setBranch(response.data.address);
-          }
-        } catch (error) {
-          console.error('Error getting address:', error);
-        }
       },
       (error) => {
         console.error('⚠️ Geolocation Error:', error);

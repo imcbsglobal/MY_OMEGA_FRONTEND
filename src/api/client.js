@@ -15,7 +15,7 @@ const api = axios.create({
    REQUEST INTERCEPTOR
 ========================= */
 api.interceptors.request.use(
-  (config) => {
+  (config) => { 
     const token =
       localStorage.getItem("accessToken") ||
       localStorage.getItem("access") ||
@@ -66,11 +66,17 @@ api.interceptors.response.use(
     // Don't log errors for endpoints that have fallback handling
     const silentEndpoints = [
       'hr/attendance/my_summary',
-      'hr/leave/my_requests'
+      'hr/leave/my_requests',
+      'hr/reverse-geocode-bigdata'
     ];
     const shouldSilence = silentEndpoints.some(endpoint => 
       error.config?.url?.includes(endpoint)
     );
+    
+    // If endpoint should be silent, return error without notifying
+    if (shouldSilence) {
+      return Promise.reject(error);
+    }
     
     if (!shouldSilence) {
       // Log error details

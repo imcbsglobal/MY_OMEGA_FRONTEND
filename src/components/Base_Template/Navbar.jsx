@@ -237,10 +237,26 @@
               { name: "Early Request", path: "/hr/request/early", icon: Clock },
             ]
           },
+          {
+            name: "Payroll",
+            icon: Wallet,
+            children: [
+              { name: "Payroll", path: "/payroll", icon: Wallet },
+              { name: "Payslip", path: "/payslip", icon: FileText },
+            ]
+          },
         ]
       },
-      { name: "Marketing", path: "/under-construction", icon: Megaphone },
-      { name: "Vehicle Management", path: "/under-construction", icon: Car },
+      // 
+      { 
+        name: "Vehicle Management", 
+        icon: Car,
+        children: [
+          { name: "Fuel Management", path: "/vehicle/fuel-management", icon: Car },
+          { name: "Travel", path: "/vehicle/travel", icon: Truck },
+          { name: "Challan", path: "/vehicle/challan", icon: Truck },
+        ]
+      },
       { name: "Target Management", path: "/under-construction", icon: Target },
       { name: "Warehouse Management", path: "/under-construction", icon: Warehouse },
       { name: "Delivery Management", path: "/under-construction", icon: Truck },
@@ -252,15 +268,7 @@
           { name: "User Control", path: "/user-control", icon: Shield },
         ]
       },
-       // ✅ ADD THIS NEW MENU ITEM
-      { 
-        name: "Payroll", 
-        icon: Wallet,
-        children: [
-          { name: "Payroll", path: "/payroll", icon: Wallet },
-          { name: "Payslip", path: "/payslip", icon: FileText },
-        ]
-      },
+      
       { 
         name: "Master", 
         icon: Settings,

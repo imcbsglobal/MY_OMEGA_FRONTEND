@@ -68,83 +68,84 @@ export default function LateRequest() {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <h4 style={styles.title}>Late Arrival Request</h4>
+          <h4 style={styles.title}>Late Request</h4>
           <button style={styles.backButton} onClick={() => window.history.back()}>
             ← Back to List
           </button>
         </div>
 
         <div style={styles.infoBanner}>
-          <strong>Late Arrival Request</strong> – Submit a request for arriving late to work.
+          <strong>Submit a Late Request</strong> – Inform your manager about your late arrival
         </div>
 
-        <div>
-          <section style={styles.section}>
-            <h5 style={styles.sectionTitle}>Late Arrival Information</h5>
+        <section style={styles.section}>
+          <h5 style={styles.sectionTitle}>Late Arrival Details</h5>
 
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Date *</label>
-                <input
-                  type="date"
-                  name="date"
-                  value={form.date}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Minutes Late *</label>
-                <input
-                  type="number"
-                  name="minutesLate"
-                  value={form.minutesLate}
-                  onChange={handleChange}
-                  min="1"
-                  max="240"
-                  placeholder="e.g., 15"
-                  required
-                  style={styles.input}
-                />
-                <span style={styles.fieldHint}>How many minutes after your scheduled time?</span>
-              </div>
-            </div>
-
-            <div style={{ ...styles.formGroup, marginTop: "20px" }}>
-              <label style={styles.label}>Reason *</label>
-              <textarea
-                name="reason"
-                value={form.reason}
+          <div style={styles.formRow}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Date *</label>
+              <input
+                type="date"
+                name="date"
+                value={form.date}
                 onChange={handleChange}
-                rows="4"
-                placeholder="Please provide a reason for arriving late..."
-                style={styles.textarea}
                 required
+                style={styles.input}
               />
-              <span style={styles.fieldHint}>Provide a clear reason for your late arrival</span>
             </div>
-          </section>
 
-          <div style={styles.buttonRow}>
-            <button
-              type="button"
-              style={styles.btnLight}
-              onClick={() => window.history.back()}
-            >
-              Cancel
-            </button>
-
-            <button 
-              type="button" 
-              onClick={handleSubmit}
-              style={styles.btnPrimary} 
-              disabled={loading}
-            >
-              {loading ? "Submitting..." : "Submit Request"}
-            </button>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Minutes Late *</label>
+              <input
+                type="number"
+                name="minutesLate"
+                value={form.minutesLate}
+                onChange={handleChange}
+                min="1"
+                max="240"
+                placeholder="e.g., 15"
+                required
+                style={styles.input}
+              />
+              <span style={styles.fieldHint}>How many minutes after your scheduled time?</span>
+            </div>
           </div>
+        </section>
+
+        <section style={styles.section}>
+          <h5 style={styles.sectionTitle}>Reason for Late Arrival</h5>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Reason *</label>
+            <textarea
+              name="reason"
+              value={form.reason}
+              onChange={handleChange}
+              rows="4"
+              placeholder="Please provide a reason for arriving late..."
+              style={styles.textarea}
+              required
+            />
+            <span style={styles.fieldHint}>Provide a clear reason for your late arrival</span>
+          </div>
+        </section>
+
+        <div style={styles.buttonRow}>
+          <button
+            type="button"
+            style={styles.btnLight}
+            onClick={() => window.history.back()}
+          >
+            Cancel
+          </button>
+          <button 
+            type="button"
+            onClick={handleSubmit}
+            style={styles.btnPrimary} 
+            disabled={loading}
+          >
+            {loading ? "Submitting..." : "Submit Request"}
+          </button>
         </div>
       </div>
     </div>
@@ -153,75 +154,85 @@ export default function LateRequest() {
 
 const styles = {
   container: {
-    padding: "40px",
-    backgroundColor: "#f9fafb",
+    padding: "20px",
+    backgroundColor: "#ffe0e0",
+    minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
-    minHeight: "calc(100vh - 120px)",
+    alignItems: "flex-start",
+    fontFamily: "system-ui, -apple-system, sans-serif",
   },
   card: {
     backgroundColor: "#ffffff",
-    padding: "30px 40px",
-    borderRadius: "10px",
-    boxShadow: "0 5px 15px rgba(0, 0, 0, 0.08)",
+    borderRadius: "12px",
     width: "100%",
-    maxWidth: "750px",
+    maxWidth: "100%",
+    padding: "20px",
+    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
+    position: "relative",
+    "@media (max-width: 640px)": {
+      maxWidth: "100%",
+      borderRadius: "12px",
+    },
   },
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "20px",
+    flexWrap: "wrap",
+    gap: "10px",
   },
-  title: { 
-    fontSize: "20px", 
-    fontWeight: "600", 
+  title: {
+    fontSize: "20px",
+    fontWeight: "600",
     margin: 0,
-    color: "#111827"
+    color: "#111827",
   },
   backButton: {
     background: "#f3f4f6",
     color: "#111827",
-    padding: "6px 16px",
+    padding: "8px 16px",
     borderRadius: "6px",
     border: "1px solid #d1d5db",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: "500",
     transition: "all 0.2s",
   },
   infoBanner: {
-    backgroundColor: "#eef5ff",
-    color: "#1e3a8a",
+    backgroundColor: "#ffe0e0",
+    color: "#c1121f",
     padding: "12px 16px",
     borderRadius: "8px",
     marginBottom: "25px",
     fontSize: "14px",
     lineHeight: "1.5",
+    border: "1px solid #ffb3b3",
   },
-  section: { 
-    marginBottom: "25px" 
+  section: {
+    marginBottom: "25px",
   },
-  sectionTitle: { 
-    fontWeight: "600", 
+  sectionTitle: {
+    fontWeight: "600",
     marginBottom: "15px",
     color: "#111827",
     fontSize: "16px",
   },
-  formRow: { 
-    display: "flex", 
-    gap: "15px", 
-    flexWrap: "wrap" 
+  formRow: {
+    display: "flex",
+    gap: "15px",
+    flexWrap: "wrap",
   },
-  formGroup: { 
-    display: "flex", 
-    flexDirection: "column", 
-    flex: "1",
-    minWidth: "200px",
+  formGroup: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minWidth: "150px",
   },
-  label: { 
-    fontSize: "14px", 
-    fontWeight: "500", 
+  label: {
+    fontSize: "14px",
+    fontWeight: "500",
     marginBottom: "6px",
     color: "#374151",
   },
@@ -229,9 +240,9 @@ const styles = {
     padding: "10px 12px",
     borderRadius: "6px",
     border: "1px solid #d1d5db",
-    outline: "none",
     fontSize: "14px",
     transition: "border-color 0.2s",
+    outline: "none",
   },
   textarea: {
     padding: "10px 12px",
@@ -255,27 +266,28 @@ const styles = {
     marginTop: "30px",
     paddingTop: "20px",
     borderTop: "1px solid #e5e7eb",
+    flexWrap: "wrap",
   },
   btnLight: {
     background: "#f3f4f6",
-    color: "#374151",
     padding: "10px 20px",
     borderRadius: "6px",
     border: "1px solid #d1d5db",
     cursor: "pointer",
-    fontWeight: "500",
     fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
     transition: "all 0.2s",
   },
   btnPrimary: {
-    background: "#2563eb",
-    color: "#ffffff",
+    background: "#dc2626",
+    color: "#fff",
     padding: "10px 24px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
-    fontWeight: "500",
     fontSize: "14px",
+    fontWeight: "500",
     transition: "all 0.2s",
   },
 };
