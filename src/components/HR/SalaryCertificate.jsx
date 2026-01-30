@@ -24,9 +24,12 @@ function CertificateModal({ certificate, onClose }) {
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return "";
+    if (!dateStr || dateStr === "N/A") return "";
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    return String(dateStr);
   };
 
   const getCurrentDate = () => {
@@ -74,7 +77,7 @@ function CertificateModal({ certificate, onClose }) {
             <div>
               <strong>REF NO:</strong> BE/HR/SAL/{new Date().getFullYear()}/{Math.floor(Math.random() * 1000)}
             </div>
-            <div>{getCurrentDate()}</div>
+            <div>{formatDate(certificate.issued_date) || getCurrentDate()}</div>
           </div>
 
           {/* TO WHOMSOEVER Section */}
@@ -100,9 +103,11 @@ function CertificateModal({ certificate, onClose }) {
             </p>
 
             <p style={modalStyles.bodyText}>
-              This is to certify that Mr. <strong>{certificate.emp_name || "[Employee Name]"}</strong> was 
-              employed with Basil Enterprises as the <strong>{certificate.emp_designation || "[Designation]"}</strong> from{" "}
-              <strong>{formatDate(certificate.emp_joining_date) || "[Start Date]"}</strong> to present.
+              This is to certify that Mr./Ms. <strong>{certificate.emp_name || "[Employee Name]"}</strong> is employed with 
+              Basil Enterprises as the <strong>{certificate.emp_designation || "[Designation]"}</strong>.
+              {formatDate(certificate.emp_joining_date || certificate.joining_date) && (
+                <> The employee has been associated with our organization since <strong>{formatDate(certificate.emp_joining_date || certificate.joining_date)}</strong>.</>
+              )}
             </p>
 
             <p style={modalStyles.bodyText}>
@@ -375,34 +380,152 @@ const S = {
 };
 
 const modalStyles = {
-  overlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 10000, padding: "20px" },
-  modal: { backgroundColor: "white", borderRadius: "0", width: "210mm", minHeight: "297mm", maxHeight: "95vh", overflow: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)", position: "relative" },
-  closeBtn: { position: "absolute", top: "20px", right: "20px", fontSize: "32px", fontWeight: "300", color: "#666", backgroundColor: "white", border: "2px solid #ddd", cursor: "pointer", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" },
-  certificateContainer: { padding: "20mm", backgroundColor: "#ffffff", minHeight: "297mm", position: "relative" },
+  overlay: { 
+    position: "fixed", 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    backgroundColor: "rgba(0,0,0,0.75)", 
+    display: "flex", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    zIndex: 10000, 
+    padding: "20px" 
+  },
+  modal: { 
+    backgroundColor: "white", 
+    borderRadius: "0", 
+    width: "210mm", 
+    minHeight: "297mm", 
+    maxHeight: "95vh", 
+    overflow: "auto", 
+    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)", 
+    position: "relative" 
+  },
+  closeBtn: { 
+    position: "absolute", 
+    top: "20px", 
+    right: "20px", 
+    fontSize: "28px", 
+    fontWeight: "400", 
+    color: "#666", 
+    backgroundColor: "white", 
+    border: "2px solid #ddd", 
+    cursor: "pointer", 
+    width: "44px", 
+    height: "44px", 
+    display: "flex", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    borderRadius: "50%", 
+    zIndex: 100, 
+    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    transition: "all 0.2s"
+  },
+  certificateContainer: { 
+    padding: "25mm 20mm", 
+    backgroundColor: "#ffffff", 
+    minHeight: "297mm", 
+    position: "relative",
+    fontFamily: "'Arial', 'Helvetica', sans-serif"
+  },
   
-  // Header
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: "15px", borderBottom: "3px solid #00BCD4", marginBottom: "20px" },
-  logoSection: { flex: "0 0 120px" },
-  logo: { width: "120px", height: "auto", maxHeight: "80px", objectFit: "contain" },
-  companyInfo: { flex: 1, textAlign: "right", paddingLeft: "20px" },
-  companyName: { fontSize: "20px", fontWeight: "700", color: "#00BCD4", margin: "0 0 8px 0", letterSpacing: "2px" },
-  companyDetails: { fontSize: "11px", color: "#333", margin: "3px 0", lineHeight: "1.4" },
+  // Header Section
+  header: { 
+    display: "flex", 
+    justifyContent: "space-between", 
+    alignItems: "flex-start", 
+    paddingBottom: "20px", 
+    marginBottom: "15px" 
+  },
+  logoSection: { 
+    flex: "0 0 140px",
+    display: "flex",
+    alignItems: "center"
+  },
+  logo: { 
+    width: "140px", 
+    height: "auto", 
+    maxHeight: "90px", 
+    objectFit: "contain" 
+  },
+  companyInfo: { 
+    flex: 1, 
+    textAlign: "right", 
+    paddingLeft: "30px" 
+  },
+  companyName: { 
+    fontSize: "24px", 
+    fontWeight: "700", 
+    color: "#00BCD4", 
+    margin: "0 0 10px 0", 
+    letterSpacing: "3px",
+    lineHeight: "1.2"
+  },
+  companyDetails: { 
+    fontSize: "11px", 
+    color: "#444", 
+    margin: "4px 0", 
+    lineHeight: "1.6" 
+  },
+
+  // Divider
+  divider: {
+    height: "3px",
+    background: "linear-gradient(to right, #00BCD4, #0097A7)",
+    marginBottom: "25px",
+    borderRadius: "2px"
+  },
 
   // Reference Section
-  refSection: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", color: "#333", marginBottom: "30px", fontWeight: "500" },
+  refSection: { 
+    display: "flex", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    fontSize: "12px", 
+    color: "#333", 
+    marginBottom: "35px", 
+    fontWeight: "500",
+    padding: "10px 0"
+  },
+  refNumber: {
+    letterSpacing: "0.5px"
+  },
+  dateSection: {
+    letterSpacing: "0.5px"
+  },
 
   // To Whom Section
-  toWhomSection: { marginBottom: "40px" },
-  toWhomText: { fontSize: "13px", fontWeight: "600", color: "#333", margin: 0 },
+  toWhomSection: { 
+    marginBottom: "35px",
+    textAlign: "center",
+    padding: "20px 0"
+  },
+  toWhomTitle: {
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#00BCD4",
+    margin: "0 0 15px 0",
+    letterSpacing: "4px",
+    textTransform: "uppercase"
+  },
+  toWhomText: { 
+    fontSize: "13px", 
+    fontWeight: "600", 
+    color: "#333", 
+    margin: 0,
+    letterSpacing: "1px"
+  },
 
   // Body Section
-  bodySection: { 
+ bodySection: { 
   position: "relative",
   paddingBottom: "40px",
   marginBottom: "40px"
 },
 
-watermark: {
+ watermark: {
   position: "absolute",
   top: "45%",
   left: "50%",
@@ -411,9 +534,32 @@ watermark: {
   zIndex: 0,
   pointerEvents: "none"
 },
-  watermarkImg: { width: "400px", height: "auto" },
-  employeeName: { fontSize: "14px", fontWeight: "700", color: "#000", marginBottom: "20px", position: "relative", zIndex: 2 },
-bodyText: {
+
+  watermarkImg: { 
+    width: "500px", 
+    height: "auto" 
+  },
+  contentWrapper: {
+    position: "relative",
+    zIndex: 2
+  },
+  openingText: {
+    fontSize: "13px",
+    color: "#333",
+    marginBottom: "15px",
+    lineHeight: "1.8"
+  },
+  employeeName: { 
+    fontSize: "16px", 
+    fontWeight: "700", 
+    color: "#000", 
+    marginBottom: "25px", 
+    position: "relative", 
+    zIndex: 2,
+    textAlign: "center",
+    letterSpacing: "1px"
+  },
+ bodyText: {
   fontSize: "13px",
   lineHeight: "2.2",
   marginBottom: "24px",
@@ -422,26 +568,101 @@ bodyText: {
   zIndex: 2
 },
 
+  closingText: {
+    fontSize: "13px",
+    lineHeight: "2.2",
+    color: "#333",
+    marginTop: "25px",
+    textAlign: "justify",
+    position: "relative",
+    zIndex: 2,
+    fontWeight: "500"
+  },
+
   // Signature Section
-signatureSection: {
+ signatureSection: {
   marginTop: "60px",
   paddingTop: "40px",
   display: "flex",
   justifyContent: "flex-start"
 },
-  signatureText: { fontSize: "13px", fontWeight: "600", color: "#333", marginBottom: "50px" },
-  signatureLine: { width: "200px", height: "1px", backgroundColor: "#333", marginBottom: "8px" },
-  signatureLabel: { fontSize: "12px", color: "#333", fontWeight: "500" },
+
+  signatureBlock: {
+    textAlign: "center",
+    minWidth: "250px"
+  },
+  signatureText: { 
+    fontSize: "13px", 
+    fontWeight: "600", 
+    color: "#333", 
+    marginBottom: "60px",
+    textAlign: "left"
+  },
+  signatureSpace: {
+    height: "50px",
+    marginBottom: "5px"
+  },
+  signatureLine: { 
+    width: "100%", 
+    height: "2px", 
+    backgroundColor: "#333", 
+    marginBottom: "10px" 
+  },
+  signatureLabel: { 
+    fontSize: "13px", 
+    color: "#333", 
+    fontWeight: "600",
+    marginBottom: "5px"
+  },
+  signatureDesignation: {
+    fontSize: "11px",
+    color: "#666",
+    fontStyle: "italic"
+  },
 
   // Footer
-footer: {
+  footer: {
   marginTop: "40px",
   padding: "12px 0",
   textAlign: "center",
   borderTop: "1px solid #00BCD4"
 },
 
+  footerContent: {
+    textAlign: "center"
+  },
+  footerText: {
+    fontSize: "10px",
+    color: "#333",
+    margin: "0 0 8px 0",
+    fontWeight: "500"
+  },
+  footerContact: {
+    fontSize: "11px",
+    color: "#333",
+    margin: 0,
+    fontWeight: "600",
+    letterSpacing: "0.5px"
+  },
+
   // Print Button
-  printButtonContainer: { textAlign: "center", marginTop: "30px", paddingTop: "20px", borderTop: "2px solid #e5e7eb" },
-  printButton: { padding: "14px 40px", fontSize: "15px", fontWeight: "600", color: "white", backgroundColor: "#059669", border: "none", borderRadius: "10px", cursor: "pointer", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" },
+  printButtonContainer: { 
+    textAlign: "center", 
+    marginTop: "30px", 
+    paddingTop: "25px", 
+    borderTop: "2px solid #e5e7eb" 
+  },
+  printButton: { 
+    padding: "16px 50px", 
+    fontSize: "16px", 
+    fontWeight: "600", 
+    color: "white", 
+    background: "linear-gradient(135deg, #059669, #047857)",
+    border: "none", 
+    borderRadius: "12px", 
+    cursor: "pointer", 
+    boxShadow: "0 4px 12px rgba(5,150,105,0.3)",
+    transition: "all 0.3s",
+    letterSpacing: "0.5px"
+  },
 };

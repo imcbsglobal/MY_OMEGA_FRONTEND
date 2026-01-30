@@ -61,7 +61,7 @@ export default function EmployeeForm() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const response = await api.get('/users/');
+      const response = await api.get('users/');
       const userData = Array.isArray(response.data) 
         ? response.data 
         : (response.data?.results || response.data?.data || []);

@@ -30,6 +30,9 @@ const PunchInPunchOut = () => {
     absentDays: 0,
     leaveDays: 0
   });
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [pendingAction, setPendingAction] = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -111,39 +114,42 @@ const PunchInPunchOut = () => {
     });
   };
 
-  const getUserLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setLocation({ latitude, longitude, address: '' });
-          try {
-            const response = await api.post('/hr/reverse-geocode-bigdata/', { latitude, longitude });
-            if (response.data?.address) {
-              setLocation(prev => ({ ...prev, address: response.data.address }));
-              setBranch(response.data.address);
-            }
-          } catch (error) {
-            console.error('Error getting address:', error);
-          }
-        },
-     (error) => {
-  console.error('Error getting location:', error);
-  setLocation({ latitude: 11.618056, longitude: 76.081333, address: 'Office' });
-}
-
-
-      );
- } else {
-  setLocation({ latitude: 11.618056, longitude: 76.081333, address: 'Office' });
-}
-
-
-  };
+const getUserLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocation({ latitude, longitude, address: '' });
+      },
+      (error) => {
+        console.error('⚠️ Geolocation Error:', error);
+        
+        // ❌ DO NOT set fallback coordinates
+        alert('📍 Location access is required to punch in/out. Please enable location services and try again.');
+        
+        // Set location to null to prevent punch attempts
+        setLocation({ 
+          latitude: null, 
+          longitude: null, 
+          address: 'Location not available' 
+        });
+      }
+    );
+  } else {
+    console.error('⚠️ Geolocation not supported');
+    alert('📍 Your browser does not support geolocation. Please use a modern browser.');
+    
+    setLocation({ 
+      latitude: null, 
+      longitude: null, 
+      address: 'Geolocation not supported' 
+    });
+  }
+};
 
 const fetchUserProfile = async () => {
   try {
-    const response = await api.get('/users/me/'); // ← FIXED
+    const response = await api.get('users/me/'); // ← FIXED
     setUserName(response.data.name);
     setUserEmail(response.data.email);
   } catch (error) {
@@ -157,35 +163,66 @@ const fetchUserProfile = async () => {
       const month = now.getMonth() + 1;
       const year = now.getFullYear();
       
-      const response = await api.get(`/hr/attendance/my_summary/?month=${month}&year=${year}`);
+      // Calculate directly from records (my_summary endpoint has issues)
+      const response = await api.get(`hr/attendance/my_records/?month=${month}&year=${year}`);
+      
+      let summaryData = null;
       
       if (response.data) {
+        const records = response.data.results || response.data || [];
+        let fullDays = 0;
+        let halfDays = 0;
+        let leaves = 0;
+        let totalHours = 0;
+        
+        records.forEach(record => {
+          if (record.status === 'full') fullDays++;
+          else if (record.status === 'half') halfDays++;
+          else if (record.status === 'leave') leaves++;
+          
+          totalHours += parseFloat(record.total_working_hours || 0);
+        });
+        
+        summaryData = {
+          verified_full_days: fullDays,
+          verified_half_days: halfDays,
+          leaves: leaves,
+          total_working_hours: totalHours
+        };
+      }
+      
+      // Set the summary data
+      if (summaryData) {
+        setMonthlySummary(summaryData);
+      } else {
+        // Fallback to zeros
         setMonthlySummary({
-          verified_full_days: response.data.verified_full_days || 0,
-          verified_half_days: response.data.verified_half_days || 0,
-          leaves: response.data.leaves || 0,
-          total_working_hours: response.data.total_working_hours || '0.00'
+          verified_full_days: 0,
+          verified_half_days: 0,
+          leaves: 0,
+          total_working_hours: 0
         });
       }
     } catch (error) {
-      console.error('Error fetching monthly summary:', error);
+      // If everything fails, set to zeros
       setMonthlySummary({
         verified_full_days: 0,
         verified_half_days: 0,
         leaves: 0,
-        total_working_hours: '0.00'
+        total_working_hours: 0
       });
     }
   };
 
   const fetchLeaveRequests = async () => {
     try {
-      const response = await api.get('/hr/leave/my_requests/');
+      const response = await api.get('hr/leave/my_requests/');
       if (response.data) {
         setLeaveRequests(response.data.results || response.data || []);
       }
     } catch (error) {
-      console.error('Error fetching leave requests:', error);
+      // Silently fail if leave endpoint doesn't exist
+      setLeaveRequests([]);
     }
   };
 
@@ -194,7 +231,7 @@ const fetchUserProfile = async () => {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
       
-      const response = await api.get(`/hr/attendance/my_records/?month=${month}&year=${year}`);
+      const response = await api.get(`hr/attendance/my_records/?month=${month}&year=${year}`);
       
       if (response.data) {
         const records = response.data.results || response.data || [];
@@ -285,32 +322,73 @@ setCalendarSummary(summary);
 
   const fetchTodayAttendance = async () => {
     try {
-      const response = await api.get('/hr/attendance/today_status/');
+      const response = await api.get('hr/attendance/today_status/');
+      
       if (response.data) {
         const punchRecords = response.data.punch_records || [];
+        let workingHours = parseFloat(response.data.total_working_hours) || 0;
+        
+        // If working hours is 0 but we have punch records, calculate it
+        if (workingHours === 0 && punchRecords.length > 0) {
+          workingHours = calculateWorkingHoursFromPunches(punchRecords);
+        }
         
         setTodayStatus({ 
           punch_records: punchRecords,
-          total_working_hours: response.data.total_working_hours || 0
+          total_working_hours: workingHours
         });
         
-        // Check if user is currently punched in (last punch is IN)
+        // Prefer server-provided allowed flags to avoid client/server mismatch
+        if (typeof response.data.can_punch_out !== 'undefined') {
+          setIsCurrentlyPunchedIn(!!response.data.can_punch_out);
+        } else {
+          // fallback: determine from last punch record
+          if (punchRecords.length > 0) {
+            const lastPunch = punchRecords[punchRecords.length - 1];
+            setIsCurrentlyPunchedIn(lastPunch.punch_type === 'in');
+          } else {
+            setIsCurrentlyPunchedIn(false);
+          }
+        }
+
+        // Set last punch time if available
         if (punchRecords.length > 0) {
           const lastPunch = punchRecords[punchRecords.length - 1];
-          setIsCurrentlyPunchedIn(lastPunch.punch_type === 'in');
-          
-          // Set last punch time
-          if (lastPunch.punch_time) {
-            setLastPunchTime(new Date(lastPunch.punch_time));
-          }
+          if (lastPunch.punch_time) setLastPunchTime(new Date(lastPunch.punch_time));
         } else {
-          setIsCurrentlyPunchedIn(false);
           setLastPunchTime(null);
         }
       }
     } catch (error) {
       console.error('Error fetching today attendance:', error);
     }
+  };
+
+  const calculateWorkingHoursFromPunches = (punchRecords) => {
+    let totalHours = 0;
+    let lastPunchIn = null;
+    
+    punchRecords.forEach(punch => {
+      if (punch.punch_type === 'in') {
+        lastPunchIn = new Date(punch.punch_time);
+      } else if (punch.punch_type === 'out' && lastPunchIn) {
+        const punchOut = new Date(punch.punch_time);
+        const diffMs = punchOut - lastPunchIn;
+        const diffHours = diffMs / (1000 * 60 * 60);
+        totalHours += diffHours;
+        lastPunchIn = null;
+      }
+    });
+    
+    // If currently punched in, add time until now
+    if (lastPunchIn) {
+      const now = new Date();
+      const diffMs = now - lastPunchIn;
+      const diffHours = diffMs / (1000 * 60 * 60);
+      totalHours += diffHours;
+    }
+    
+    return totalHours;
   };
 
   const formatTime = (date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -331,9 +409,13 @@ setCalendarSummary(summary);
 
   // FIXED: Format decimal hours to hours and minutes
   const formatDecimalHours = (decimalHours) => {
-    if (!decimalHours || decimalHours === 0) return '0h 0m';
+    const numericValue = parseFloat(decimalHours);
     
-    const totalMinutes = Math.round(decimalHours * 60);
+    if (!numericValue || numericValue === 0 || isNaN(numericValue)) {
+      return '0h 0m';
+    }
+    
+    const totalMinutes = Math.round(numericValue * 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     
@@ -352,64 +434,160 @@ setCalendarSummary(summary);
     return { hours: diffHours, minutes: diffMinutes, seconds: diffSeconds };
   };
 
-  const handlePunchIn = async () => {
-    setLoading(true);
-    try {
-     if (!location.latitude || !location.longitude) {
-  alert("Location not available. Please enable GPS and try again.");
-  return;
-}
+const handlePunchIn = async () => {
+  setLoading(true);
+  try {
+    // ✅ Validate location is available
+    if (!location.latitude || !location.longitude) {
+      alert("⚠️ Location not available. Please enable GPS and try again.");
+      setLoading(false);
+      return;
+    }
 
-await api.post('/hr/attendance/punch_in/', {
-  location: location.address || 'Office',
-  latitude: location.latitude,
-  longitude: location.longitude,
-});
+    console.log("Attempting punch in...");
+    console.log("Location:", location);
 
+    const response = await api.post('/hr/attendance/punch_in/', {
+      location: location.address || 'Unknown location',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      note: ''
+    });
+
+    // Success handling
+    const data = response.data || {};
+    if (data.punch_records) {
+      setTodayStatus({
+        punch_records: data.punch_records,
+        total_working_hours: data.total_working_hours || 0
+      });
+
+      const lastPunch = data.punch_records[data.punch_records.length - 1];
+      if (lastPunch && lastPunch.punch_time) {
+        setLastPunchTime(new Date(lastPunch.punch_time));
+      }
+    }
+
+    if (typeof data.can_punch_out !== 'undefined') {
+      setIsCurrentlyPunchedIn(!!data.can_punch_out);
+    } else {
       setIsCurrentlyPunchedIn(true);
-      setLastPunchTime(new Date());
-      await fetchTodayAttendance();
-      await fetchMonthlySummary();
-      await fetchMyRecords();
-      setSuccessType('punchin');
-      setShowSuccessScreen(true);
-    } catch (error) {
-      console.error('Punch in failed:', error);
-      alert(error.response?.data?.error || error.response?.data?.message || 'Punch in failed');
-    } finally {
-      setLoading(false);
     }
-  };
 
-  const handlePunchOut = async () => {
-    setLoading(true);
-    try {
-     if (!location.latitude || !location.longitude) {
-  alert("Location not available. Please enable GPS and try again.");
-  return;
-}
+    await fetchMonthlySummary();
+    await fetchMyRecords();
+    setSuccessType('punchin');
+    setShowSuccessScreen(true);
 
-await api.post('/hr/attendance/punch_out/', {
-  location: location.address || 'Office',
-  latitude: location.latitude,
-  longitude: location.longitude,
-  note: 'Punch Out'
-});
+  } catch (error) {
+    console.error('Punch in failed:', error);
+    
+    // ✅ Handle geofence rejection with detailed message
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data || {};
+      const distance = errorData.distance_meters || 'unknown';
+      const allowedRadius = errorData.allowed_radius || 100;
+      const excessDistance = errorData.excess_distance || 0;
+      
+      alert(
+        `🚫 PUNCH IN DENIED\n\n` +
+        `❌ You are outside the office premises\n\n` +
+        `📍 Your distance from office: ${distance}m\n` +
+        `✅ Allowed distance: ${allowedRadius}m\n` +
+        `⚠️ You are ${excessDistance}m too far\n\n` +
+        `Please move closer to the office and try again.`
+      );
+    } else {
+      // Handle other errors
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message ||
+                          'Punch in failed. Please try again.';
+      alert(`❌ ${errorMessage}`);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
-      setIsCurrentlyPunchedIn(false);
+const handlePunchOut = async () => {
+  setLoading(true);
+  try {
+    // ✅ Validate location is available
+    if (!location.latitude || !location.longitude) {
+      alert("⚠️ Location not available. Please enable GPS and try again.");
+      setLoading(false);
+      return;
+    }
+
+    console.log("Attempting punch out...");
+    console.log("Location:", location);
+
+    const response = await api.post('/hr/attendance/punch_out/', {
+      location: location.address || 'Unknown location',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      note: 'Punch Out'
+    });
+
+    // Success handling
+    const data = response.data || {};
+    if (data.punch_records) {
+      setTodayStatus({
+        punch_records: data.punch_records,
+        total_working_hours: data.total_working_hours || 0
+      });
+
+      const lastPunch = data.punch_records[data.punch_records.length - 1];
+      if (lastPunch && lastPunch.punch_time) {
+        setLastPunchTime(new Date(lastPunch.punch_time));
+      } else {
+        setLastPunchTime(null);
+      }
+    } else {
       setLastPunchTime(null);
-      await fetchTodayAttendance();
-      await fetchMonthlySummary();
-      await fetchMyRecords();
-      setSuccessType('punchout');
-      setShowSuccessScreen(true);
-    } catch (error) {
-      console.error('Punch out failed:', error);
-      alert(error.response?.data?.error || error.response?.data?.message || 'Punch Out Failed');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    if (typeof data.can_punch_out !== 'undefined') {
+      setIsCurrentlyPunchedIn(!!data.can_punch_out);
+    } else {
+      setIsCurrentlyPunchedIn(false);
+    }
+
+    await fetchMonthlySummary();
+    await fetchMyRecords();
+    setSuccessType('punchout');
+    setShowSuccessScreen(true);
+
+  } catch (error) {
+    console.error('Punch out failed:', error);
+    
+    // ✅ Handle geofence rejection
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data || {};
+      const distance = errorData.distance_meters || 'unknown';
+      const allowedRadius = errorData.allowed_radius || 100;
+      const excessDistance = errorData.excess_distance || 0;
+      
+      alert(
+        `🚫 PUNCH OUT DENIED\n\n` +
+        `❌ You are outside the office premises\n\n` +
+        `📍 Your distance from office: ${distance}m\n` +
+        `✅ Allowed distance: ${allowedRadius}m\n` +
+        `⚠️ You are ${excessDistance}m too far\n\n` +
+        `Please move closer to the office and try again.`
+      );
+    } else {
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message ||
+                          'Punch out failed. Please try again.';
+      alert(`❌ ${errorMessage}`);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const isDateOnLeave = (date) => {
     return leaveRequests.some(leave => {
@@ -431,7 +609,27 @@ await api.post('/hr/attendance/punch_out/', {
     currentMonth.getMonth(),
     day
   );
+const checkDistanceFromOffice = () => {
+  if (!location.latitude || !location.longitude) {
+    console.log("Location not available");
+    return;
+  }
 
+  const R = 6371000; // Earth radius in meters
+  const lat1 = location.latitude * Math.PI / 180;
+  const lat2 = 11.921047 * Math.PI / 180; // Office latitude
+  const dLat = (11.921047 - location.latitude) * Math.PI / 180;
+  const dLon = (76.926051 - location.longitude) * Math.PI / 180;
+
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1) * Math.cos(lat2) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c;
+
+  console.log(`Distance from office: ${distance.toFixed(2)}m`);
+  return distance;
+};
   const today = new Date();
 
   const isToday =
@@ -795,19 +993,19 @@ else if (status === 'pending') dayClass += ' pending';
             <div className="summary-stats">
               <div className="stat-item">
                 <div className="stat-label">Full Days</div>
-                <div className="stat-value">{monthlySummary.verified_full_days}</div>
+                <div className="stat-value">{monthlySummary.verified_full_days || 0}</div>
               </div>
               <div className="stat-item">
                 <div className="stat-label">Half Days</div>
-                <div className="stat-value">{monthlySummary.verified_half_days}</div>
+                <div className="stat-value">{monthlySummary.verified_half_days || 0}</div>
               </div>
               <div className="stat-item">
                 <div className="stat-label">Leaves</div>
-                <div className="stat-value">{monthlySummary.leaves}</div>
+                <div className="stat-value">{monthlySummary.leaves || 0}</div>
               </div>
               <div className="stat-item">
                 <div className="stat-label">Total Hours</div>
-                <div className="stat-value">{formatDecimalHours(monthlySummary.total_working_hours)}</div>
+                <div className="stat-value">{formatDecimalHours(monthlySummary.total_working_hours || 0)}</div>
               </div>
             </div>
           </div>
@@ -1032,6 +1230,33 @@ else if (status === 'pending') dayClass += ' pending';
             
             <div className="mobile-calendar-section">
               <div className="mobile-calendar-container">{renderCalendar()}</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showConfirmDialog && (
+        <div className="confirmation-overlay">
+          <div className="confirmation-dialog">
+            <div className="confirmation-message">{confirmMessage}</div>
+            <div className="confirmation-buttons">
+              <button 
+                className="confirmation-btn cancel-btn"
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  setPendingAction(null);
+                }}
+              >
+                No, Cancel
+              </button>
+              <button 
+                className="confirmation-btn confirm-btn"
+                onClick={() => {
+                  executePendingAction();
+                }}
+              >
+                {pendingAction === 'punchin' ? 'Punch In' : 'Punch Out'}
+              </button>
             </div>
           </div>
         </div>
@@ -1355,6 +1580,83 @@ else if (status === 'pending') dayClass += ' pending';
         .action-btn:disabled { 
           opacity: 0.4; 
           cursor: not-allowed; 
+        }
+        .confirmation-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 150;
+          animation: fadeIn 0.2s ease;
+        }
+        .confirmation-dialog {
+          background: white;
+          border-radius: 12px;
+          padding: 32px;
+          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+          max-width: 400px;
+          width: 90%;
+          animation: slideUp 0.3s ease;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .confirmation-message {
+          font-size: 18px;
+          font-weight: 500;
+          color: #333;
+          margin-bottom: 28px;
+          text-align: center;
+          line-height: 1.5;
+        }
+        .confirmation-buttons {
+          display: flex;
+          gap: 12px;
+          flex-direction: column;
+        }
+        .confirmation-btn {
+          padding: 12px 24px;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .confirmation-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        }
+        .confirmation-btn:active {
+          transform: translateY(0);
+        }
+        .cancel-btn {
+          background: #f0f0f0;
+          color: #333;
+          border: 2px solid #ddd;
+        }
+        .cancel-btn:hover {
+          background: #e8e8e8;
+          border-color: #ccc;
+        }
+        .confirm-btn {
+          background: linear-gradient(135deg, #E69B9B, #E07B7B);
+          color: white;
+          border: 2px solid #E07B7B;
+        }
+        .confirm-btn:hover {
+          background: linear-gradient(135deg, #E07B7B, #D66B6B);
+          box-shadow: 0 8px 24px rgba(224, 123, 123, 0.3);
         }
         .success-screen { 
           position: fixed; 

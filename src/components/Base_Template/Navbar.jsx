@@ -210,10 +210,11 @@
               { name: "Employee Management", path: "/employee-management", icon: Users },
               { name: "Job Titles", path: "/master/job-titles", icon: Briefcase },
               { name: "Leave Types", path: "/master/leave-types", icon: ClipboardList },
-              { name: "Salary Certificate", path: "/hr/salary-certificate", icon: DollarSign },
-              { name: "Experience Certificate", path: "/hr/experience-certificate", icon: Award },
+              { name: "Salary Certificate", path: "/salary-certificate", icon: DollarSign },
+              { name: "Experience Certificate", path: "/experience-certificate", icon: Award },
               { name: "Deductions", path: "/master/deductions", icon: DollarSign },
               { name: "Allowences", path: "/master/allowences", icon: DollarSign },
+              { name: "WhatsApp Admin", path: "/master/whatsapp-admin", icon: FileText },
 
 
             ]
@@ -236,10 +237,26 @@
               { name: "Early Request", path: "/hr/request/early", icon: Clock },
             ]
           },
+          {
+            name: "Payroll",
+            icon: Wallet,
+            children: [
+              { name: "Payroll", path: "/payroll", icon: Wallet },
+              { name: "Payslip", path: "/payslip", icon: FileText },
+            ]
+          },
         ]
       },
-      { name: "Marketing", path: "/under-construction", icon: Megaphone },
-      { name: "Vehicle Management", path: "/under-construction", icon: Car },
+      // 
+      { 
+        name: "Vehicle Management", 
+        icon: Car,
+        children: [
+          { name: "Fuel Management", path: "/vehicle/fuel-management", icon: Car },
+          { name: "Travel", path: "/vehicle/travel", icon: Truck },
+          { name: "Challan", path: "/vehicle/challan", icon: Truck },
+        ]
+      },
       { name: "Target Management", path: "/under-construction", icon: Target },
       { name: "Warehouse Management", path: "/under-construction", icon: Warehouse },
       { name: "Delivery Management", path: "/under-construction", icon: Truck },
@@ -251,8 +268,7 @@
           { name: "User Control", path: "/user-control", icon: Shield },
         ]
       },
-       // ✅ ADD THIS NEW MENU ITEM
-      { name: "Payroll Processing", path: "/payroll", icon: Wallet },
+      
       { 
         name: "Master", 
         icon: Settings,

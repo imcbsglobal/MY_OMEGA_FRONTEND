@@ -497,7 +497,7 @@ if (typeof window !== 'undefined') {
       display: "grid",
       gridTemplateColumns: "1fr 1fr",
       gap: "18px"
-    });
+    });                         
     Object.assign(styles.footer, { 
       flexDirection: "row",
       justifyContent: "flex-end",
