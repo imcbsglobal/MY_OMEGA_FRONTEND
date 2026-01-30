@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx - FIXED VERSION
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -50,6 +50,7 @@ import LeaveTypeManagement from "./components/master/LeaveTypeManagement";
 import Deduction from "./components/master/Deduction";
 import Allowence from "./components/master/Allowence";
 import WhatsAppAdmin from "./components/master/WhatsAppAdmin";
+import OfficeSetup from './components/master/OfficeSetup';
 
 // User Management
 import UserControl from "./components/UserManagement/UserControl";
@@ -137,6 +138,7 @@ function App() {
           <Route path="hr/request/late" element={<LateRequest />} />
           <Route path="hr/request/early" element={<EarlyRequest />} />
 
+          {/* Master Routes */}
           <Route path="master/job-titles" element={<JobTitles />} />
           <Route path="master/job-titles/new" element={<JobTitleForm />} />
           <Route path="master/job-titles/:id/edit" element={<JobTitleForm />} />
@@ -145,6 +147,11 @@ function App() {
           <Route path="master/deductions" element={<Deduction />} />
           <Route path="master/allowences" element={<Allowence />} />
           <Route path="master/whatsapp-admin" element={<WhatsAppAdmin />} />
+          
+          {/* FIXED: Changed from "office-setup" to "hr/master/office-setup" to match URL */}
+          <Route path="hr/master/office-setup" element={<OfficeSetup />} />
+          {/* Also add this alternative route in case it's accessed from master menu */}
+          <Route path="master/office-setup" element={<OfficeSetup />} />
 
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="payroll/processing" element={<PayrollPage />} />
@@ -160,6 +167,7 @@ function App() {
 
           <Route path="my-menu" element={<MyMenu />} />
 
+          {/* Catch-all route for 404 - MUST BE LAST */}
           <Route path="*" element={<UnderConstruction />} />
         </Route>
       </Routes>

@@ -4,7 +4,7 @@
   Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
   FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
   ClipboardList, UserPlus, Shield, Building2, PanelLeftClose, PanelLeft,
-  ChevronDown, Wallet  
+  ChevronDown, Wallet, MapPin  
   } from "lucide-react";
   import { NavLink, useLocation, useNavigate } from "react-router-dom";
   import api from "../../api/client";
@@ -215,6 +215,7 @@
               { name: "Deductions", path: "/master/deductions", icon: DollarSign },
               { name: "Allowences", path: "/master/allowences", icon: DollarSign },
               { name: "WhatsApp Admin", path: "/master/whatsapp-admin", icon: FileText },
+              { name: "Office Setup", path: "/hr/master/office-setup", icon: MapPin },
 
 
             ]
