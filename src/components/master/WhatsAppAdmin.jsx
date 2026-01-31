@@ -24,29 +24,19 @@ import {
   FileText,
   Shield,
   BarChart,
-  Info
+  Info,
+  ChevronRight,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000/api/whatsapp/admin';
 
-// ✅ FIXED: Helper function to extract list from DRF response
+// Helper function to extract list from DRF response
 const extractList = (data) => {
-  // If data is already an array, return it
-  if (Array.isArray(data)) {
-    return data;
-  }
-  
-  // If data has 'results' key (DRF paginated response), return results
-  if (data && data.results && Array.isArray(data.results)) {
-    return data.results;
-  }
-  
-  // If data is a single object, wrap it in an array
-  if (data && typeof data === 'object') {
-    return [data];
-  }
-  
-  // Otherwise return empty array
+  if (Array.isArray(data)) return data;
+  if (data?.results && Array.isArray(data.results)) return data.results;
+  if (data && typeof data === 'object') return [data];
   return [];
 };
 
@@ -108,6 +98,7 @@ const WhatsAppAdminPanel = () => {
   });
 
   const [previewContext, setPreviewContext] = useState({});
+  const [editingId, setEditingId] = useState(null);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -124,7 +115,7 @@ const WhatsAppAdminPanel = () => {
 
     const numbersByRole = adminNumbers.reduce((acc, admin) => {
       if (admin.is_active && !admin.is_api_sender) {
-        acc[admin.role] ??= [];
+        acc[admin.role] = acc[admin.role] || [];
         acc[admin.role].push(admin);
       }
       return acc;
@@ -134,7 +125,6 @@ const WhatsAppAdminPanel = () => {
     const activeAdmins = adminNumbers.filter(a => a.is_active && !a.is_api_sender).length;
     const activeTemps = templates.filter(t => t.is_active).length;
 
-    // Determine system status
     let systemStatus = 'Setup Required';
     if (activeConf && activeAdmins > 0 && activeTemps > 0) {
       systemStatus = 'Active';
@@ -174,7 +164,6 @@ const WhatsAppAdminPanel = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/configurations/`);
       const data = await response.json();
-      console.log('Configurations response:', data);
       setConfigurations(extractList(data));
     } catch (err) {
       console.error('Failed to fetch configurations:', err);
@@ -186,7 +175,6 @@ const WhatsAppAdminPanel = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin-numbers/`);
       const data = await response.json();
-      console.log('Admin numbers response:', data);
       setAdminNumbers(extractList(data));
     } catch (err) {
       console.error('Failed to fetch admin numbers:', err);
@@ -198,7 +186,6 @@ const WhatsAppAdminPanel = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/templates/`);
       const data = await response.json();
-      console.log('Templates response:', data);
       setTemplates(extractList(data));
     } catch (err) {
       console.error('Failed to fetch templates:', err);
@@ -218,9 +205,7 @@ const WhatsAppAdminPanel = () => {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(configForm)
       });
 
@@ -241,80 +226,46 @@ const WhatsAppAdminPanel = () => {
     }
   };
 
-  const handleActivateConfiguration = async (id) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/configurations/${id}/activate/`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        setSuccess('Configuration activated successfully!');
-        fetchAllData();
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError('Failed to activate configuration');
-      }
-    } catch (err) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDeleteConfiguration = async (id) => {
-    if (!confirm('Are you sure you want to delete this configuration?')) {
-      return;
-    }
-
+    if (!confirm('Delete this configuration?')) return;
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/configurations/${id}/`, {
         method: 'DELETE'
       });
-
-      if (response.ok || response.status === 204) {
-        setSuccess('Configuration deleted successfully!');
+      if (response.ok) {
+        setSuccess('Configuration deleted!');
         fetchAllData();
         setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError('Failed to delete configuration');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Failed to delete configuration');
     } finally {
       setLoading(false);
     }
   };
 
   const handleTestConfiguration = async (id) => {
-    if (!testForm.test_number) {
-      setError('Please enter a test phone number');
-      return;
-    }
-
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/configurations/${id}/test_connection/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(testForm)
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setSuccess('Test message sent successfully!');
+      if (response.ok) {
+        const data = await response.json();
+        setSuccess(data.message || 'Test message sent successfully!');
         setShowTestModal(false);
         setTimeout(() => setSuccess(null), 3000);
       } else {
-        setError(data.error || 'Failed to send test message');
+        const data = await response.json();
+        setError(data.error || 'Test failed');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Network error during test');
     } finally {
       setLoading(false);
     }
@@ -332,49 +283,41 @@ const WhatsAppAdminPanel = () => {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(adminForm)
       });
 
       if (response.ok) {
-        setSuccess('Admin number saved successfully!');
+        setSuccess('Admin number saved!');
         setShowAdminModal(false);
         fetchAllData();
         resetAdminForm();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         const data = await response.json();
-        setError(data.detail || data.error || 'Failed to save admin number');
+        setError(data.detail || 'Failed to save admin number');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Network error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteAdminNumber = async (id) => {
-    if (!confirm('Are you sure you want to delete this admin number?')) {
-      return;
-    }
-
+    if (!confirm('Delete this admin number?')) return;
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/admin-numbers/${id}/`, {
         method: 'DELETE'
       });
-
-      if (response.ok || response.status === 204) {
-        setSuccess('Admin number deleted successfully!');
+      if (response.ok) {
+        setSuccess('Admin number deleted!');
         fetchAllData();
         setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError('Failed to delete admin number');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Failed to delete');
     } finally {
       setLoading(false);
     }
@@ -392,55 +335,76 @@ const WhatsAppAdminPanel = () => {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(templateForm)
       });
 
       if (response.ok) {
-        setSuccess('Template saved successfully!');
+        setSuccess('Template saved!');
         setShowTemplateModal(false);
         fetchAllData();
         resetTemplateForm();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         const data = await response.json();
-        setError(data.detail || data.error || 'Failed to save template');
+        setError(data.detail || 'Failed to save template');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Network error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteTemplate = async (id) => {
-    if (!confirm('Are you sure you want to delete this template?')) {
-      return;
-    }
-
+    if (!confirm('Delete this template?')) return;
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/templates/${id}/`, {
         method: 'DELETE'
       });
-
-      if (response.ok || response.status === 204) {
-        setSuccess('Template deleted successfully!');
+      if (response.ok) {
+        setSuccess('Template deleted!');
         fetchAllData();
         setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError('Failed to delete template');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Failed to delete');
     } finally {
       setLoading(false);
     }
   };
 
-  // Form reset functions
+  const handlePreviewTemplate = (template) => {
+    const sampleContext = {
+      employee_name: 'John Doe',
+      action: 'PUNCH IN',
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      location: 'Office',
+      reason: 'Personal work',
+      leave_type: 'Casual Leave',
+      days: '2',
+      from_date: '2024-01-15',
+      to_date: '2024-01-16',
+      status: 'Approved',
+      approver_name: 'Jane Smith',
+      late_by: '15 minutes',
+      early_by: '30 minutes',
+      message: 'This is a sample notification'
+    };
+
+    let preview = template.template_text;
+    Object.keys(sampleContext).forEach(key => {
+      const placeholder = `{${key}}`;
+      preview = preview.replace(new RegExp(placeholder, 'g'), sampleContext[key]);
+    });
+
+    setPreviewContext({ template, preview });
+    setShowPreviewModal(true);
+  };
+
+  // Reset forms
   const resetConfigForm = () => {
     setConfigForm({
       provider: 'dxing',
@@ -450,6 +414,7 @@ const WhatsAppAdminPanel = () => {
       default_priority: 1,
       is_active: true
     });
+    setEditingId(null);
   };
 
   const resetAdminForm = () => {
@@ -460,6 +425,7 @@ const WhatsAppAdminPanel = () => {
       is_active: true,
       is_api_sender: false
     });
+    setEditingId(null);
   };
 
   const resetTemplateForm = () => {
@@ -469,196 +435,264 @@ const WhatsAppAdminPanel = () => {
       template_text: '',
       is_active: true
     });
+    setEditingId(null);
   };
 
   // Edit handlers
-  const handleEditConfiguration = (config) => {
+  const editConfiguration = (config) => {
     setConfigForm(config);
+    setEditingId(config.id);
     setShowConfigModal(true);
   };
 
-  const handleEditAdminNumber = (admin) => {
+  const editAdminNumber = (admin) => {
     setAdminForm(admin);
+    setEditingId(admin.id);
     setShowAdminModal(true);
   };
 
-  const handleEditTemplate = (template) => {
+  const editTemplate = (template) => {
     setTemplateForm(template);
+    setEditingId(template.id);
     setShowTemplateModal(true);
   };
 
+  const getRoleColor = (role) => {
+    const colors = {
+      hr_admin: '#10b981',
+      manager: '#3b82f6',
+      payroll_admin: '#f59e0b',
+      global_cc: '#8b5cf6'
+    };
+    return colors[role] || '#6b7280';
+  };
+
+  const getStatusColor = (status) => {
+    return status === 'Active' ? '#10b981' : status === 'Partial Setup' ? '#f59e0b' : '#ef4444';
+  };
+
   return (
-    <div className="whatsapp-admin-container">
-      <div className="admin-header">
-        <div className="header-content">
-          <MessageSquare size={32} className="header-icon" />
-          <h1>WhatsApp Admin Panel</h1>
+    <div style={styles.container}>
+      {/* Header */}
+      <div style={styles.header}>
+        <div style={styles.headerContent}>
+          <div style={styles.headerLeft}>
+            <div style={styles.logoContainer}>
+              <MessageSquare size={32} color="#25D366" />
+              <Sparkles size={16} color="#25D366" style={styles.sparkle} />
+            </div>
+            <div>
+              <h1 style={styles.title}>WhatsApp Admin</h1>
+              <p style={styles.subtitle}>Communication Control Center</p>
+            </div>
+          </div>
+          <div style={styles.statusBadge}>
+            <Activity size={16} />
+            <span style={{
+              ...styles.statusText,
+              color: getStatusColor(stats.systemStatus)
+            }}>
+              {stats.systemStatus}
+            </span>
+          </div>
         </div>
-        <button className="btn btn-secondary" onClick={fetchAllData}>
-          <RefreshCw size={20} />
-          Refresh
-        </button>
       </div>
 
-      {/* Success/Error Messages */}
-      {success && (
-        <div className="alert alert-success">
-          <CheckCircle size={20} />
-          {success}
-        </div>
-      )}
+      {/* Alerts */}
       {error && (
-        <div className="alert alert-error">
-          <XCircle size={20} />
-          {error}
+        <div style={{...styles.alert, ...styles.alertError}}>
+          <AlertCircle size={20} />
+          <span>{error}</span>
+          <button style={styles.alertClose} onClick={() => setError(null)}>
+            <X size={16} />
+          </button>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="tabs">
-        <button 
-          className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          <BarChart size={20} />
-          Overview
-        </button>
-        <button 
-          className={`tab ${activeTab === 'configurations' ? 'active' : ''}`}
-          onClick={() => setActiveTab('configurations')}
-        >
-          <Settings size={20} />
-          Configurations
-        </button>
-        <button 
-          className={`tab ${activeTab === 'admin-numbers' ? 'active' : ''}`}
-          onClick={() => setActiveTab('admin-numbers')}
-        >
-          <Users size={20} />
-          Admin Numbers
-        </button>
-        <button 
-          className={`tab ${activeTab === 'templates' ? 'active' : ''}`}
-          onClick={() => setActiveTab('templates')}
-        >
-          <FileText size={20} />
-          Templates
-        </button>
-      </div>
+      {success && (
+        <div style={{...styles.alert, ...styles.alertSuccess}}>
+          <CheckCircle size={20} />
+          <span>{success}</span>
+          <button style={styles.alertClose} onClick={() => setSuccess(null)}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
-      {/* Tab Content */}
-      <div className="tab-content">
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="overview-section">
-            <div className="stats-grid">
-              {/* Configurations Card */}
-              <div className="stat-card">
-                <div className="stat-icon" style={{ background: '#e3f2fd' }}>
-                  <Settings size={24} color="#1976d2" />
-                </div>
-                <div className="stat-details">
-                  <h3>Configurations</h3>
-                  <div className="stat-number">{stats.totalConfigs}</div>
-                  <div className="stat-label">
-                    {stats.activeConfig ? (
-                      <span className="badge badge-success">
-                        <CheckCircle size={14} />
-                        Active Config
-                      </span>
-                    ) : (
-                      <span className="badge badge-error">
-                        <AlertCircle size={14} />
-                        No active config
-                      </span>
-                    )}
+      {/* Main Content */}
+      <div style={styles.main}>
+        {/* Sidebar Navigation */}
+        <div style={styles.sidebar}>
+          <div style={styles.navSection}>
+            <button
+              onClick={() => setActiveTab('overview')}
+              style={{
+                ...styles.navButton,
+                ...(activeTab === 'overview' ? styles.navButtonActive : {})
+              }}
+            >
+              <BarChart size={20} />
+              <span>Overview</span>
+              {activeTab === 'overview' && <ChevronRight size={16} />}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('configurations')}
+              style={{
+                ...styles.navButton,
+                ...(activeTab === 'configurations' ? styles.navButtonActive : {})
+              }}
+            >
+              <Settings size={20} />
+              <span>Configuration</span>
+              {activeTab === 'configurations' && <ChevronRight size={16} />}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('admin-numbers')}
+              style={{
+                ...styles.navButton,
+                ...(activeTab === 'admin-numbers' ? styles.navButtonActive : {})
+              }}
+            >
+              <Users size={20} />
+              <span>Admin Numbers</span>
+              {activeTab === 'admin-numbers' && <ChevronRight size={16} />}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('templates')}
+              style={{
+                ...styles.navButton,
+                ...(activeTab === 'templates' ? styles.navButtonActive : {})
+              }}
+            >
+              <FileText size={20} />
+              <span>Templates</span>
+              {activeTab === 'templates' && <ChevronRight size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div style={styles.content}>
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div style={styles.tabContent}>
+              <h2 style={styles.tabTitle}>System Overview</h2>
+              
+              <div style={styles.statsGrid}>
+                <div style={{...styles.statCard, ...styles.statCardPrimary}}>
+                  <div style={styles.statIcon}>
+                    <Settings size={24} />
                   </div>
-                </div>
-              </div>
-
-              {/* Admin Numbers Card */}
-              <div className="stat-card">
-                <div className="stat-icon" style={{ background: '#f3e5f5' }}>
-                  <Users size={24} color="#7b1fa2" />
-                </div>
-                <div className="stat-details">
-                  <h3>Admin Numbers</h3>
-                  <div className="stat-number">{stats.activeAdminNumbers}</div>
-                  <div className="stat-label">{stats.totalAdminNumbers} Total</div>
-                </div>
-              </div>
-
-              {/* Templates Card */}
-              <div className="stat-card">
-                <div className="stat-icon" style={{ background: '#e8f5e9' }}>
-                  <FileText size={24} color="#388e3c" />
-                </div>
-                <div className="stat-details">
-                  <h3>Templates</h3>
-                  <div className="stat-number">{stats.activeTemplates}</div>
-                  <div className="stat-label">{stats.totalTemplates} Total</div>
-                </div>
-              </div>
-
-              {/* System Status Card */}
-              <div className="stat-card">
-                <div className="stat-icon" style={{ background: stats.systemStatus === 'Active' ? '#e8f5e9' : '#fff3e0' }}>
-                  <Activity size={24} color={stats.systemStatus === 'Active' ? '#388e3c' : '#f57c00'} />
-                </div>
-                <div className="stat-details">
-                  <h3>System Status</h3>
-                  <div className="stat-number">{stats.systemStatus}</div>
-                  {stats.systemStatus === 'Setup Required' && (
-                    <div className="stat-label">
-                      <span className="badge badge-error">
-                        <AlertCircle size={14} />
-                        Setup Required
-                      </span>
+                  <div style={styles.statContent}>
+                    <div style={styles.statValue}>{stats.totalConfigs}</div>
+                    <div style={styles.statLabel}>Configurations</div>
+                  </div>
+                  {stats.activeConfig && (
+                    <div style={styles.statBadge}>
+                      <Zap size={12} />
+                      <span>Active</span>
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
 
-            {/* Active Configuration Details */}
-            {stats.activeConfig ? (
-              <div className="config-details-section">
-                <h2>⚡ Active Configuration</h2>
-                <div className="config-details-card">
-                  <div className="config-info-row">
-                    <span className="label">Provider:</span>
-                    <span className="value">{stats.activeConfig.provider.toUpperCase()}</span>
+                <div style={{...styles.statCard, ...styles.statCardSuccess}}>
+                  <div style={styles.statIcon}>
+                    <Users size={24} />
                   </div>
-                  <div className="config-info-row">
-                    <span className="label">API URL:</span>
-                    <span className="value">{stats.activeConfig.api_url}</span>
+                  <div style={styles.statContent}>
+                    <div style={styles.statValue}>{stats.activeAdminNumbers}</div>
+                    <div style={styles.statLabel}>Active Admins</div>
                   </div>
-                  <div className="config-info-row">
-                    <span className="label">Account ID:</span>
-                    <span className="value">{stats.activeConfig.account_id}</span>
+                </div>
+
+                <div style={{...styles.statCard, ...styles.statCardInfo}}>
+                  <div style={styles.statIcon}>
+                    <MessageSquare size={24} />
                   </div>
-                  <div className="config-info-row">
-                    <span className="label">Priority:</span>
-                    <span className="value">{stats.activeConfig.default_priority}</span>
-                  </div>
-                  <div className="config-info-row">
-                    <span className="label">Status:</span>
-                    <span className="badge badge-success">
-                      <Power size={14} />
-                      Active
-                    </span>
+                  <div style={styles.statContent}>
+                    <div style={styles.statValue}>{stats.activeTemplates}</div>
+                    <div style={styles.statLabel}>Active Templates</div>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="empty-state">
-                <Settings size={48} color="#999" />
-                <h3>No Active Configuration</h3>
-                <p>Please add and activate a WhatsApp configuration</p>
+
+              {/* Active Configuration */}
+              {stats.activeConfig && (
+                <div style={styles.section}>
+                  <h3 style={styles.sectionTitle}>Active Configuration</h3>
+                  <div style={styles.configCard}>
+                    <div style={styles.configHeader}>
+                      <div style={styles.providerBadge}>
+                        {stats.activeConfig.provider.toUpperCase()}
+                      </div>
+                      <div style={styles.configStatus}>
+                        <Power size={16} color="#10b981" />
+                        <span>Live</span>
+                      </div>
+                    </div>
+                    <div style={styles.configDetails}>
+                      <div style={styles.configDetail}>
+                        <span style={styles.configLabel}>API URL:</span>
+                        <span style={styles.configValue}>{stats.activeConfig.api_url}</span>
+                      </div>
+                      <div style={styles.configDetail}>
+                        <span style={styles.configLabel}>Account ID:</span>
+                        <span style={styles.configValue}>{stats.activeConfig.account_id}</span>
+                      </div>
+                      <div style={styles.configDetail}>
+                        <span style={styles.configLabel}>Priority:</span>
+                        <span style={styles.configValue}>{stats.activeConfig.default_priority}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Admin Numbers by Role */}
+              {Object.keys(stats.numbersByRole).length > 0 && (
+                <div style={styles.section}>
+                  <h3 style={styles.sectionTitle}>Admin Distribution</h3>
+                  <div style={styles.roleGrid}>
+                    {Object.entries(stats.numbersByRole).map(([role, admins]) => (
+                      <div key={role} style={styles.roleCard}>
+                        <div style={styles.roleHeader}>
+                          <Shield size={20} style={{ color: getRoleColor(role) }} />
+                          <span style={styles.roleTitle}>
+                            {role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                          </span>
+                        </div>
+                        <div style={styles.roleCount}>{admins.length}</div>
+                        <div style={styles.roleList}>
+                          {admins.slice(0, 3).map(admin => (
+                            <div key={admin.id} style={styles.roleItem}>
+                              <Phone size={12} />
+                              <span>{admin.name}</span>
+                            </div>
+                          ))}
+                          {admins.length > 3 && (
+                            <div style={styles.roleMore}>+{admins.length - 3} more</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Configurations Tab */}
+          {activeTab === 'configurations' && (
+            <div style={styles.tabContent}>
+              <div style={styles.tabHeader}>
+                <h2 style={styles.tabTitle}>API Configurations</h2>
                 <button 
-                  className="btn btn-primary"
+                  style={styles.primaryButton}
                   onClick={() => {
-                    setActiveTab('configurations');
+                    resetConfigForm();
                     setShowConfigModal(true);
                   }}
                 >
@@ -666,221 +700,145 @@ const WhatsAppAdminPanel = () => {
                   Add Configuration
                 </button>
               </div>
-            )}
 
-            {/* Active Admin Numbers by Role */}
-            {stats.activeAdminNumbers > 0 && (
-              <div className="admin-numbers-section">
-                <h2>👥 Active Admin Numbers by Role</h2>
-                <div className="role-grid">
-                  {Object.entries(stats.numbersByRole).map(([role, admins]) => (
-                    <div key={role} className="role-card">
-                      <h4>{role.replace('_', ' ').toUpperCase()}</h4>
-                      <div className="admin-list">
-                        {admins.map(admin => (
-                          <div key={admin.id} className="admin-item">
-                            <Phone size={16} />
-                            <span>{admin.name}</span>
-                            <span className="phone-number">{admin.phone_number}</span>
-                          </div>
-                        ))}
+              <div style={styles.cardGrid}>
+                {configurations.map(config => (
+                  <div key={config.id} style={styles.card}>
+                    <div style={styles.cardHeader}>
+                      <div style={styles.providerBadge}>
+                        {config.provider.toUpperCase()}
+                      </div>
+                      {config.is_active && (
+                        <div style={styles.activeBadge}>
+                          <Zap size={12} />
+                          Active
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div style={styles.cardBody}>
+                      <div style={styles.cardField}>
+                        <span style={styles.fieldLabel}>API URL</span>
+                        <span style={styles.fieldValue}>{config.api_url}</span>
+                      </div>
+                      <div style={styles.cardField}>
+                        <span style={styles.fieldLabel}>Account ID</span>
+                        <span style={styles.fieldValue}>{config.account_id}</span>
+                      </div>
+                      <div style={styles.cardField}>
+                        <span style={styles.fieldLabel}>Priority</span>
+                        <span style={styles.fieldValue}>{config.default_priority}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Active Templates Summary */}
-            {stats.activeTemplates > 0 && (
-              <div className="templates-section">
-                <h2>📋 Active Message Templates</h2>
-                <div className="template-summary">
-                  {templates.filter(t => t.is_active).map(template => (
-                    <div key={template.id} className="template-summary-item">
-                      <MessageSquare size={16} />
-                      <span>{template.template_type_display || template.template_type}</span>
-                      <span className="badge badge-info">
-                        {template.recipient_type_display || template.recipient_type}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Configurations Tab */}
-        {activeTab === 'configurations' && (
-          <div className="configurations-section">
-            <div className="section-header">
-              <h2>⚙️ Active Configuration</h2>
-              <button 
-                className="btn btn-primary"
-                onClick={() => {
-                  resetConfigForm();
-                  setShowConfigModal(true);
-                }}
-              >
-                <Plus size={20} />
-                Add Configuration
-              </button>
-            </div>
-
-            {configurations.length === 0 ? (
-              <div className="empty-state">
-                <Settings size={48} color="#999" />
-                <h3>No configurations found</h3>
-                <p>Add your first WhatsApp configuration</p>
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => setShowConfigModal(true)}
-                >
-                  <Plus size={20} />
-                  Create Configuration
-                </button>
-              </div>
-            ) : (
-              <div className="config-list">
-                {configurations.map(config => (
-                  <div key={config.id} className={`config-item ${config.is_active ? 'active' : ''}`}>
-                    <div className="config-info">
-                      <h3>{config.provider.toUpperCase()}</h3>
-                      <p>{config.api_url}</p>
-                      <span className="config-meta">Account: {config.account_id}</span>
-                    </div>
-                    <div className="config-actions">
-                      {config.is_active ? (
-                        <span className="badge badge-success">
-                          <Power size={14} />
-                          Active
-                        </span>
-                      ) : (
-                        <button 
-                          className="btn btn-small btn-secondary"
-                          onClick={() => handleActivateConfiguration(config.id)}
-                        >
-                          <Power size={16} />
-                          Activate
-                        </button>
-                      )}
+                    <div style={styles.cardActions}>
                       <button 
-                        className="btn btn-small btn-secondary"
+                        style={styles.iconButton}
                         onClick={() => {
                           setConfigForm(config);
                           setShowTestModal(true);
                         }}
                       >
-                        <TestTube size={16} />
-                        Test
+                        <TestTube size={18} />
                       </button>
                       <button 
-                        className="btn btn-small btn-secondary"
-                        onClick={() => handleEditConfiguration(config)}
+                        style={styles.iconButton}
+                        onClick={() => editConfiguration(config)}
                       >
-                        <Edit size={16} />
-                        Edit
+                        <Edit size={18} />
                       </button>
                       <button 
-                        className="btn btn-small btn-danger"
+                        style={{...styles.iconButton, ...styles.iconButtonDanger}}
                         onClick={() => handleDeleteConfiguration(config.id)}
-                        disabled={config.is_active}
                       >
-                        <Trash2 size={16} />
-                        Delete
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Admin Numbers Tab */}
-        {activeTab === 'admin-numbers' && (
-          <div className="admin-numbers-section">
-            <div className="section-header">
-              <h2>👥 Active Admin Numbers</h2>
-              <button 
-                className="btn btn-primary"
-                onClick={() => {
-                  resetAdminForm();
-                  setShowAdminModal(true);
-                }}
-              >
-                <Plus size={20} />
-                Add Admin Number
-              </button>
             </div>
+          )}
 
-            {adminNumbers.length === 0 ? (
-              <div className="empty-state">
-                <Users size={48} color="#999" />
-                <h3>No admin numbers found</h3>
-                <p>Add your first admin number</p>
+          {/* Admin Numbers Tab */}
+          {activeTab === 'admin-numbers' && (
+            <div style={styles.tabContent}>
+              <div style={styles.tabHeader}>
+                <h2 style={styles.tabTitle}>Admin Phone Numbers</h2>
                 <button 
-                  className="btn btn-primary"
-                  onClick={() => setShowAdminModal(true)}
+                  style={styles.primaryButton}
+                  onClick={() => {
+                    resetAdminForm();
+                    setShowAdminModal(true);
+                  }}
                 >
                   <Plus size={20} />
                   Add Admin Number
                 </button>
               </div>
-            ) : (
-              <div className="admin-list-table">
-                <table>
+
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Phone Number</th>
-                      <th>Role</th>
-                      <th>Status</th>
-                      <th>API Sender</th>
-                      <th>Actions</th>
+                      <th style={styles.tableHeader}>Name</th>
+                      <th style={styles.tableHeader}>Phone Number</th>
+                      <th style={styles.tableHeader}>Role</th>
+                      <th style={styles.tableHeader}>Status</th>
+                      <th style={styles.tableHeader}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {adminNumbers.map(admin => (
-                      <tr key={admin.id}>
-                        <td>{admin.name}</td>
-                        <td>{admin.phone_number}</td>
-                        <td>
-                          <span className="badge badge-info">
-                            {admin.role_display || admin.role}
-                          </span>
+                      <tr key={admin.id} style={styles.tableRow}>
+                        <td style={styles.tableCell}>
+                          <div style={styles.nameCell}>
+                            <div style={styles.avatar}>
+                              {admin.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span>{admin.name}</span>
+                          </div>
                         </td>
-                        <td>
+                        <td style={styles.tableCell}>
+                          <div style={styles.phoneCell}>
+                            <Phone size={14} />
+                            {admin.phone_number}
+                          </div>
+                        </td>
+                        <td style={styles.tableCell}>
+                          <div 
+                            style={{
+                              ...styles.roleBadge,
+                              backgroundColor: getRoleColor(admin.role) + '20',
+                              color: getRoleColor(admin.role)
+                            }}
+                          >
+                            {admin.role_display || admin.role}
+                          </div>
+                        </td>
+                        <td style={styles.tableCell}>
                           {admin.is_active ? (
-                            <span className="badge badge-success">
+                            <div style={styles.statusActive}>
                               <CheckCircle size={14} />
                               Active
-                            </span>
+                            </div>
                           ) : (
-                            <span className="badge badge-error">
+                            <div style={styles.statusInactive}>
                               <XCircle size={14} />
                               Inactive
-                            </span>
+                            </div>
                           )}
                         </td>
-                        <td>
-                          {admin.is_api_sender ? (
-                            <span className="badge badge-warning">Yes</span>
-                          ) : (
-                            <span className="badge badge-default">No</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="action-buttons">
+                        <td style={styles.tableCell}>
+                          <div style={styles.actionButtons}>
                             <button 
-                              className="btn btn-small btn-secondary"
-                              onClick={() => handleEditAdminNumber(admin)}
+                              style={styles.iconButton}
+                              onClick={() => editAdminNumber(admin)}
                             >
                               <Edit size={16} />
                             </button>
                             <button 
-                              className="btn btn-small btn-danger"
+                              style={{...styles.iconButton, ...styles.iconButtonDanger}}
                               onClick={() => handleDeleteAdminNumber(admin.id)}
                             >
                               <Trash2 size={16} />
@@ -892,164 +850,171 @@ const WhatsAppAdminPanel = () => {
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Templates Tab */}
-        {activeTab === 'templates' && (
-          <div className="templates-section">
-            <div className="section-header">
-              <h2>📋 Message Templates</h2>
-              <button 
-                className="btn btn-primary"
-                onClick={() => {
-                  resetTemplateForm();
-                  setShowTemplateModal(true);
-                }}
-              >
-                <Plus size={20} />
-                Add Template
-              </button>
             </div>
+          )}
 
-            {templates.length === 0 ? (
-              <div className="empty-state">
-                <FileText size={48} color="#999" />
-                <h3>No templates found</h3>
-                <p>Add your first message template</p>
+          {/* Templates Tab */}
+          {activeTab === 'templates' && (
+            <div style={styles.tabContent}>
+              <div style={styles.tabHeader}>
+                <h2 style={styles.tabTitle}>Message Templates</h2>
                 <button 
-                  className="btn btn-primary"
-                  onClick={() => setShowTemplateModal(true)}
+                  style={styles.primaryButton}
+                  onClick={() => {
+                    resetTemplateForm();
+                    setShowTemplateModal(true);
+                  }}
                 >
                   <Plus size={20} />
-                  Create Template
+                  Add Template
                 </button>
               </div>
-            ) : (
-              <div className="template-grid">
+
+              <div style={styles.templateGrid}>
                 {templates.map(template => (
-                  <div key={template.id} className={`template-card ${template.is_active ? 'active' : 'inactive'}`}>
-                    <div className="template-header">
-                      <h3>{template.template_type_display || template.template_type}</h3>
-                      <span className={`badge ${template.is_active ? 'badge-success' : 'badge-default'}`}>
-                        {template.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className="template-content">
-                      <div className="template-meta">
-                        <span className="badge badge-info">
+                  <div key={template.id} style={styles.templateCard}>
+                    <div style={styles.templateHeader}>
+                      <div>
+                        <h3 style={styles.templateTitle}>
+                          {template.template_type_display || template.template_type}
+                        </h3>
+                        <span style={styles.templateSubtitle}>
                           {template.recipient_type_display || template.recipient_type}
                         </span>
                       </div>
-                      <pre className="template-text">{template.template_text}</pre>
+                      {template.is_active && (
+                        <div style={styles.activeBadge}>
+                          <Zap size={12} />
+                          Active
+                        </div>
+                      )}
                     </div>
-                    <div className="template-actions">
+
+                    <div style={styles.templateBody}>
+                      <pre style={styles.templateText}>{template.template_text}</pre>
+                    </div>
+
+                    <div style={styles.templateActions}>
                       <button 
-                        className="btn btn-small btn-secondary"
-                        onClick={() => handleEditTemplate(template)}
+                        style={styles.secondaryButton}
+                        onClick={() => handlePreviewTemplate(template)}
                       >
-                        <Edit size={16} />
-                        Edit
+                        <Eye size={16} />
+                        Preview
                       </button>
                       <button 
-                        className="btn btn-small btn-danger"
+                        style={styles.iconButton}
+                        onClick={() => editTemplate(template)}
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        style={{...styles.iconButton, ...styles.iconButtonDanger}}
                         onClick={() => handleDeleteTemplate(template.id)}
                       >
                         <Trash2 size={16} />
-                        Delete
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Configuration Modal */}
+      {/* Modals */}
       {showConfigModal && (
-        <div className="modal-overlay" onClick={() => setShowConfigModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{configForm.id ? 'Edit' : 'Add'} Configuration</h2>
-              <button className="modal-close" onClick={() => setShowConfigModal(false)}>
+        <div style={styles.modalOverlay} onClick={() => setShowConfigModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>
+                {editingId ? 'Edit' : 'Add'} Configuration
+              </h2>
+              <button style={styles.modalClose} onClick={() => setShowConfigModal(false)}>
                 <X size={24} />
               </button>
             </div>
 
-            <div className="form-group">
-              <label>Provider</label>
-              <select 
-                value={configForm.provider}
-                onChange={(e) => setConfigForm({ ...configForm, provider: e.target.value })}
-              >
-                <option value="dxing">DXING</option>
-                <option value="twilio">Twilio</option>
-                <option value="meta">Meta Cloud API</option>
-              </select>
+            <div style={styles.modalBody}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Provider</label>
+                <select 
+                  style={styles.select}
+                  value={configForm.provider}
+                  onChange={(e) => setConfigForm({...configForm, provider: e.target.value})}
+                >
+                  <option value="dxing">DXING</option>
+                  <option value="twilio">Twilio</option>
+                  <option value="meta">Meta Cloud API</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>API URL</label>
+                <input 
+                  type="url"
+                  style={styles.input}
+                  value={configForm.api_url}
+                  onChange={(e) => setConfigForm({...configForm, api_url: e.target.value})}
+                  placeholder="https://app.dxing.in/api/send/whatsapp"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>API Secret</label>
+                <input 
+                  type="password"
+                  style={styles.input}
+                  value={configForm.api_secret}
+                  onChange={(e) => setConfigForm({...configForm, api_secret: e.target.value})}
+                  placeholder="Your API secret key"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Account ID</label>
+                <input 
+                  type="text"
+                  style={styles.input}
+                  value={configForm.account_id}
+                  onChange={(e) => setConfigForm({...configForm, account_id: e.target.value})}
+                  placeholder="Your account ID"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Default Priority (1-10)</label>
+                <input 
+                  type="number"
+                  style={styles.input}
+                  value={configForm.default_priority}
+                  onChange={(e) => setConfigForm({...configForm, default_priority: parseInt(e.target.value)})}
+                  min="1"
+                  max="10"
+                />
+              </div>
+
+              <div style={styles.checkboxGroup}>
+                <input 
+                  type="checkbox"
+                  style={styles.checkbox}
+                  checked={configForm.is_active}
+                  onChange={(e) => setConfigForm({...configForm, is_active: e.target.checked})}
+                />
+                <label style={styles.checkboxLabel}>Set as active configuration</label>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label>API URL</label>
-              <input 
-                type="url"
-                value={configForm.api_url}
-                onChange={(e) => setConfigForm({ ...configForm, api_url: e.target.value })}
-                placeholder="https://app.dxing.in/api/send/whatsapp"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>API Secret</label>
-              <input 
-                type="password"
-                value={configForm.api_secret}
-                onChange={(e) => setConfigForm({ ...configForm, api_secret: e.target.value })}
-                placeholder="Your API secret key"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Account ID</label>
-              <input 
-                type="text"
-                value={configForm.account_id}
-                onChange={(e) => setConfigForm({ ...configForm, account_id: e.target.value })}
-                placeholder="Your account ID"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Default Priority (1-10)</label>
-              <input 
-                type="number"
-                min="1"
-                max="10"
-                value={configForm.default_priority}
-                onChange={(e) => setConfigForm({ ...configForm, default_priority: parseInt(e.target.value) })}
-              />
-            </div>
-
-            <div className="form-group-checkbox">
-              <input 
-                type="checkbox"
-                checked={configForm.is_active}
-                onChange={(e) => setConfigForm({ ...configForm, is_active: e.target.checked })}
-              />
-              <label>Set as active configuration</label>
-            </div>
-
-            <div className="modal-footer">
+            <div style={styles.modalFooter}>
               <button 
-                className="btn btn-secondary"
+                style={styles.secondaryButton}
                 onClick={() => setShowConfigModal(false)}
               >
                 Cancel
               </button>
               <button 
-                className="btn btn-primary"
+                style={styles.primaryButton}
                 onClick={handleSaveConfiguration}
                 disabled={loading}
               >
@@ -1061,126 +1026,85 @@ const WhatsAppAdminPanel = () => {
         </div>
       )}
 
-      {/* Test Modal */}
-      {showTestModal && (
-        <div className="modal-overlay" onClick={() => setShowTestModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Test Configuration</h2>
-              <button className="modal-close" onClick={() => setShowTestModal(false)}>
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label>Test Phone Number</label>
-              <input 
-                type="tel"
-                value={testForm.test_number}
-                onChange={(e) => setTestForm({ ...testForm, test_number: e.target.value })}
-                placeholder="+918281561081"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Test Message</label>
-              <textarea 
-                value={testForm.test_message}
-                onChange={(e) => setTestForm({ ...testForm, test_message: e.target.value })}
-              />
-            </div>
-
-            <div className="modal-footer">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowTestModal(false)}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={() => handleTestConfiguration(configForm.id)}
-                disabled={loading}
-              >
-                <TestTube size={20} />
-                Send Test Message
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Number Modal */}
       {showAdminModal && (
-        <div className="modal-overlay" onClick={() => setShowAdminModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{adminForm.id ? 'Edit' : 'Add'} Admin Number</h2>
-              <button className="modal-close" onClick={() => setShowAdminModal(false)}>
+        <div style={styles.modalOverlay} onClick={() => setShowAdminModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>
+                {editingId ? 'Edit' : 'Add'} Admin Number
+              </h2>
+              <button style={styles.modalClose} onClick={() => setShowAdminModal(false)}>
                 <X size={24} />
               </button>
             </div>
 
-            <div className="form-group">
-              <label>Name</label>
-              <input 
-                type="text"
-                value={adminForm.name}
-                onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })}
-                placeholder="Admin name"
-              />
+            <div style={styles.modalBody}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Name</label>
+                <input 
+                  type="text"
+                  style={styles.input}
+                  value={adminForm.name}
+                  onChange={(e) => setAdminForm({...adminForm, name: e.target.value})}
+                  placeholder="Admin name"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Phone Number</label>
+                <input 
+                  type="tel"
+                  style={styles.input}
+                  value={adminForm.phone_number}
+                  onChange={(e) => setAdminForm({...adminForm, phone_number: e.target.value})}
+                  placeholder="+918281561081"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Role</label>
+                <select 
+                  style={styles.select}
+                  value={adminForm.role}
+                  onChange={(e) => setAdminForm({...adminForm, role: e.target.value})}
+                >
+                  <option value="hr_admin">HR Admin</option>
+                  <option value="manager">Manager</option>
+                  <option value="payroll_admin">Payroll Admin</option>
+                  <option value="global_cc">Global CC</option>
+                </select>
+              </div>
+
+              <div style={styles.checkboxGroup}>
+                <input 
+                  type="checkbox"
+                  style={styles.checkbox}
+                  checked={adminForm.is_active}
+                  onChange={(e) => setAdminForm({...adminForm, is_active: e.target.checked})}
+                />
+                <label style={styles.checkboxLabel}>Active (receives notifications)</label>
+              </div>
+
+              <div style={styles.checkboxGroup}>
+                <input 
+                  type="checkbox"
+                  style={styles.checkbox}
+                  checked={adminForm.is_api_sender}
+                  onChange={(e) => setAdminForm({...adminForm, is_api_sender: e.target.checked})}
+                />
+                <label style={styles.checkboxLabel}>API Sender (exclude from notifications)</label>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label>Phone Number</label>
-              <input 
-                type="tel"
-                value={adminForm.phone_number}
-                onChange={(e) => setAdminForm({ ...adminForm, phone_number: e.target.value })}
-                placeholder="+918281561081"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Role</label>
-              <select 
-                value={adminForm.role}
-                onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value })}
-              >
-                <option value="hr_admin">HR Admin</option>
-                <option value="manager">Manager</option>
-                <option value="payroll_admin">Payroll Admin</option>
-                <option value="global_cc">Global CC</option>
-              </select>
-            </div>
-
-            <div className="form-group-checkbox">
-              <input 
-                type="checkbox"
-                checked={adminForm.is_active}
-                onChange={(e) => setAdminForm({ ...adminForm, is_active: e.target.checked })}
-              />
-              <label>Active (receives notifications)</label>
-            </div>
-
-            <div className="form-group-checkbox">
-              <input 
-                type="checkbox"
-                checked={adminForm.is_api_sender}
-                onChange={(e) => setAdminForm({ ...adminForm, is_api_sender: e.target.checked })}
-              />
-              <label>API Sender (exclude from notifications)</label>
-            </div>
-
-            <div className="modal-footer">
+            <div style={styles.modalFooter}>
               <button 
-                className="btn btn-secondary"
+                style={styles.secondaryButton}
                 onClick={() => setShowAdminModal(false)}
               >
                 Cancel
               </button>
               <button 
-                className="btn btn-primary"
+                style={styles.primaryButton}
                 onClick={handleSaveAdminNumber}
                 disabled={loading}
               >
@@ -1192,79 +1116,88 @@ const WhatsAppAdminPanel = () => {
         </div>
       )}
 
-      {/* Template Modal */}
       {showTemplateModal && (
-        <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{templateForm.id ? 'Edit' : 'Add'} Message Template</h2>
-              <button className="modal-close" onClick={() => setShowTemplateModal(false)}>
+        <div style={styles.modalOverlay} onClick={() => setShowTemplateModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>
+                {editingId ? 'Edit' : 'Add'} Message Template
+              </h2>
+              <button style={styles.modalClose} onClick={() => setShowTemplateModal(false)}>
                 <X size={24} />
               </button>
             </div>
 
-            <div className="form-group">
-              <label>Template Type</label>
-              <select 
-                value={templateForm.template_type}
-                onChange={(e) => setTemplateForm({ ...templateForm, template_type: e.target.value })}
-              >
-                <option value="punch_in">Punch In</option>
-                <option value="punch_out">Punch Out</option>
-                <option value="leave_request">Leave Request</option>
-                <option value="leave_approval">Leave Approval</option>
-                <option value="leave_rejection">Leave Rejection</option>
-                <option value="late_request">Late Request</option>
-                <option value="late_approval">Late Approval</option>
-                <option value="late_rejection">Late Rejection</option>
-                <option value="early_request">Early Request</option>
-                <option value="early_approval">Early Approval</option>
-                <option value="early_rejection">Early Rejection</option>
-                <option value="generic_notification">Generic Notification</option>
-              </select>
+            <div style={styles.modalBody}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Template Type</label>
+                <select 
+                  style={styles.select}
+                  value={templateForm.template_type}
+                  onChange={(e) => setTemplateForm({...templateForm, template_type: e.target.value})}
+                >
+                  <option value="punch_in">Punch In</option>
+                  <option value="punch_out">Punch Out</option>
+                  <option value="leave_request">Leave Request</option>
+                  <option value="leave_approval">Leave Approval</option>
+                  <option value="leave_rejection">Leave Rejection</option>
+                  <option value="late_request">Late Request</option>
+                  <option value="late_approval">Late Approval</option>
+                  <option value="late_rejection">Late Rejection</option>
+                  <option value="early_request">Early Request</option>
+                  <option value="early_approval">Early Approval</option>
+                  <option value="early_rejection">Early Rejection</option>
+                  <option value="generic_notification">Generic Notification</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Recipient Type</label>
+                <select 
+                  style={styles.select}
+                  value={templateForm.recipient_type}
+                  onChange={(e) => setTemplateForm({...templateForm, recipient_type: e.target.value})}
+                >
+                  <option value="employee">Employee</option>
+                  <option value="admin">Admin/HR</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Template Text</label>
+                <textarea 
+                  style={styles.textarea}
+                  value={templateForm.template_text}
+                  onChange={(e) => setTemplateForm({...templateForm, template_text: e.target.value})}
+                  placeholder="Use variables like {employee_name}, {date}, {time}, etc."
+                  rows={8}
+                />
+                <small style={styles.hint}>
+                  Available: {'{employee_name}'}, {'{date}'}, {'{time}'}, {'{location}'}, {'{reason}'}, {'{leave_type}'}, {'{days}'}, {'{status}'}, {'{approver_name}'}
+                </small>
+              </div>
+
+              <div style={styles.checkboxGroup}>
+                <input 
+                  type="checkbox"
+                  style={styles.checkbox}
+                  checked={templateForm.is_active}
+                  onChange={(e) => setTemplateForm({...templateForm, is_active: e.target.checked})}
+                />
+                <label style={styles.checkboxLabel}>Active (use this template)</label>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label>Recipient Type</label>
-              <select 
-                value={templateForm.recipient_type}
-                onChange={(e) => setTemplateForm({ ...templateForm, recipient_type: e.target.value })}
-              >
-                <option value="employee">Employee</option>
-                <option value="admin">Admin/HR</option>
-                <option value="both">Both</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Template Text</label>
-              <textarea 
-                value={templateForm.template_text}
-                onChange={(e) => setTemplateForm({ ...templateForm, template_text: e.target.value })}
-                placeholder="Use variables like {employee_name}, {date}, {time}, etc."
-                rows={8}
-              />
-              <small>Available variables: {'{employee_name}'}, {'{date}'}, {'{time}'}, {'{location}'}, {'{reason}'}, {'{leave_type}'}, {'{days}'}, {'{status}'}, {'{approver_name}'}</small>
-            </div>
-
-            <div className="form-group-checkbox">
-              <input 
-                type="checkbox"
-                checked={templateForm.is_active}
-                onChange={(e) => setTemplateForm({ ...templateForm, is_active: e.target.checked })}
-              />
-              <label>Active (use this template)</label>
-            </div>
-
-            <div className="modal-footer">
+            <div style={styles.modalFooter}>
               <button 
-                className="btn btn-secondary"
+                style={styles.secondaryButton}
                 onClick={() => setShowTemplateModal(false)}
               >
                 Cancel
               </button>
               <button 
-                className="btn btn-primary"
+                style={styles.primaryButton}
                 onClick={handleSaveTemplate}
                 disabled={loading}
               >
@@ -1275,8 +1208,997 @@ const WhatsAppAdminPanel = () => {
           </div>
         </div>
       )}
+
+      {showTestModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowTestModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Test Configuration</h2>
+              <button style={styles.modalClose} onClick={() => setShowTestModal(false)}>
+                <X size={24} />
+              </button>
+            </div>
+
+            <div style={styles.modalBody}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Test Phone Number</label>
+                <input 
+                  type="tel"
+                  style={styles.input}
+                  value={testForm.test_number}
+                  onChange={(e) => setTestForm({...testForm, test_number: e.target.value})}
+                  placeholder="+918281561081"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Test Message</label>
+                <textarea 
+                  style={styles.textarea}
+                  value={testForm.test_message}
+                  onChange={(e) => setTestForm({...testForm, test_message: e.target.value})}
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            <div style={styles.modalFooter}>
+              <button 
+                style={styles.secondaryButton}
+                onClick={() => setShowTestModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                style={styles.primaryButton}
+                onClick={() => handleTestConfiguration(configForm.id)}
+                disabled={loading}
+              >
+                <Send size={20} />
+                Send Test Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPreviewModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowPreviewModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Template Preview</h2>
+              <button style={styles.modalClose} onClick={() => setShowPreviewModal(false)}>
+                <X size={24} />
+              </button>
+            </div>
+
+            <div style={styles.modalBody}>
+              <div style={styles.previewContainer}>
+                <div style={styles.previewLabel}>With Sample Data:</div>
+                <div style={styles.previewBox}>
+                  <pre style={styles.previewText}>{previewContext.preview}</pre>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.modalFooter}>
+              <button 
+                style={styles.primaryButton}
+                onClick={() => setShowPreviewModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+const styles = {
+  container: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    fontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    color: '#1e293b',
+  },
+  
+  header: {
+    background: '#ffffff',
+    borderBottom: '1px solid #e2e8f0',
+    padding: '1.5rem 2rem',
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
+  
+  headerContent: {
+    maxWidth: '1600px',
+    margin: '0 auto',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  
+  logoContainer: {
+    position: 'relative',
+    animation: 'pulse 2s ease-in-out infinite',
+  },
+  
+  sparkle: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    animation: 'sparkle 1.5s ease-in-out infinite',
+  },
+  
+  title: {
+    margin: 0,
+    fontSize: '1.75rem',
+    fontWeight: 700,
+    background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    letterSpacing: '-0.02em',
+  },
+  
+  subtitle: {
+    margin: 0,
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontWeight: 500,
+  },
+  
+  statusBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.5rem 1rem',
+    background: '#f1f5f9',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+  },
+  
+  statusText: {
+    fontWeight: 700,
+  },
+  
+  alert: {
+    maxWidth: '1600px',
+    margin: '1.5rem auto',
+    padding: '1rem 1.5rem',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    animation: 'slideDown 0.3s ease-out',
+  },
+  
+  alertError: {
+    background: 'rgba(239, 68, 68, 0.1)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    color: '#fca5a5',
+  },
+  
+  alertSuccess: {
+    background: 'rgba(16, 185, 129, 0.1)',
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    color: '#6ee7b7',
+  },
+  
+  alertClose: {
+    marginLeft: 'auto',
+    background: 'none',
+    border: 'none',
+    color: 'inherit',
+    cursor: 'pointer',
+    padding: '0.25rem',
+    borderRadius: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s',
+    opacity: 0.7,
+  },
+  
+  main: {
+    maxWidth: '1600px',
+    margin: '0 auto',
+    display: 'grid',
+    gridTemplateColumns: '280px 1fr',
+    gap: '2rem',
+    padding: '2rem',
+    minHeight: 'calc(100vh - 120px)',
+  },
+  
+  sidebar: {
+    position: 'sticky',
+    top: '120px',
+    height: 'fit-content',
+  },
+  
+  navSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  
+  navButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '0.875rem 1rem',
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    color: '#64748b',
+    fontSize: '0.9375rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    fontFamily: 'inherit',
+    width: '100%',
+    justifyContent: 'flex-start',
+  },
+  
+  navButtonActive: {
+    background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.1) 0%, rgba(18, 140, 126, 0.1) 100%)',
+    border: '1px solid #25D366',
+    color: '#128C7E',
+    fontWeight: 600,
+    transform: 'translateX(8px)',
+    boxShadow: '0 4px 16px rgba(37, 211, 102, 0.15)',
+  },
+  
+  content: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '20px',
+    padding: '2rem',
+    minHeight: '600px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
+  
+  tabContent: {
+    animation: 'fadeIn 0.4s ease-out',
+  },
+  
+  tabHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem',
+  },
+  
+  tabTitle: {
+    margin: 0,
+    fontSize: '2rem',
+    fontWeight: 700,
+    color: '#0f172a',
+    letterSpacing: '-0.02em',
+  },
+  
+  primaryButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.75rem 1.5rem',
+    background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+    border: 'none',
+    borderRadius: '12px',
+    color: '#fff',
+    fontSize: '0.9375rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    fontFamily: 'inherit',
+    boxShadow: '0 4px 16px rgba(37, 211, 102, 0.25)',
+  },
+  
+  secondaryButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.75rem 1.5rem',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    color: '#475569',
+    fontSize: '0.9375rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    fontFamily: 'inherit',
+  },
+  
+  iconButton: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '0.5rem',
+    color: '#64748b',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  iconButtonDanger: {
+    color: '#ef4444',
+    borderColor: '#fee2e2',
+  },
+  
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '1.5rem',
+    marginBottom: '2rem',
+  },
+  
+  statCard: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '1.5rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    position: 'relative',
+    overflow: 'hidden',
+    transition: 'all 0.3s',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
+  
+  statCardPrimary: {
+    borderColor: '#a7f3d0',
+    background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
+  },
+  
+  statCardSuccess: {
+    borderColor: '#86efac',
+    background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
+  },
+  
+  statCardInfo: {
+    borderColor: '#bfdbfe',
+    background: 'linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)',
+  },
+  
+  statIcon: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '14px',
+    background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.15) 0%, rgba(18, 140, 126, 0.15) 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#128C7E',
+  },
+  
+  statContent: {
+    flex: 1,
+  },
+  
+  statValue: {
+    fontSize: '2rem',
+    fontWeight: 700,
+    color: '#0f172a',
+    lineHeight: 1,
+    marginBottom: '0.25rem',
+  },
+  
+  statLabel: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontWeight: 500,
+  },
+  
+  statBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    padding: '0.25rem 0.75rem',
+    background: 'rgba(37, 211, 102, 0.15)',
+    borderRadius: '6px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    color: '#128C7E',
+  },
+  
+  section: {
+    marginBottom: '2rem',
+  },
+  
+  sectionTitle: {
+    fontSize: '1.25rem',
+    fontWeight: 600,
+    color: '#0f172a',
+    marginBottom: '1rem',
+  },
+  
+  configCard: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    padding: '1.5rem',
+  },
+  
+  configHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1rem',
+  },
+  
+  providerBadge: {
+    padding: '0.5rem 1rem',
+    background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.15) 0%, rgba(18, 140, 126, 0.15) 100%)',
+    border: '1px solid #a7f3d0',
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    fontWeight: 700,
+    color: '#128C7E',
+  },
+  
+  configStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    color: '#10b981',
+  },
+  
+  configDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  
+  configDetail: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '0.75rem',
+    background: '#ffffff',
+    borderRadius: '8px',
+  },
+  
+  configLabel: {
+    color: '#64748b',
+    fontSize: '0.875rem',
+    fontWeight: 500,
+  },
+  
+  configValue: {
+    color: '#0f172a',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+  },
+  
+  roleGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '1rem',
+  },
+  
+  roleCard: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    padding: '1.25rem',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
+  
+  roleHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  
+  roleTitle: {
+    fontSize: '0.9375rem',
+    fontWeight: 600,
+    color: '#0f172a',
+  },
+  
+  roleCount: {
+    fontSize: '2rem',
+    fontWeight: 700,
+    color: '#128C7E',
+    marginBottom: '0.75rem',
+  },
+  
+  roleList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  
+  roleItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    fontSize: '0.875rem',
+    color: '#64748b',
+  },
+  
+  roleMore: {
+    fontSize: '0.75rem',
+    color: '#94a3b8',
+    fontWeight: 600,
+    marginTop: '0.25rem',
+  },
+  
+  cardGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+    gap: '1.5rem',
+  },
+  
+  card: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '1.5rem',
+    transition: 'all 0.3s',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
+  
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1.25rem',
+  },
+  
+  activeBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    padding: '0.375rem 0.75rem',
+    background: 'rgba(37, 211, 102, 0.15)',
+    borderRadius: '8px',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    color: '#128C7E',
+  },
+  
+  cardBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+    marginBottom: '1.25rem',
+  },
+  
+  cardField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.25rem',
+  },
+  
+  fieldLabel: {
+    fontSize: '0.75rem',
+    color: '#64748b',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  
+  fieldValue: {
+    fontSize: '0.9375rem',
+    color: '#0f172a',
+    fontWeight: 500,
+  },
+  
+  cardActions: {
+    display: 'flex',
+    gap: '0.5rem',
+    paddingTop: '1rem',
+    borderTop: '1px solid #e2e8f0',
+  },
+  
+  tableContainer: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
+  
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  
+  tableHeader: {
+    padding: '1rem 1.5rem',
+    textAlign: 'left',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    background: '#f8fafc',
+    borderBottom: '1px solid #e2e8f0',
+  },
+  
+  tableRow: {
+    borderBottom: '1px solid #f1f5f9',
+    transition: 'all 0.2s',
+  },
+  
+  tableCell: {
+    padding: '1rem 1.5rem',
+    fontSize: '0.9375rem',
+    color: '#1e293b',
+  },
+  
+  nameCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  },
+  
+  avatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '10px',
+    background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.2) 0%, rgba(18, 140, 126, 0.2) 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '1rem',
+    fontWeight: 700,
+    color: '#128C7E',
+  },
+  
+  phoneCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    color: '#64748b',
+  },
+  
+  roleBadge: {
+    padding: '0.375rem 0.875rem',
+    borderRadius: '8px',
+    fontSize: '0.8125rem',
+    fontWeight: 600,
+    display: 'inline-block',
+  },
+  
+  statusActive: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    color: '#10b981',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+  },
+  
+  statusInactive: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    color: '#94a3b8',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+  },
+  
+  actionButtons: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  
+  templateGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
+    gap: '1.5rem',
+  },
+  
+  templateCard: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '1.5rem',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
+  
+  templateHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '1rem',
+  },
+  
+  templateTitle: {
+    fontSize: '1.125rem',
+    fontWeight: 600,
+    color: '#0f172a',
+    margin: '0 0 0.25rem 0',
+  },
+  
+  templateSubtitle: {
+    fontSize: '0.8125rem',
+    color: '#64748b',
+    fontWeight: 500,
+  },
+  
+  templateBody: {
+    flex: 1,
+    background: '#f8fafc',
+    borderRadius: '8px',
+    padding: '1rem',
+    marginBottom: '1rem',
+    border: '1px solid #e2e8f0',
+  },
+  
+  templateText: {
+    margin: 0,
+    fontSize: '0.875rem',
+    color: '#475569',
+    lineHeight: 1.6,
+    fontFamily: 'ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace',
+    whiteSpace: 'pre-wrap',
+  },
+  
+  templateActions: {
+    display: 'flex',
+    gap: '0.5rem',
+    paddingTop: '1rem',
+    borderTop: '1px solid #e2e8f0',
+  },
+  
+  modalOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(15, 23, 42, 0.75)',
+    backdropFilter: 'blur(8px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    padding: '2rem',
+    animation: 'fadeIn 0.2s ease-out',
+  },
+  
+  modal: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '20px',
+    maxWidth: '600px',
+    width: '100%',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+    animation: 'slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  },
+  
+  modalHeader: {
+    padding: '1.5rem 2rem',
+    borderBottom: '1px solid #e2e8f0',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  
+  modalTitle: {
+    margin: 0,
+    fontSize: '1.5rem',
+    fontWeight: 700,
+    color: '#0f172a',
+  },
+  
+  modalClose: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '0.5rem',
+    color: '#64748b',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s',
+  },
+  
+  modalBody: {
+    padding: '2rem',
+  },
+  
+  modalFooter: {
+    padding: '1.5rem 2rem',
+    borderTop: '1px solid #e2e8f0',
+    display: 'flex',
+    gap: '1rem',
+    justifyContent: 'flex-end',
+    background: '#f8fafc',
+  },
+  
+  formGroup: {
+    marginBottom: '1.5rem',
+  },
+  
+  label: {
+    display: 'block',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    color: '#334155',
+    marginBottom: '0.5rem',
+  },
+  
+  input: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    color: '#1e293b',
+    fontSize: '0.9375rem',
+    fontFamily: 'inherit',
+    transition: 'all 0.2s',
+    outline: 'none',
+  },
+  
+  select: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    color: '#1e293b',
+    fontSize: '0.9375rem',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    outline: 'none',
+  },
+  
+  textarea: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    color: '#1e293b',
+    fontSize: '0.9375rem',
+    fontFamily: 'ui-monospace, "Cascadia Code", Menlo, monospace',
+    resize: 'vertical',
+    lineHeight: 1.6,
+    outline: 'none',
+  },
+  
+  checkboxGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  
+  checkbox: {
+    width: '18px',
+    height: '18px',
+    cursor: 'pointer',
+  },
+  
+  checkboxLabel: {
+    fontSize: '0.9375rem',
+    color: '#334155',
+    fontWeight: 500,
+    cursor: 'pointer',
+  },
+  
+  hint: {
+    display: 'block',
+    marginTop: '0.5rem',
+    fontSize: '0.8125rem',
+    color: '#64748b',
+    lineHeight: 1.5,
+  },
+  
+  previewContainer: {
+    background: '#f8fafc',
+    borderRadius: '12px',
+    padding: '1.5rem',
+    border: '1px solid #e2e8f0',
+  },
+  
+  previewLabel: {
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    color: '#64748b',
+    marginBottom: '0.75rem',
+  },
+  
+  previewBox: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '1rem',
+  },
+  
+  previewText: {
+    margin: 0,
+    fontSize: '0.9375rem',
+    color: '#1e293b',
+    lineHeight: 1.6,
+    fontFamily: 'ui-monospace, "Cascadia Code", Menlo, monospace',
+    whiteSpace: 'pre-wrap',
+  },
+};
+
+// Add CSS animations
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(30px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes sparkle {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.2) rotate(180deg);
+    }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default WhatsAppAdminPanel;

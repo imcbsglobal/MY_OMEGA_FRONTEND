@@ -6,163 +6,239 @@ export default function Travel() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userLevel = user?.user_level || "User";
   const userName = user?.name || "";
+  const userId = user?.id || null;
 
   const [view, setView] = useState('list'); // 'list', 'add', 'end'
   const [trips, setTrips] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Form states for Start Trip
   const [formData, setFormData] = useState({
     vehicle: '',
-    date: '',
+    employee: userId,
+    date: new Date().toISOString().split('T')[0],
     start_time: '',
+    time_period: 'AM',
     client_name: '',
     purpose: '',
-    fuel_cost: '',
-    odo_start: '',
-    start_image: null,
+    fuel_cost: '0',
+    odometer_start: '',
+    odometer_start_image: null,
   });
 
   // Form states for End Trip
   const [endFormData, setEndFormData] = useState({
-    odo_end: '',
+    odometer_end: '',
     end_time: '',
-    end_image: null,
+    odometer_end_image: null,
   });
 
   useEffect(() => {
     fetchTrips();
+    fetchVehicles();
   }, []);
 
+  // Fetch active vehicles for dropdown
+  const fetchVehicles = async () => {
+    try {
+      const response = await api.get('/vehicle-management/vehicles/dropdown/');
+      setVehicles(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch vehicles:', error);
+      setErrors({ fetch: 'Failed to load vehicles. Please refresh the page.' });
+    }
+  };
+
+  // Fetch user's trips
   const fetchTrips = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/vehicle/travel-trips/');
-      setTrips(response.data?.results || response.data || []);
+      const response = await api.get('/vehicle-management/trips/my-trips/');
+      const formattedTrips = formatTripsData(response.data || []);
+      setTrips(formattedTrips);
     } catch (error) {
       console.error('Failed to fetch trips:', error);
-      // Mock data
-      setTrips([
-        {
-          id: 1,
-          vehicle: 'KL 12 Q8130',
-          traveler_name: 'ajinaijn003@gmail.com',
-          client_purpose: 'IDBI\nADM activation',
-          date: '29-Jan-2026',
-          start_time: '11:21 AM',
-          end_time: '-',
-          odo_start: '338.00',
-          odo_end: '338.00',
-          distance: '-',
-          fuel_cost: '₹1.00',
-          status: 'Started',
-          start_image: true,
-          end_image: false
-        },
-        {
-          id: 2,
-          vehicle: 'KL12M9188',
-          traveler_name: 'ajinaijn003@gmail.com',
-          client_purpose: '—',
-          date: '29-Jan-2026',
-          start_time: '10:28 AM',
-          end_time: '10:45 AM',
-          odo_start: '25342.00',
-          odo_end: '25346.00',
-          distance: '4.00',
-          fuel_cost: '₹1.00',
-          status: 'Completed',
-          start_image: true,
-          end_image: true
-        },
-        {
-          id: 3,
-          vehicle: 'KL 12 L1702',
-          traveler_name: 'elginvargu@gmail.com',
-          client_purpose: 'Marketing\nMarketing and eat food',
-          date: '28-Jan-2026',
-          start_time: '02:00 PM',
-          end_time: '07:21 PM',
-          odo_start: '63375.00',
-          odo_end: '63384.00',
-          distance: '9.00',
-          fuel_cost: '₹1.00',
-          status: 'Completed',
-          start_image: true,
-          end_image: true
-        },
-        {
-          id: 4,
-          vehicle: 'KL 12 Q8130',
-          traveler_name: 'adiladhi03@gmail.com',
-          client_purpose: 'RR Medicals',
-          date: '28-Jan-2026',
-          start_time: '02:19 PM',
-          end_time: '06:29 PM',
-          odo_start: '304.50',
-          odo_end: '337.60',
-          distance: '33.10',
-          fuel_cost: '₹150.00',
-          status: 'Completed',
-          start_image: true,
-          end_image: true
-        },
-        {
-          id: 5,
-          vehicle: 'KL 73 D 5309',
-          traveler_name: 'muhammedsinanpc6947@gmail.com',
-          client_purpose: 'Marketing\nClient visit',
-          date: '28-Jan-2026',
-          start_time: '02:25 PM',
-          end_time: '-',
-          odo_start: '58629.00',
-          odo_end: '58629.00',
-          distance: '-',
-          fuel_cost: '₹100.00',
-          status: 'Started',
-          start_image: true,
-          end_image: false
-        }
-      ]);
+      setErrors({ fetch: 'Failed to load trips. Please try again.' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Format trips data for display
+  const formatTripsData = (data) => {
+    return data.map(trip => ({
+      id: trip.id,
+      vehicle: trip.vehicle_info?.registration_number || 'N/A',
+      vehicle_name: trip.vehicle_info?.vehicle_name || '',
+      traveler_name: trip.employee_info?.full_name || trip.employee_info?.email || 'N/A',
+      client_purpose: trip.client_name && trip.purpose 
+        ? `${trip.client_name}\n${trip.purpose}` 
+        : trip.purpose || '—',
+      date: formatDate(trip.date),
+      start_time: formatTime(trip.start_time, trip.time_period),
+      end_time: trip.end_time ? formatTime(trip.end_time, trip.time_period) : '—',
+      odo_start: parseFloat(trip.odometer_start || 0).toFixed(2),
+      odo_end: trip.odometer_end ? parseFloat(trip.odometer_end).toFixed(2) : '—',
+      distance: trip.distance_km ? parseFloat(trip.distance_km).toFixed(2) : '—',
+      fuel_cost: `₹${parseFloat(trip.fuel_cost || 0).toFixed(2)}`,
+      status: trip.status.charAt(0).toUpperCase() + trip.status.slice(1),
+      start_image: !!trip.odometer_start_url,
+      end_image: !!trip.odometer_end_url,
+      start_image_url: trip.odometer_start_url,
+      end_image_url: trip.odometer_end_url,
+      raw_data: trip
+    }));
+  };
+
+  // Format date to DD-MMM-YYYY
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  // Format time to 12-hour format
+  const formatTime = (timeString, period) => {
+    if (!timeString) return 'N/A';
+    const [hours, minutes] = timeString.split(':');
+    let hour = parseInt(hours);
+    const ampm = period || (hour >= 12 ? 'PM' : 'AM');
+    hour = hour % 12 || 12;
+    return `${hour.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+
+  // Handle vehicle selection and auto-fill odometer
+  const handleVehicleChange = (vehicleId) => {
+    const selectedVehicle = vehicles.find(v => v.id === parseInt(vehicleId));
+    setFormData({
+      ...formData,
+      vehicle: vehicleId,
+      odometer_start: selectedVehicle ? selectedVehicle.current_odometer.toString() : ''
+    });
+  };
+
+  // Handle start trip form submission
   const handleStartTrip = async (e) => {
     e.preventDefault();
+    setErrors({});
+    setLoading(true);
+
     try {
-      // API call to start trip
-      // await api.post('/vehicle/travel-trips/', formData);
-      console.log('Starting trip:', formData);
+      // Create FormData for file upload
+      const submitData = new FormData();
+      submitData.append('vehicle', formData.vehicle);
+      submitData.append('employee', userId);
+      submitData.append('date', formData.date);
+      submitData.append('start_time', formData.start_time);
+      submitData.append('time_period', formData.time_period);
+      submitData.append('client_name', formData.client_name || '');
+      submitData.append('purpose', formData.purpose || '');
+      submitData.append('fuel_cost', formData.fuel_cost || '0');
+      submitData.append('odometer_start', formData.odometer_start);
+      
+      if (formData.odometer_start_image) {
+        submitData.append('odometer_start_image', formData.odometer_start_image);
+      }
+
+      const response = await api.post('/vehicle-management/trips/start/', submitData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setSuccessMessage('Trip started successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      
+      // Reset form
+      setFormData({
+        vehicle: '',
+        employee: userId,
+        date: new Date().toISOString().split('T')[0],
+        start_time: '',
+        time_period: 'AM',
+        client_name: '',
+        purpose: '',
+        fuel_cost: '0',
+        odometer_start: '',
+        odometer_start_image: null,
+      });
+      
       setView('list');
       fetchTrips();
     } catch (error) {
       console.error('Failed to start trip:', error);
+      if (error.response?.data) {
+        setErrors(error.response.data);
+      } else {
+        setErrors({ general: 'Failed to start trip. Please try again.' });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Handle end trip form submission
   const handleEndTrip = async (e) => {
     e.preventDefault();
+    setErrors({});
+    setLoading(true);
+
     try {
-      // API call to end trip
-      // await api.patch(`/vehicle/travel-trips/${selectedTrip.id}/`, endFormData);
-      console.log('Ending trip:', endFormData);
+      // Create FormData for file upload
+      const submitData = new FormData();
+      submitData.append('end_time', endFormData.end_time);
+      submitData.append('odometer_end', endFormData.odometer_end);
+      
+      if (endFormData.odometer_end_image) {
+        submitData.append('odometer_end_image', endFormData.odometer_end_image);
+      }
+
+      const response = await api.patch(
+        `/vehicle-management/trips/${selectedTrip.id}/end/`,
+        submitData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      setSuccessMessage('Trip completed successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      
       setView('list');
       setSelectedTrip(null);
+      setEndFormData({
+        odometer_end: '',
+        end_time: '',
+        odometer_end_image: null,
+      });
       fetchTrips();
     } catch (error) {
       console.error('Failed to end trip:', error);
+      if (error.response?.data) {
+        setErrors(error.response.data);
+      } else {
+        setErrors({ general: 'Failed to complete trip. Please try again.' });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const openEndTripForm = (trip) => {
-    setSelectedTrip(trip);
+    setSelectedTrip(trip.raw_data);
     setEndFormData({
-      odo_end: '',
+      odometer_end: '',
       end_time: '',
-      end_image: null,
+      odometer_end_image: null,
     });
     setView('end');
   };
@@ -171,135 +247,177 @@ export default function Travel() {
   const renderStartTripForm = () => (
     <div style={styles.container}>
       <div style={styles.formWrapper}>
-      <div style={styles.formHeader}>
-        <h2 style={styles.formTitle}>Start Trip</h2>
-        <p style={styles.formSubtitle}>Logged in as {userName}</p>
-      </div>
-
-      <form onSubmit={handleStartTrip}>
-        {/* TRIP BASICS */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>TRIP BASICS</h3>
-          <div style={styles.formGrid}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Vehicle</label>
-              <select
-                value={formData.vehicle}
-                onChange={(e) => setFormData({...formData, vehicle: e.target.value})}
-                style={styles.select}
-                required
-              >
-                <option value="">Select vehicle</option>
-                <option value="KL12M9188">KL12M9188</option>
-                <option value="KL 12 L1702">KL 12 L1702</option>
-                <option value="KL 12 Q8130">KL 12 Q8130</option>
-                <option value="KL 73 D 5309">KL 73 D 5309</option>
-              </select>
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Date</label>
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
-                style={styles.input}
-                required
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Start Time</label>
-              <input
-                type="time"
-                value={formData.start_time}
-                onChange={(e) => setFormData({...formData, start_time: e.target.value})}
-                style={styles.input}
-                required
-              />
-            </div>
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Client Name</label>
-            <input
-              type="text"
-              value={formData.client_name}
-              onChange={(e) => setFormData({...formData, client_name: e.target.value})}
-              placeholder="Type to search client or en"
-              style={styles.input}
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Purpose of Trip</label>
-            <textarea
-              value={formData.purpose}
-              onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-              placeholder="Enter the purpose of this trip..."
-              style={styles.textarea}
-              rows="4"
-            />
-          </div>
+        <div style={styles.formHeader}>
+          <h2 style={styles.formTitle}>Start Trip</h2>
+          <p style={styles.formSubtitle}>Logged in as {userName}</p>
         </div>
 
-        {/* FUEL & ODOMETER */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>FUEL & ODOMETER</h3>
-          <div style={styles.formGrid}>
+        {successMessage && (
+          <div style={styles.successMessage}>{successMessage}</div>
+        )}
+
+        {errors.general && (
+          <div style={styles.errorMessage}>{errors.general}</div>
+        )}
+
+        <form onSubmit={handleStartTrip}>
+          {/* TRIP BASICS */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>TRIP BASICS</h3>
+            <div style={styles.formGrid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Vehicle *</label>
+                <select
+                  value={formData.vehicle}
+                  onChange={(e) => handleVehicleChange(e.target.value)}
+                  style={styles.select}
+                  required
+                >
+                  <option value="">Select vehicle</option>
+                  {vehicles.map(vehicle => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.registration_number} - {vehicle.vehicle_name}
+                    </option>
+                  ))}
+                </select>
+                {errors.vehicle && <span style={styles.errorText}>{errors.vehicle}</span>}
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date *</label>
+                <input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({...formData, date: e.target.value})}
+                  style={styles.input}
+                  required
+                />
+                {errors.date && <span style={styles.errorText}>{errors.date}</span>}
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Start Time *</label>
+                <input
+                  type="time"
+                  value={formData.start_time}
+                  onChange={(e) => setFormData({...formData, start_time: e.target.value})}
+                  style={styles.input}
+                  required
+                />
+                {errors.start_time && <span style={styles.errorText}>{errors.start_time}</span>}
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Time Period *</label>
+                <select
+                  value={formData.time_period}
+                  onChange={(e) => setFormData({...formData, time_period: e.target.value})}
+                  style={styles.select}
+                  required
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
+            </div>
+
             <div style={styles.formGroup}>
-              <label style={styles.label}>Fuel Cost (₹)</label>
+              <label style={styles.label}>Client Name</label>
               <input
-                type="number"
-                value={formData.fuel_cost}
-                onChange={(e) => setFormData({...formData, fuel_cost: e.target.value})}
-                placeholder="0"
+                type="text"
+                value={formData.client_name}
+                onChange={(e) => setFormData({...formData, client_name: e.target.value})}
+                placeholder="Enter client name (optional)"
                 style={styles.input}
               />
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Odometer Start</label>
-              <input
-                type="number"
-                value={formData.odo_start}
-                onChange={(e) => setFormData({...formData, odo_start: e.target.value})}
-                style={styles.input}
+              <label style={styles.label}>Purpose of Trip</label>
+              <textarea
+                value={formData.purpose}
+                onChange={(e) => setFormData({...formData, purpose: e.target.value})}
+                placeholder="Enter the purpose of this trip..."
+                style={styles.textarea}
+                rows="4"
               />
+              {errors.purpose && <span style={styles.errorText}>{errors.purpose}</span>}
             </div>
           </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Odometer Start Image</label>
-            <input
-              type="file"
-              onChange={(e) => setFormData({...formData, start_image: e.target.files[0]})}
-              style={styles.fileInput}
-              accept="image/*"
-            />
+          {/* FUEL & ODOMETER */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>FUEL & ODOMETER</h3>
+            <div style={styles.formGrid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fuel Cost (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.fuel_cost}
+                  onChange={(e) => setFormData({...formData, fuel_cost: e.target.value})}
+                  placeholder="0.00"
+                  style={styles.input}
+                />
+                {errors.fuel_cost && <span style={styles.errorText}>{errors.fuel_cost}</span>}
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Odometer Start (KM) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.odometer_start}
+                  onChange={(e) => setFormData({...formData, odometer_start: e.target.value})}
+                  style={styles.input}
+                  required
+                />
+                {errors.odometer_start && <span style={styles.errorText}>{errors.odometer_start}</span>}
+              </div>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Odometer Start Image</label>
+              <input
+                type="file"
+                onChange={(e) => setFormData({...formData, odometer_start_image: e.target.files[0]})}
+                style={styles.fileInput}
+                accept="image/*"
+              />
+              {formData.odometer_start_image && (
+                <span style={styles.fileName}>{formData.odometer_start_image.name}</span>
+              )}
+            </div>
+
+            <div style={styles.infoBox}>
+              <p style={styles.infoText}>
+                After you start, you'll be taken back to <strong>Travel Management</strong>. Use the <em>End Trip</em> button in the list when the trip is finished.
+              </p>
+            </div>
           </div>
 
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>
-              After you start, you'll be taken back to <strong>Fuel Management</strong>. Use the <em>End Trip</em> button in the list when the trip is finished.
-            </p>
+          {/* Form Actions */}
+          <div style={styles.formActions}>
+            <button
+              type="button"
+              onClick={() => {
+                setView('list');
+                setErrors({});
+              }}
+              style={styles.cancelButton}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={styles.submitButton}
+              disabled={loading}
+            >
+              {loading ? 'Starting Trip...' : 'Start Trip'}
+            </button>
           </div>
-        </div>
-
-        {/* Form Actions */}
-        <div style={styles.formActions}>
-          <button
-            type="button"
-            onClick={() => setView('list')}
-            style={styles.cancelButton}
-          >
-            Cancel
-          </button>
-          <button type="submit" style={styles.submitButton}>
-            Start Trip
-          </button>
-        </div>
-      </form>
+        </form>
       </div>
     </div>
   );
@@ -308,89 +426,156 @@ export default function Travel() {
   const renderEndTripForm = () => (
     <div style={styles.container}>
       <div style={styles.formWrapper}>
-      <div style={styles.formHeader}>
-        <h2 style={styles.formTitle}>End Trip — {selectedTrip?.vehicle}</h2>
-        <p style={styles.formSubtitle}>Logged in as {userName}</p>
-      </div>
+        <div style={styles.formHeader}>
+          <h2 style={styles.formTitle}>End Trip</h2>
+          <p style={styles.formSubtitle}>
+            Vehicle: {selectedTrip?.vehicle_info?.registration_number || 'N/A'}
+          </p>
+        </div>
 
-      <form onSubmit={handleEndTrip}>
-        {/* TRIP COMPLETION */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>TRIP COMPLETION</h3>
-          <div style={styles.formGrid}>
+        {successMessage && (
+          <div style={styles.successMessage}>{successMessage}</div>
+        )}
+
+        {errors.general && (
+          <div style={styles.errorMessage}>{errors.general}</div>
+        )}
+
+        {errors.error && (
+          <div style={styles.errorMessage}>{errors.error}</div>
+        )}
+
+        <form onSubmit={handleEndTrip}>
+          {/* Trip Start Info (Read-only) */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>TRIP START INFO</h3>
+            <div style={styles.formGrid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date</label>
+                <input
+                  type="text"
+                  value={formatDate(selectedTrip?.date)}
+                  style={styles.inputDisabled}
+                  disabled
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Start Time</label>
+                <input
+                  type="text"
+                  value={formatTime(selectedTrip?.start_time, selectedTrip?.time_period)}
+                  style={styles.inputDisabled}
+                  disabled
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Odometer Start</label>
+                <input
+                  type="text"
+                  value={selectedTrip?.odometer_start || '0'}
+                  style={styles.inputDisabled}
+                  disabled
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fuel Cost</label>
+                <input
+                  type="text"
+                  value={`₹${parseFloat(selectedTrip?.fuel_cost || 0).toFixed(2)}`}
+                  style={styles.inputDisabled}
+                  disabled
+                />
+              </div>
+            </div>
+
             <div style={styles.formGroup}>
-              <label style={styles.label}>Odometer Start</label>
-              <input
-                type="text"
-                value={selectedTrip?.odo_start || ''}
+              <label style={styles.label}>Purpose</label>
+              <textarea
+                value={selectedTrip?.purpose || 'N/A'}
                 style={styles.inputDisabled}
+                rows="3"
                 disabled
               />
             </div>
+          </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Odometer End</label>
-              <input
-                type="number"
-                value={endFormData.odo_end}
-                onChange={(e) => setEndFormData({...endFormData, odo_end: e.target.value})}
-                placeholder="Enter end reading"
-                style={styles.input}
-                required
-              />
+          {/* Trip End Details */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>TRIP END DETAILS</h3>
+            <div style={styles.formGrid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>End Time *</label>
+                <input
+                  type="time"
+                  value={endFormData.end_time}
+                  onChange={(e) => setEndFormData({...endFormData, end_time: e.target.value})}
+                  style={styles.input}
+                  required
+                />
+                {errors.end_time && <span style={styles.errorText}>{errors.end_time}</span>}
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Odometer End (KM) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={endFormData.odometer_end}
+                  onChange={(e) => setEndFormData({...endFormData, odometer_end: e.target.value})}
+                  style={styles.input}
+                  placeholder={`Must be ≥ ${selectedTrip?.odometer_start || 0}`}
+                  required
+                />
+                {errors.odometer_end && <span style={styles.errorText}>{errors.odometer_end}</span>}
+              </div>
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>End Time</label>
+              <label style={styles.label}>Odometer End Image</label>
               <input
-                type="time"
-                value={endFormData.end_time}
-                onChange={(e) => setEndFormData({...endFormData, end_time: e.target.value})}
-                style={styles.input}
-                required
+                type="file"
+                onChange={(e) => setEndFormData({...endFormData, odometer_end_image: e.target.files[0]})}
+                style={styles.fileInput}
+                accept="image/*"
               />
+              {endFormData.odometer_end_image && (
+                <span style={styles.fileName}>{endFormData.odometer_end_image.name}</span>
+              )}
+            </div>
+
+            <div style={styles.infoBox}>
+              <p style={styles.infoText}>
+                Once you complete the trip, it will be sent for admin approval. The distance will be automatically calculated.
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* ODOMETER PROOF */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>ODOMETER PROOF</h3>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Odometer End Image</label>
-            <input
-              type="file"
-              onChange={(e) => setEndFormData({...endFormData, end_image: e.target.files[0]})}
-              style={styles.fileInput}
-              accept="image/*"
-              required
-            />
+          {/* Form Actions */}
+          <div style={styles.formActions}>
+            <button
+              type="button"
+              onClick={() => {
+                setView('list');
+                setSelectedTrip(null);
+                setErrors({});
+              }}
+              style={styles.cancelButton}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={styles.submitButton}
+              disabled={loading}
+            >
+              {loading ? 'Completing Trip...' : 'Complete Trip'}
+            </button>
           </div>
-
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>
-              Ensure the end odometer reading is correct. Once submitted, this trip will be marked as completed in <strong>Fuel Management</strong>.
-            </p>
-          </div>
-        </div>
-
-        {/* Form Actions */}
-        <div style={styles.formActions}>
-          <button
-            type="button"
-            onClick={() => {
-              setView('list');
-              setSelectedTrip(null);
-            }}
-            style={styles.cancelButton}
-          >
-            Back
-          </button>
-          <button type="submit" style={styles.submitButton}>
-            Complete Trip
-          </button>
-        </div>
-      </form>
+        </form>
       </div>
     </div>
   );
@@ -398,22 +583,31 @@ export default function Travel() {
   // Render Trip List
   const renderTripList = () => (
     <div style={styles.container}>
+      {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerContent}>
           <div>
             <h1 style={styles.pageTitle}>Travel Management</h1>
-            <p style={styles.pageDescription}>Track and manage employee travels</p>
+            <p style={styles.pageDescription}>Track and manage your trips</p>
           </div>
         </div>
         <button onClick={() => setView('add')} style={styles.addButton}>
-          <Plus size={20} />
-          Add New Trip
+          <Plus size={18} />
+          Start New Trip
         </button>
       </div>
 
+      {successMessage && (
+        <div style={styles.successMessage}>{successMessage}</div>
+      )}
+
+      {errors.fetch && (
+        <div style={styles.errorMessage}>{errors.fetch}</div>
+      )}
+
       {/* Results Count */}
       <div style={styles.resultsCount}>
-        {trips.length} trip(s) found | Showing page 1 of {Math.ceil(trips.length / 10)}
+        {trips.length} trip(s) found
       </div>
 
       {/* Table */}
@@ -423,7 +617,6 @@ export default function Travel() {
             <thead>
               <tr style={styles.tableHeaderRow}>
                 <th style={styles.tableHeader}>#</th>
-                <th style={styles.tableHeader}>STATUS / ACTION</th>
                 <th style={styles.tableHeader}>VEHICLE</th>
                 <th style={styles.tableHeader}>TRAVELED BY</th>
                 <th style={styles.tableHeader}>CLIENT & PURPOSE</th>
@@ -436,66 +629,112 @@ export default function Travel() {
                 <th style={styles.tableHeader}>FUEL COST</th>
                 <th style={styles.tableHeader}>START IMAGE</th>
                 <th style={styles.tableHeader}>END IMAGE</th>
+                <th style={styles.tableHeader}>STATUS / ACTION</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="14" style={styles.noData}>Loading...</td>
+                  <td colSpan="14" style={styles.noData}>Loading trips...</td>
                 </tr>
               ) : trips.length === 0 ? (
                 <tr>
-                  <td colSpan="14" style={styles.noData}>No trips found</td>
+                  <td colSpan="14" style={styles.noData}>No trips found. Start your first trip!</td>
                 </tr>
               ) : (
                 trips.map((trip, index) => (
                   <tr key={trip.id} style={styles.tableRow}>
                     <td style={styles.tableCell}>{index + 1}</td>
                     <td style={styles.tableCell}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        <span style={{
-                          ...styles.statusBadge,
-                          backgroundColor: trip.status === 'Completed' ? '#dcfce7' : '#fef3c7',
-                          color: trip.status === 'Completed' ? '#166534' : '#92400e'
-                        }}>
-                          {trip.status}
-                        </span>
-                        {trip.status === 'Started' && (
-                          <button
-                            onClick={() => openEndTripForm(trip)}
-                            style={styles.endTripButton}
-                          >
-                            End Trip
-                          </button>
-                        )}
-                      </div>
+                      <div>{trip.vehicle}</div>
+                      {trip.vehicle_name && (
+                        <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                          {trip.vehicle_name}
+                        </div>
+                      )}
                     </td>
-                    <td style={styles.tableCell}>{trip.vehicle}</td>
                     <td style={styles.tableCell}>{trip.traveler_name}</td>
                     <td style={styles.tableCell}>
-                      {trip.client_purpose ? (
+                      {trip.client_purpose.includes('\n') ? (
                         <>
-                          <div style={styles.clientName}>{trip.client_purpose.split('\n')[0]}</div>
-                          <div style={styles.clientPurpose}>{trip.client_purpose.split('\n')[1]}</div>
+                          <div style={styles.clientName}>
+                            {trip.client_purpose.split('\n')[0]}
+                          </div>
+                          <div style={styles.clientPurpose}>
+                            {trip.client_purpose.split('\n')[1]}
+                          </div>
                         </>
-                      ) : '—'}
+                      ) : (
+                        trip.client_purpose
+                      )}
                     </td>
                     <td style={styles.tableCell}>{trip.date}</td>
                     <td style={styles.tableCell}>{trip.start_time}</td>
-                    <td style={styles.tableCell}>{trip.end_time || '-'}</td>
+                    <td style={styles.tableCell}>{trip.end_time}</td>
                     <td style={styles.tableCell}>{trip.odo_start}</td>
                     <td style={styles.tableCell}>{trip.odo_end}</td>
                     <td style={styles.tableCell}>{trip.distance}</td>
                     <td style={styles.tableCell}>{trip.fuel_cost}</td>
                     <td style={styles.tableCell}>
                       {trip.start_image ? (
-                        <button style={styles.viewButton}>View</button>
-                      ) : '-'}
+                        <a
+                          href={trip.start_image_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.viewButton}
+                        >
+                          View
+                        </a>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td style={styles.tableCell}>
                       {trip.end_image ? (
-                        <button style={styles.viewButton}>View</button>
-                      ) : 'No Image'}
+                        <a
+                          href={trip.end_image_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.viewButton}
+                        >
+                          View
+                        </a>
+                      ) : (
+                        'No Image'
+                      )}
+                    </td>
+                    <td style={styles.tableCell}>
+                      <div
+                        style={{
+                          ...styles.statusBadge,
+                          backgroundColor:
+                            trip.status === 'Started'
+                              ? '#fef3c7'
+                              : trip.status === 'Completed'
+                              ? '#dbeafe'
+                              : trip.status === 'Approved'
+                              ? '#d1fae5'
+                              : '#fee2e2',
+                          color:
+                            trip.status === 'Started'
+                              ? '#92400e'
+                              : trip.status === 'Completed'
+                              ? '#1e40af'
+                              : trip.status === 'Approved'
+                              ? '#065f46'
+                              : '#991b1b',
+                        }}
+                      >
+                        {trip.status}
+                      </div>
+                      {trip.status === 'Started' && (
+                        <button
+                          onClick={() => openEndTripForm(trip)}
+                          style={styles.endTripButton}
+                        >
+                          End Trip
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -614,12 +853,12 @@ const styles = {
     outline: 'none',
   },
   inputDisabled: {
-    padding: '10px 12px',
-    fontSize: '14px',
+    padding: '8px 10px',
+    fontSize: '13px',
     border: '1px solid #d1d5db',
     borderRadius: '6px',
-    backgroundColor: '#203548',
-    color: '#ffffff',
+    backgroundColor: '#f3f4f6',
+    color: '#6b7280',
     outline: 'none',
   },
   select: {
@@ -640,11 +879,17 @@ const styles = {
     resize: 'vertical',
   },
   fileInput: {
-    padding: '10px 12px',
-    fontSize: '14px',
+    padding: '8px 10px',
+    fontSize: '13px',
     border: '1px solid #d1d5db',
     borderRadius: '6px',
     backgroundColor: '#ffffff',
+  },
+  fileName: {
+    fontSize: '12px',
+    color: '#6b7280',
+    marginTop: '4px',
+    display: 'block',
   },
   infoBox: {
     backgroundColor: '#dbeafe',
@@ -671,8 +916,8 @@ const styles = {
     fontSize: '14px',
     fontWeight: '600',
     color: '#374151',
-    backgroundColor: '#9ca3af',
-    border: 'none',
+    backgroundColor: '#f3f4f6',
+    border: '1px solid #d1d5db',
     borderRadius: '6px',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
@@ -681,12 +926,36 @@ const styles = {
     padding: '10px 24px',
     fontSize: '14px',
     fontWeight: '600',
-    color: '#7f1d1d',
-    backgroundColor: '#fca5a5',
+    color: '#ffffff',
+    backgroundColor: '#ef4444',
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+  },
+  successMessage: {
+    backgroundColor: '#d1fae5',
+    color: '#065f46',
+    padding: '12px 16px',
+    borderRadius: '6px',
+    marginBottom: '16px',
+    fontSize: '14px',
+    fontWeight: '500',
+  },
+  errorMessage: {
+    backgroundColor: '#fee2e2',
+    color: '#991b1b',
+    padding: '12px 16px',
+    borderRadius: '6px',
+    marginBottom: '16px',
+    fontSize: '14px',
+    fontWeight: '500',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: '12px',
+    marginTop: '4px',
+    display: 'block',
   },
   resultsCount: {
     backgroundColor: '#ffffff',
@@ -761,6 +1030,7 @@ const styles = {
     marginTop: '4px',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+    width: '100%',
   },
   clientName: {
     fontWeight: '600',
@@ -781,6 +1051,8 @@ const styles = {
     borderRadius: '20px',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+    textDecoration: 'none',
+    display: 'inline-block',
   },
   noData: {
     padding: '40px',
@@ -789,7 +1061,7 @@ const styles = {
     fontSize: '14px',
   },
   formWrapper: {
-    maxWidth: '550px',
+    maxWidth: '700px',
     width: '100%',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     borderRadius: '8px',

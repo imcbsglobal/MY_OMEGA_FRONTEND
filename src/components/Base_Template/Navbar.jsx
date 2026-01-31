@@ -275,6 +275,7 @@
         icon: Settings,
         children: [
           { name: "Department", path: "/master/department", icon: Building2 },
+           { name: "Vehicle Master", path: "/master/vehicle-master", icon: Car },
         ]
       },
     ];

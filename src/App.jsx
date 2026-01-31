@@ -1,4 +1,4 @@
-// src/App.jsx - FIXED VERSION
+// src/App.jsx - UPDATED VERSION WITH VEHICLE MASTER
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -65,9 +65,10 @@ import PayslipPage from "./components/Payroll/PayslipPage";
 import FuelManagement from "./components/VehicleManagement/FuelManagement";
 import Travel from "./components/VehicleManagement/Travel";
 import VehicleChallan from "./components/VehicleManagement/VehicleChallan";
+import VehicleMaster from "./components/master/Vehiclemaster";
 
 
-// 🔐 Private Route
+// 🔒 Private Route
 function PrivateRoute({ children }) {
   const isAuthenticated = !!localStorage.getItem("accessToken");
   return isAuthenticated ? children : <Navigate to="/login" replace />;
@@ -148,19 +149,24 @@ function App() {
           <Route path="master/allowences" element={<Allowence />} />
           <Route path="master/whatsapp-admin" element={<WhatsAppAdmin />} />
           
-          {/* FIXED: Changed from "office-setup" to "hr/master/office-setup" to match URL */}
+          {/* Office Setup Routes */}
           <Route path="hr/master/office-setup" element={<OfficeSetup />} />
-          {/* Also add this alternative route in case it's accessed from master menu */}
           <Route path="master/office-setup" element={<OfficeSetup />} />
 
+          {/* NEW: Vehicle Master Route */}
+          <Route path="master/vehicle-master" element={<VehicleMaster />} />
+
+          {/* Payroll Routes */}
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="payroll/processing" element={<PayrollPage />} />
           <Route path="payslip" element={<PayslipPage />} />
 
+          {/* Vehicle Management Routes */}
           <Route path="vehicle/fuel-management" element={<FuelManagement />} />
           <Route path="vehicle/travel" element={<Travel />} />
           <Route path="vehicle/challan" element={<VehicleChallan />} />
 
+          {/* User Management Routes */}
           <Route path="add-user" element={<AddUser />} />
           <Route path="user-control" element={<UserControl />} />
           <Route path="configure-access/:id" element={<ConfigureAccess />} />
