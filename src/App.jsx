@@ -1,4 +1,4 @@
-// src/App.jsx - UPDATED VERSION WITH VEHICLE MASTER
+// src/App.jsx - UPDATED WITH NEW TARGET MANAGEMENT COMPONENTS
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -51,6 +51,7 @@ import Deduction from "./components/master/Deduction";
 import Allowence from "./components/master/Allowence";
 import WhatsAppAdmin from "./components/master/WhatsAppAdmin";
 import OfficeSetup from './components/master/OfficeSetup';
+import VehicleMaster from "./components/master/Vehiclemaster";
 
 // User Management
 import UserControl from "./components/UserManagement/UserControl";
@@ -65,8 +66,19 @@ import PayslipPage from "./components/Payroll/PayslipPage";
 import FuelManagement from "./components/VehicleManagement/FuelManagement";
 import Travel from "./components/VehicleManagement/Travel";
 import VehicleChallan from "./components/VehicleManagement/VehicleChallan";
-import VehicleMaster from "./components/master/Vehiclemaster";
 
+// Target Management - Existing Components
+import RouteTargetAssign from "./components/TargetManagement/Routetargetassign";
+import RouteTargetList from "./components/TargetManagement/Routetargetlist";
+import CallTargetAssign from "./components/TargetManagement/Calltargetassign";
+import CallTargetList from "./components/TargetManagement/Calltargetlist";
+import RouteMaster from "./components/TargetManagement/Routemaster";
+import ProductMaster from "./components/TargetManagement/Productmaster";
+
+// Target Management - NEW Components
+import EmployeeTargetView from "./components/TargetManagement/EmployeeTargetView";
+import EmployeeTargetReport from "./components/TargetManagement/EmployeeTargetReport";
+import ManagerDashboard from "./components/TargetManagement/ManagerDashboard";
 
 // 🔒 Private Route
 function PrivateRoute({ children }) {
@@ -96,6 +108,7 @@ function App() {
         >
           <Route index element={<Dashboard />} />
 
+          {/* HR Routes */}
           <Route path="cv-management" element={<CVManagement />} />
           <Route path="cv-management/add" element={<CVForm />} />
           <Route path="cv-management/edit/:uuid" element={<CVForm />} />
@@ -153,7 +166,7 @@ function App() {
           <Route path="hr/master/office-setup" element={<OfficeSetup />} />
           <Route path="master/office-setup" element={<OfficeSetup />} />
 
-          {/* NEW: Vehicle Master Route */}
+          {/* Vehicle Master Route */}
           <Route path="master/vehicle-master" element={<VehicleMaster />} />
 
           {/* Payroll Routes */}
@@ -165,6 +178,37 @@ function App() {
           <Route path="vehicle/fuel-management" element={<FuelManagement />} />
           <Route path="vehicle/travel" element={<Travel />} />
           <Route path="vehicle/challan" element={<VehicleChallan />} />
+
+          {/* ============== TARGET MANAGEMENT ROUTES ============== */}
+          
+          {/* 🆕 Employee Self-Service Routes */}
+          <Route path="target/my-targets" element={<EmployeeTargetView />} />
+          <Route path="target/update-report" element={<EmployeeTargetReport />} />
+          
+          {/* 🆕 Manager Dashboard */}
+          <Route path="target/dashboard" element={<ManagerDashboard />} />
+          
+          {/* Route Targets - Admin/Manager */}
+          <Route path="target/route/assign" element={<RouteTargetAssign />} />
+          <Route path="target/route/list" element={<RouteTargetList />} />
+          <Route path="target/route/performance" element={<UnderConstruction />} />
+          
+          {/* Call Targets - Admin/Manager */}
+          <Route path="target/call/assign" element={<CallTargetAssign />} />
+          <Route path="target/call/list" element={<CallTargetList />} />
+          <Route path="target/call/daily" element={<UnderConstruction />} />
+          <Route path="target/call/performance" element={<UnderConstruction />} />
+          
+          {/* Target Master Data */}
+          <Route path="target/master/routes" element={<RouteMaster />} />
+          <Route path="target/master/products" element={<ProductMaster />} />
+          
+          {/* Target Reports - Legacy routes (keeping for backward compatibility) */}
+          <Route path="target/reports/dashboard" element={<ManagerDashboard />} />
+          <Route path="target/reports/achievement" element={<UnderConstruction />} />
+          <Route path="target/reports/summary" element={<UnderConstruction />} />
+
+          {/* ============================================================ */}
 
           {/* User Management Routes */}
           <Route path="add-user" element={<AddUser />} />

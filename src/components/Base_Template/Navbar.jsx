@@ -1,10 +1,10 @@
-  import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
  import { 
   ChevronRight, Menu, X, LogOut, LayoutDashboard, Users, Megaphone, 
   Wrench, Target, Warehouse, Truck, UserCog, Settings, Briefcase,
   FileText, Calendar, Clock, UserCheck, Award, DollarSign, Car,
   ClipboardList, UserPlus, Shield, Building2, PanelLeftClose, PanelLeft,
-  ChevronDown, Wallet, MapPin  
+  ChevronDown, Wallet, MapPin, Phone, Package, BarChart2, TrendingUp
   } from "lucide-react";
   import { NavLink, useLocation, useNavigate } from "react-router-dom";
   import api from "../../api/client";
@@ -117,6 +117,27 @@
         'department': Building2,
          'payroll': Wallet,  // ✅ ADD THIS
   'payroll processing': Wallet,  // ✅ ADD THIS
+  'target management': Target,
+  'manager dashboard': BarChart2,
+  'my targets': Target,
+  'view my targets': Target,
+  'update progress': ClipboardList,
+  'route targets': MapPin,
+  'call targets': Phone,
+  'master data': Settings,
+  'routes': MapPin,
+  'products': Package,
+  'reports': BarChart2,
+  'assign route target': MapPin,
+  'route target list': ClipboardList,
+  'route performance': TrendingUp,
+  'assign call target': Phone,
+  'call target list': ClipboardList,
+  'daily activity': Calendar,
+  'call performance': TrendingUp,
+  'employee dashboard': BarChart2,
+  'achievement report': Award,
+  'summary report': TrendingUp,
       };
 
       const lowerName = name.toLowerCase();
@@ -258,7 +279,57 @@
           { name: "Challan", path: "/vehicle/challan", icon: Truck },
         ]
       },
-      { name: "Target Management", path: "/under-construction", icon: Target },
+      { 
+        name: "Target Management", 
+        icon: Target,
+        children: [
+          { name: "Manager Dashboard", path: "/target/dashboard", icon: BarChart2 },
+          {
+            name: "My Targets",
+            icon: Target,
+            children: [
+              { name: "View My Targets", path: "/target/my-targets", icon: Target },
+              { name: "Update Progress", path: "/target/update-report", icon: ClipboardList },
+            ]
+          },
+          {
+            name: "Route Targets",
+            icon: MapPin,
+            children: [
+              { name: "Assign Route Target", path: "/target/route/assign", icon: MapPin },
+              { name: "Route Target List", path: "/target/route/list", icon: ClipboardList },
+              { name: "Route Performance", path: "/target/route/performance", icon: TrendingUp },
+            ]
+          },
+          {
+            name: "Call Targets",
+            icon: Phone,
+            children: [
+              { name: "Assign Call Target", path: "/target/call/assign", icon: Phone },
+              { name: "Call Target List", path: "/target/call/list", icon: ClipboardList },
+              { name: "Daily Activity", path: "/target/call/daily", icon: Calendar },
+              { name: "Call Performance", path: "/target/call/performance", icon: TrendingUp },
+            ]
+          },
+          {
+            name: "Master Data",
+            icon: Settings,
+            children: [
+              { name: "Routes", path: "/target/master/routes", icon: MapPin },
+              { name: "Products", path: "/target/master/products", icon: Package },
+            ]
+          },
+          {
+            name: "Reports",
+            icon: BarChart2,
+            children: [
+              { name: "Employee Dashboard", path: "/target/reports/dashboard", icon: BarChart2 },
+              { name: "Achievement Report", path: "/target/reports/achievement", icon: Award },
+              { name: "Summary Report", path: "/target/reports/summary", icon: TrendingUp },
+            ]
+          },
+        ]
+      },
       { name: "Warehouse Management", path: "/under-construction", icon: Warehouse },
       { name: "Delivery Management", path: "/under-construction", icon: Truck },
       { 
