@@ -1,5 +1,6 @@
 // src/components/TargetManagement/EmployeeTargetView.jsx
 import React, { useState, useEffect } from 'react';
+import "./targetManagement.css";
 import { toast } from 'react-toastify';
 import api from "../../api/client";
 

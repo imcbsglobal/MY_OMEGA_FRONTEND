@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from "../../api/client";
+import "./targetManagement.css";
 
 const RouteMaster = () => {
   const [routes, setRoutes] = useState([]);
@@ -190,197 +191,132 @@ const RouteMaster = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading routes...</div>
+      <div className="container-fluid py-4">
+        <div className="row">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body text-center py-5">
+                <div className="spinner-border text-primary mb-3" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                <h5>Loading routes...</h5>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Route Master</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-        >
-          Add New Route
-        </button>
-      </div>
+    <div className="container-fluid py-4">
+      <div className="row">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header pb-0">
+              <div className="d-flex align-items-center justify-content-between">
+                <h6 className="mb-0">Route Master</h6>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="btn btn-primary btn-sm"
+                >
+                  + Add New Route
+                </button>
+              </div>
+            </div>
 
-      {/* Routes Table */}
-      <div className="bg-white shadow-md rounded overflow-hidden">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Route Code
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Origin
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Destination
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Description
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {routes.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                  No routes found. Click "Add New Route" to create one.
-                </td>
-              </tr>
-            ) : (
-              routes.map((route) => (
-                <tr key={route.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {route.route_code || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium">
-                    {route.origin}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium">
-                    {route.destination}
-                  </td>
-                  <td className="px-6 py-4">
-                    {route.description || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      route.is_active 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {route.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleEdit(route)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(route.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+            <div className="card-body">
+              <div className="table-responsive">
+                <table className="table align-items-center mb-0">
+                  <thead>
+                    <tr>
+                      <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Route Code</th>
+                      <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Origin</th>
+                      <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Destination</th>
+                      <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Description</th>
+                      <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Status</th>
+                      <th className="text-secondary opacity-7">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routes.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="text-center text-muted">No routes found. Click "Add New Route" to create one.</td>
+                      </tr>
+                    ) : (
+                      routes.map(route => (
+                        <tr key={route.id}>
+                          <td><p className="text-sm font-weight-bold mb-0">{route.route_code || '-'}</p></td>
+                          <td><p className="text-sm text-secondary mb-0">{route.origin}</p></td>
+                          <td><p className="text-sm text-secondary mb-0">{route.destination}</p></td>
+                          <td><p className="text-xs text-secondary mb-0">{route.description || '-'}</p></td>
+                          <td className="align-middle text-center">
+                            <span className={`badge badge-sm ${route.is_active ? 'bg-gradient-success' : 'bg-gradient-secondary'}`}>{route.is_active ? 'Active' : 'Inactive'}</span>
+                          </td>
+                          <td className="align-middle">
+                            <button className="btn btn-link text-secondary mb-0" onClick={() => handleEdit(route)}><i className="fas fa-edit"></i></button>
+                            <button className="btn btn-link text-danger mb-0" onClick={() => handleDelete(route.id)}><i className="fas fa-trash"></i></button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mb-4">
-              <h3 className="text-lg font-medium">
-                {editingRoute ? 'Edit Route' : 'Add New Route'}
-              </h3>
+        <>
+          <div className="modal-custom-backdrop" onClick={handleCloseModal} />
+          <div className="modal-custom" role="dialog" aria-modal="true">
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{editingRoute ? 'Edit Route' : 'Add New Route'}</h5>
+                  <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                </div>
+
+                <form onSubmit={handleSubmit}>
+                  <div className="modal-body">
+                    <div className="mb-3">
+                      <label className="form-label">Origin *</label>
+                      <input type="text" name="origin" value={formData.origin} onChange={handleInputChange} className="form-control" required />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Destination *</label>
+                      <input type="text" name="destination" value={formData.destination} onChange={handleInputChange} className="form-control" required />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Route Code</label>
+                      <input type="text" name="route_code" value={formData.route_code} onChange={handleInputChange} className="form-control" />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Description</label>
+                      <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" className="form-control" />
+                    </div>
+
+                    <div className="form-check">
+                      <input type="checkbox" name="is_active" className="form-check-input" checked={formData.is_active} onChange={handleInputChange} id="isActiveCheckRoute" />
+                      <label className="form-check-label" htmlFor="isActiveCheckRoute">Active</label>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">{editingRoute ? 'Update' : 'Create'}</button>
+                  </div>
+                </form>
+              </div>
             </div>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Origin *
-                </label>
-                <input
-                  type="text"
-                  name="origin"
-                  value={formData.origin}
-                  onChange={handleInputChange}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Destination *
-                </label>
-                <input
-                  type="text"
-                  name="destination"
-                  value={formData.destination}
-                  onChange={handleInputChange}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Route Code
-                </label>
-                <input
-                  type="text"
-                  name="route_code"
-                  value={formData.route_code}
-                  onChange={handleInputChange}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
-                    onChange={handleInputChange}
-                    className="mr-2"
-                  />
-                  <span className="text-gray-700 text-sm font-bold">Active</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                >
-                  {editingRoute ? 'Update' : 'Create'}
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

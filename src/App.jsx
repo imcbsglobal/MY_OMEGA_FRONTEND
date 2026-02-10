@@ -34,7 +34,6 @@ import RequestLeave from "./components/HR/RequestLeave";
 import LeaveList from "./components/HR/LeaveList";
 import EarlyList from "./components/HR/EarlyList";
 import LateList from "./components/HR/LateList";
-import BreakList from "./components/HR/BreakList";
 import UnderConstruction from "./components/HR/UnderConstruction";
 
 // Requests
@@ -74,11 +73,17 @@ import CallTargetAssign from "./components/TargetManagement/Calltargetassign";
 import CallTargetList from "./components/TargetManagement/Calltargetlist";
 import RouteMaster from "./components/TargetManagement/Routemaster";
 import ProductMaster from "./components/TargetManagement/Productmaster";
+import RouteSummary from "./components/TargetManagement/RouteSummary";
+import CallSummary from "./components/TargetManagement/CallSummary";
+import CallDaily from "./components/TargetManagement/CallDaily";
 
 // Target Management - NEW Components
 import EmployeeTargetView from "./components/TargetManagement/EmployeeTargetView";
 import EmployeeTargetReport from "./components/TargetManagement/EmployeeTargetReport";
 import ManagerDashboard from "./components/TargetManagement/ManagerDashboard";
+import ComparativePerformance from "./components/TargetManagement/ComparativePerformance";
+import EmployeeDetailedReport from "./components/TargetManagement/EmployeeDetailedReport";
+import EmployeeDashboard from "./components/TargetManagement/EmployeeDashboard";
 
 // 🔒 Private Route
 function PrivateRoute({ children }) {
@@ -187,17 +192,20 @@ function App() {
           
           {/* 🆕 Manager Dashboard */}
           <Route path="target/dashboard" element={<ManagerDashboard />} />
+          <Route path="target/performance/comparative" element={<ComparativePerformance />} />
+          <Route path="target/performance/employee/:id/detailed-report" element={<EmployeeDetailedReport />} />
+          <Route path="target/reports/employee/:id/dashboard" element={<EmployeeDashboard />} />
           
           {/* Route Targets - Admin/Manager */}
           <Route path="target/route/assign" element={<RouteTargetAssign />} />
           <Route path="target/route/list" element={<RouteTargetList />} />
-          <Route path="target/route/performance" element={<UnderConstruction />} />
+          <Route path="target/route/performance" element={<RouteSummary />} />
           
           {/* Call Targets - Admin/Manager */}
           <Route path="target/call/assign" element={<CallTargetAssign />} />
           <Route path="target/call/list" element={<CallTargetList />} />
-          <Route path="target/call/daily" element={<UnderConstruction />} />
-          <Route path="target/call/performance" element={<UnderConstruction />} />
+          <Route path="target/call/daily" element={<CallDaily />} />
+          <Route path="target/call/performance" element={<CallSummary />} />
           
           {/* Target Master Data */}
           <Route path="target/master/routes" element={<RouteMaster />} />
@@ -205,8 +213,9 @@ function App() {
           
           {/* Target Reports - Legacy routes (keeping for backward compatibility) */}
           <Route path="target/reports/dashboard" element={<ManagerDashboard />} />
-          <Route path="target/reports/achievement" element={<UnderConstruction />} />
-          <Route path="target/reports/summary" element={<UnderConstruction />} />
+          <Route path="target/reports/route-summary" element={<RouteSummary />} />
+          <Route path="target/reports/call-summary" element={<CallSummary />} />
+          
 
           {/* ============================================================ */}
 
@@ -225,4 +234,4 @@ function App() {
   );
 }
 
-export default App;
+export default App;          

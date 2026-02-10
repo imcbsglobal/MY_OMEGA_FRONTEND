@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from "../../api/client";
+import "./targetManagement.css";
 
 const RouteTargetAssign = () => {
   const navigate = useNavigate();
@@ -323,21 +324,20 @@ const RouteTargetAssign = () => {
       <div className="row">
         <div className="col-12">
           <div className="card">
-            <div className="card-header pb-0">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <h6 className="mb-0">Assign Route Target</h6>
-                  <small className="text-muted">
-                    Employees: {employees.length} | Routes: {routes.length} | Products: {products.length}
-                  </small>
+            <div className="card-header pb-0 assign-header">
+              <div className="d-flex align-items-center">
+                <div className="assign-header-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 2H15C16.1046 2 17 2.89543 17 4V20C17 21.1046 16.1046 22 15 22H9C7.89543 22 7 21.1046 7 20V4C7 2.89543 7.89543 2 9 2Z" fill="#fff"/>
+                    <path d="M8 7H16" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M8 11H16" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>  nbjn b 
                 </div>
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => navigate('/target/route/list')}
-                >
-                  ← Back to List
-                </button>
+                <h6 className="mb-0 ms-2">Assign Call Target</h6>
               </div>
+              <button className="btn btn-sm btn-link back-link" onClick={() => navigate('/target/route/list')}>
+                ← Back to List
+              </button>
             </div>
 
             <div className="card-body">
@@ -392,6 +392,7 @@ const RouteTargetAssign = () => {
                 </div>
               )}
 
+              <div className="tm-form-left">
               <form onSubmit={handleSubmit}>
                 {/* Employee Selection */}
                 <div className="row">
@@ -459,19 +460,19 @@ const RouteTargetAssign = () => {
                 </div>
 
                 {/* Period Selection */}
-                <div className="mb-3">
+                  <div className="mb-3">
                   <label className="form-label d-block">Quick Period Selection</label>
-                  <div className="btn-group" role="group">
+                  <div className="btn-group justify-content-start" role="group">
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-primary"
+                      className="btn btn-sm btn-outline-secondary"
                       onClick={selectCurrentWeek}
                     >
                       Current Week
                     </button>
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-primary"
+                      className="btn btn-sm btn-outline-secondary"
                       onClick={selectNextWeek}
                     >
                       Next Week
@@ -709,7 +710,7 @@ const RouteTargetAssign = () => {
                 </div>
 
                 {/* Submit Button */}
-                <div className="d-flex justify-content-end gap-2">
+                <div className="d-flex gap-2 align-items-center form-actions-left">
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
@@ -736,6 +737,7 @@ const RouteTargetAssign = () => {
                   </button>
                 </div>
               </form>
+              </div>
             </div>
           </div>
         </div>

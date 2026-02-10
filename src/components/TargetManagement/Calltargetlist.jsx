@@ -1,5 +1,6 @@
 // src/components/TargetManagement/CallTargetList.jsx
 import React, { useState, useEffect } from 'react';
+import "./targetManagement.css";
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from "../../api/client";
@@ -85,8 +86,12 @@ const CallTargetList = () => {
   // Helper function to format date
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const d = new Date(dateString);
+    if (isNaN(d)) return dateString;
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   // Helper function to calculate days between dates
@@ -220,7 +225,11 @@ const CallTargetList = () => {
                             <div className="d-flex px-2 py-1">
                               <div className="d-flex flex-column justify-content-center">
                                 <h6 className="mb-0 text-sm">{target.employee_name || 'N/A'}</h6>
-                                <p className="text-xs text-secondary mb-0">{target.employee_id_display || 'N/A'}</p>
+                                <p className="text-xs text-secondary mb-0">
+                                  {target.employee_email ? (
+                                    <a href={`mailto:${target.employee_email}`} style={{color:'#6b7280', textDecoration:'none'}}>{target.employee_email}</a>
+                                  ) : (target.employee_id_display || 'N/A')}
+                                </p>
                               </div>
                             </div>
                           </td>
