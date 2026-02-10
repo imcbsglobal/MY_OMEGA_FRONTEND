@@ -40,6 +40,14 @@ localStorage.setItem("refreshToken", data.refresh);
 localStorage.setItem("user", JSON.stringify(data.user));
 localStorage.setItem("isAuthenticated", "true");
 
+      // Store employee_id if employee profile exists
+      if (data.employee && data.employee.employee_id) {
+        localStorage.setItem("employee_id", data.employee.employee_id.toString());
+        console.log('✅ Stored employee_id:', data.employee.employee_id);
+      } else {
+        console.warn('⚠️ No employee profile found for this user');
+      }
+
       if (data.menu_tree) {
         sessionStorage.setItem("menuTree", JSON.stringify(data.menu_tree));
       }

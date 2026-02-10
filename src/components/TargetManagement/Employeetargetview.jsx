@@ -14,6 +14,11 @@ const EmployeeTargetView = () => {
     fetchMyTargets();
   }, []);
 
+  // Summary calculations
+  const totalTargetCalls = callTargets.reduce((s, t) => s + (Number(t.total_target_calls) || 0), 0);
+  const totalAchievedCalls = callTargets.reduce((s, t) => s + (Number(t.total_achieved_calls) || 0), 0);
+  const achievementRate = totalTargetCalls > 0 ? (totalAchievedCalls / totalTargetCalls) * 100 : 0;
+
   const fetchMyTargets = async () => {
     setLoading(true);
     try {
@@ -49,6 +54,13 @@ const EmployeeTargetView = () => {
     if (percentage >= 80) return 'bg-gradient-success';
     if (percentage >= 50) return 'bg-gradient-warning';
     return 'bg-gradient-danger';
+  };
+
+  const getStatus = (percentage) => {
+    const p = Number(percentage) || 0;
+    if (p >= 100) return { label: 'Achieved', className: 'bg-gradient-success' };
+    if (p >= 80) return { label: 'On Track', className: 'bg-gradient-warning' };
+    return { label: 'Behind', className: 'bg-gradient-danger' };
   };
 
   const renderCallTargets = () => (
@@ -114,7 +126,7 @@ const EmployeeTargetView = () => {
                     <div className="progress-info">
                       <div className="progress-percentage">
                         <span className="text-xs font-weight-bold">
-                          {target.achievement_percentage?.toFixed(2) || 0}%
+                          {Number(target.achievement_percentage || 0).toFixed(2)}%
                         </span>
                       </div>
                     </div>
@@ -131,9 +143,14 @@ const EmployeeTargetView = () => {
                   </div>
                 </td>
                 <td className="align-middle text-center">
-                  <span className={`badge badge-sm ${target.is_active ? 'bg-gradient-success' : 'bg-gradient-secondary'}`}>
-                    {target.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  {(() => {
+                    const s = getStatus(target.achievement_percentage);
+                    return (
+                      <span className={`badge badge-sm ${s.className}`}>
+                        {s.label}
+                      </span>
+                    );
+                  })()}
                 </td>
               </tr>
             ))
@@ -223,7 +240,7 @@ const EmployeeTargetView = () => {
                     <div className="progress-info">
                       <div className="progress-percentage">
                         <span className="text-xs font-weight-bold">
-                          {(target.achievement_percentage_boxes || 0).toFixed(2)}%
+                          {Number(target.achievement_percentage_boxes || 0).toFixed(2)}%
                         </span>
                       </div>
                     </div>
@@ -240,9 +257,14 @@ const EmployeeTargetView = () => {
                   </div>
                 </td>
                 <td className="align-middle text-center">
-                  <span className={`badge badge-sm ${target.is_active ? 'bg-gradient-success' : 'bg-gradient-secondary'}`}>
-                    {target.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  {(() => {
+                    const s = getStatus(target.achievement_percentage_boxes);
+                    return (
+                      <span className={`badge badge-sm ${s.className}`}>
+                        {s.label}
+                      </span>
+                    );
+                  })()}
                 </td>
               </tr>
             ))
@@ -254,14 +276,24 @@ const EmployeeTargetView = () => {
 
   return (
     <div className="container-fluid py-4">
+      {/* (Top summary removed — page uses header-internal summaries now) */}
       <div className="row">
         <div className="col-12">
-          <div className="card">
-            <div className="card-header pb-0">
-              <div className="d-flex align-items-center justify-content-between">
-                <h6>My Targets</h6>
+          <div className="card tm-card">
+            <div className="card-header pb-0 tm-header">
+              <div className="d-flex align-items-center">
+                <div className="stat-icon red" style={{ width: 40, height: 40, borderRadius: 8 }}>
+                  <i className="fas fa-bullseye"></i>
+                </div>
+                <div style={{ marginLeft: 12 }}>
+                  <h6 className="tm-title">My Targets</h6>
+                  <p className="tm-sub">Track your call and route performance</p>
+                </div>
+              </div>
+
+              <div>
                 <button
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-outline-secondary btn-sm"
                   onClick={fetchMyTargets}
                 >
                   <i className="fas fa-sync-alt me-2"></i>
@@ -271,28 +303,43 @@ const EmployeeTargetView = () => {
             </div>
 
             <div className="card-body">
-              {/* Tabs */}
-              <ul className="nav nav-tabs mb-3">
-                <li className="nav-item">
-                  <button
-                    className={`nav-link ${activeTab === 'call' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('call')}
-                  >
-                    Call Targets
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    className={`nav-link ${activeTab === 'route' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('route')}
-                  >
-                    Route Targets
-                  </button>
-                </li>
-              </ul>
+                {/* Summary cards inside card to match screenshot */}
+                <div className="summary-cards mb-3">
+                  <div className="summary-card">
+                    <div className="summary-label">Total Target</div>
+                    <div className="summary-value">{totalTargetCalls}</div>
+                  </div>
+                  <div className="summary-card">
+                    <div className="summary-label">Achieved</div>
+                    <div className="summary-value">{totalAchievedCalls}</div>
+                  </div>
+                  <div className="summary-card">
+                    <div className="summary-label">Achievement Rate</div>
+                    <div className="summary-value">{achievementRate.toFixed(0)}%</div>
+                  </div>
+                </div>
 
-              {/* Tab Content */}
-              {activeTab === 'call' ? renderCallTargets() : renderRouteTargets()}
+              {/* Performance panel */}
+              <div className="summary-header">
+                <div className="performance-inner">
+                  <div className="performance-left">
+                    <strong>Performance</strong>
+                    <div className="pills" style={{ marginTop: 12 }}>
+                      <button className={`pill ${activeTab === 'call' ? 'active' : ''}`} onClick={() => setActiveTab('call')}>
+                        <i className="fas fa-phone me-1"></i> Call Targets
+                      </button>
+                      <button className={`pill ${activeTab === 'route' ? 'active' : ''}`} onClick={() => setActiveTab('route')}>
+                        <i className="fas fa-map-marker-alt me-1"></i> Route Targets
+                      </button>
+                    </div>
+                  </div>
+                  <div className="performance-right">
+                    <div className="tm-table-wrap">
+                      {activeTab === 'call' ? renderCallTargets() : renderRouteTargets()}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

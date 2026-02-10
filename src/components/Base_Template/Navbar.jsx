@@ -287,6 +287,7 @@ import { useState, useEffect, useRef } from "react";
             name: "My Targets",
             icon: Target,
             children: [
+              { name: "My Dashboard", path: "/target/employee-dashboard", icon: BarChart2 },
               { name: "View My Targets", path: "/target/my-targets", icon: Target },
               { name: "Update Progress", path: "/target/update-report", icon: ClipboardList },
             ]
@@ -306,7 +307,6 @@ import { useState, useEffect, useRef } from "react";
             children: [
               { name: "Assign Call Target", path: "/target/call/assign", icon: Phone },
               { name: "Call Target List", path: "/target/call/list", icon: ClipboardList },
-              { name: "Daily Activity", path: "/target/call/daily", icon: Calendar },
               { name: "Call Performance", path: "/target/call/performance", icon: TrendingUp },
             ]
           },
@@ -322,7 +322,7 @@ import { useState, useEffect, useRef } from "react";
             name: "Reports",
             icon: BarChart2,
             children: [
-              { name: "Employee Dashboard", path: "/target/reports/dashboard", icon: BarChart2 },
+              { name: "Employee Dashboard", path: "/target/employee-dashboard", icon: BarChart2 },
             ]
           },
         ]

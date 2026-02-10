@@ -1,106 +1,69 @@
-import React, { useEffect, useState } from "react";
-import "./targetManagement.css";
-import { getRouteSummary } from "../../api/targetManagement";
-import theme from "../../styles/targetTheme";
+import React, { useEffect, useState } from 'react';
+import './targetManagement.css';
+import { getRouteSummary } from '../../api/targetManagement';
 
 export default function RouteSummary() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await getRouteSummary();
-        setData(res);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  const styles = theme;
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getRouteSummary();
+      setData(res);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load route summary');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const fmt = (v) => (v === null || v === undefined ? "-" : new Intl.NumberFormat().format(v));
+  const renderCard = (label, value) => (
+    <div className="summary-card">
+      <div className="summary-value">{value}</div>
+      <div className="summary-label">{label}</div>
+    </div>
+  );
 
-  const rows = data
-    ? [
-        { label: "Total Targets", value: fmt(data.total_targets) },
-        { label: "Total Target Boxes", value: fmt(data.total_target_boxes) },
-        { label: "Total Target Amount", value: data.total_target_amount ? `₹${fmt(data.total_target_amount)}` : "-" },
-        { label: "Total Achieved Boxes", value: fmt(data.total_achieved_boxes) },
-        { label: "Total Achieved Amount", value: data.total_achieved_amount ? `₹${fmt(data.total_achieved_amount)}` : "-" },
-        { label: "Boxes Achievement %", value: data.boxes_achievement_percentage ?? "-" },
-        { label: "Amount Achievement %", value: data.amount_achievement_percentage ?? "-" },
-      ]
-    : [];
+  if (loading) return <div className="container-fluid py-4">Loading route summary...</div>;
+  if (error) return <div className="container-fluid py-4"><div className="alert alert-danger">{error}</div></div>;
+
+  const d = data || {};
 
   return (
     <div className="container-fluid py-4">
-      <div className="row">
+      <div className="row mb-4">
         <div className="col-12">
-          <div className="card">
-            <div className="card-header pb-0">
-              <div className="d-flex align-items-center justify-content-between">
-                <h6>Route Summary</h6>
-              </div>
+          <div className="summary-header tm-card">
+            <div>
+              <h4 className="tm-title">Route Summary</h4>
+              <p className="tm-sub">Aggregate route target statistics</p>
             </div>
-
-            <div className="card-body">
-              {/* Top stat cards - compact layout to match design */}
-              <div className="tm-top-stats mb-4">
-                <div className="stat-card">
-                  <p className="stat-label">Total Targets</p>
-                  <h5 className="stat-value">{data ? (data.total_targets ?? '-') : '-'}</h5>
-                </div>
-
-                <div className="stat-card">
-                  <p className="stat-label">Total Target Boxes</p>
-                  <h5 className="stat-value">{data ? (data.total_target_boxes ?? '-') : '-'}</h5>
-                </div>
-
-                <div className="stat-card">
-                  <p className="stat-label">Total Target Amount</p>
-                  <h5 className="stat-value">{data && data.total_target_amount ? `₹${new Intl.NumberFormat().format(data.total_target_amount)}` : '-'}</h5>
-                </div>
-
-                <div className="stat-card">
-                  <p className="stat-label">Boxes Achievement</p>
-                  <h5 className="stat-value">{data ? ((data.boxes_achievement_percentage ?? data.amount_achievement_percentage ?? 0) + '%') : '-'}</h5>
-                </div>
-              </div>
-
-              <div className="tm-table-wrap">
-                {loading ? (
-                  <div>Loading...</div>
-                ) : data ? (
-                  <div className="table-responsive">
-                    <table className="table align-items-center mb-0">
-                      <thead>
-                        <tr>
-                          <th style={styles.th}>Metric</th>
-                          <th style={styles.th} className="text-end">Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((r) => (
-                          <tr key={r.label}>
-                            <td style={styles.td}>{r.label}</td>
-                            <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700 }}>{r.value}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="alert alert-info">No data available.</div>
-                )}
-              </div>
+            <div>
+              <button className="btn btn-outline-secondary btn-sm" onClick={fetchData}>
+                <i className="fas fa-sync-alt me-2"></i>Refresh
+              </button>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="summary-cards mb-4">
+        {renderCard('Total Targets', d.total_targets ?? 0)}
+        {renderCard('Target Boxes', new Intl.NumberFormat().format(d.total_target_boxes ?? 0))}
+        {renderCard('Target Amount', d.total_target_amount ? `₹${new Intl.NumberFormat().format(d.total_target_amount)}` : '₹0')}
+        {renderCard('Achieved Boxes', new Intl.NumberFormat().format(d.total_achieved_boxes ?? 0))}
+      </div>
+
+      <div className="summary-cards">
+        {renderCard('Achieved Amount', d.total_achieved_amount ? `₹${new Intl.NumberFormat().format(d.total_achieved_amount)}` : '₹0')}
+        {renderCard('Boxes %', `${(Number(d.boxes_achievement_percentage ?? 0)).toFixed(2)}%`)}
+        {renderCard('Amount %', `${(Number(d.amount_achievement_percentage ?? 0)).toFixed(2)}%`)}
       </div>
     </div>
   );
