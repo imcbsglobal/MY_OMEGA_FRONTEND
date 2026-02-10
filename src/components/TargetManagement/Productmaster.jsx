@@ -1,5 +1,6 @@
 // src/components/TargetManagement/ProductMaster.jsx
 import React, { useState, useEffect } from 'react';
+import "./targetManagement.css";
 import { toast } from 'react-toastify';
 import api from "../../api/client";
 
@@ -130,7 +131,7 @@ const ProductMaster = () => {
 
             <div className="card-body">
               <div className="table-responsive">
-                <table className="table align-items-center mb-0">
+                <table className="table compact-table align-items-center mb-0">
                   <thead>
                     <tr>
                       <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
@@ -215,21 +216,23 @@ const ProductMaster = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  {editingProduct ? 'Edit Product' : 'Add New Product'}
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowModal(false)}
-                ></button>
-              </div>
-              <form onSubmit={handleSubmit}>
-                <div className="modal-body">
+        <>
+          <div className="modal-custom-backdrop" onClick={() => setShowModal(false)}></div>
+          <div className="modal-custom" role="dialog" aria-modal="true">
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">
+                    {editingProduct ? 'Edit Product' : 'Add New Product'}
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowModal(false)}
+                  ></button>
+                </div>
+                <form onSubmit={handleSubmit}>
+                  <div className="modal-body">
                   <div className="mb-3">
                     <label className="form-label">Product Name *</label>
                     <input
@@ -308,11 +311,12 @@ const ProductMaster = () => {
                   <button type="submit" className="btn btn-primary">
                     {editingProduct ? 'Update' : 'Create'}
                   </button>
-                </div>
-              </form>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from "../../api/client";
+import "./targetManagement.css";
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
@@ -89,24 +90,13 @@ const ManagerDashboard = () => {
     }
   };
 
-  const StatCard = ({ title, value, subtitle, icon, color }) => (
-    <div className="card">
-      <div className="card-body p-3">
-        <div className="row">
-          <div className="col-8">
-            <div className="numbers">
-              <p className="text-sm mb-0 text-capitalize font-weight-bold">{title}</p>
-              <h5 className="font-weight-bolder mb-0">
-                {value}
-                {subtitle && <span className="text-sm font-weight-normal text-secondary"> {subtitle}</span>}
-              </h5>
-            </div>
-          </div>
-          <div className="col-4 text-end">
-            <div className={`icon icon-shape ${color} shadow text-center border-radius-md`}>
-              <i className={`${icon} text-lg opacity-10`} aria-hidden="true"></i>
-            </div>
-          </div>
+  const StatCard = ({ title, value, subtitle }) => (
+    <div className="stat-card tm-card">
+      <div className="card-body p-3" style={{padding:12}}>
+        <p className="stat-label">{title}</p>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+          <div className="stat-value">{value}</div>
+          {subtitle && <div style={{fontSize:12, color:'#6b7280'}}>{subtitle}</div>}
         </div>
       </div>
     </div>
@@ -129,55 +119,33 @@ const ManagerDashboard = () => {
       {/* Header */}
       <div className="row mb-4">
         <div className="col-12">
-          <h4 className="mb-0">Target Management Dashboard</h4>
-          <p className="text-sm text-secondary">Overview of team performance and targets</p>
+          <div className="tm-header tm-card" style={{padding:12}}>
+            <div>
+              <h4 className="tm-title">Target Management Dashboard</h4>
+              <p className="tm-sub">Overview of team performance and targets</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Statistics Cards */}
       <div className="row mb-4">
-        <div className="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <StatCard
-            title="Total Call Targets"
-            value={dashboardData.call_targets.total}
-            subtitle={`${dashboardData.call_targets.active} active`}
-            icon="fas fa-phone"
-            color="bg-gradient-primary"
-          />
-        </div>
-        <div className="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <StatCard
-            title="Avg Call Achievement"
-            value={`${dashboardData.call_targets.average_achievement.toFixed(1)}%`}
-            icon="fas fa-chart-line"
-            color="bg-gradient-success"
-          />
-        </div>
-        <div className="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <StatCard
-            title="Total Route Targets"
-            value={dashboardData.route_targets.total}
-            subtitle={`${dashboardData.route_targets.active} active`}
-            icon="fas fa-route"
-            color="bg-gradient-info"
-          />
-        </div>
-        <div className="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <StatCard
-            title="Avg Route Achievement"
-            value={`${dashboardData.route_targets.average_achievement.toFixed(1)}%`}
-            icon="fas fa-chart-bar"
-            color="bg-gradient-warning"
-          />
+        <div className="col-12">
+          <div className="tm-top-stats">
+            <StatCard title="Total Call Targets" value={dashboardData.call_targets.total} subtitle={`${dashboardData.call_targets.active} active`} />
+            <StatCard title="Avg Call Achievement" value={`${dashboardData.call_targets.average_achievement.toFixed(1)}%`} />
+            <StatCard title="Total Route Targets" value={dashboardData.route_targets.total} subtitle={`${dashboardData.route_targets.active} active`} />
+            <StatCard title="Avg Route Achievement" value={`${dashboardData.route_targets.average_achievement.toFixed(1)}%`} />
+          </div>
         </div>
       </div>
 
       <div className="row">
         {/* Top Performers */}
         <div className="col-lg-7 mb-4">
-          <div className="card h-100">
-            <div className="card-header pb-0">
-              <h6>Top Performers</h6>
+          <div className="tm-card h-100">
+            <div className="tm-header" style={{padding:12}}>
+              <h6 className="tm-title" style={{margin:0,fontSize:16}}>Top Performers</h6>
             </div>
             <div className="card-body p-3">
               {dashboardData.top_performers.length === 0 ? (
@@ -248,54 +216,18 @@ const ManagerDashboard = () => {
 
         {/* Quick Actions */}
         <div className="col-lg-5 mb-4">
-          <div className="card h-100">
-            <div className="card-header pb-0">
-              <h6>Quick Actions</h6>
+          <div className="tm-card h-100">
+            <div className="tm-header" style={{padding:12}}>
+              <h6 className="tm-title" style={{margin:0,fontSize:16}}>Quick Actions</h6>
             </div>
             <div className="card-body p-3">
-              <div className="d-grid gap-2">
-                <button
-                  className="btn btn-primary"
-                  onClick={() => navigate('/target/call/assign')}
-                >
-                  <i className="fas fa-plus me-2"></i>
-                  Assign Call Target
-                </button>
-                <button
-                  className="btn btn-info"
-                  onClick={() => navigate('/target/route/assign')}
-                >
-                  <i className="fas fa-plus me-2"></i>
-                  Assign Route Target
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => navigate('/target/call/list')}
-                >
-                  <i className="fas fa-list me-2"></i>
-                  View Call Targets
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => navigate('/target/route/list')}
-                >
-                  <i className="fas fa-list me-2"></i>
-                  View Route Targets
-                </button>
-                <button
-                  className="btn btn-outline-primary"
-                  onClick={() => navigate('/target/master/routes')}
-                >
-                  <i className="fas fa-route me-2"></i>
-                  Manage Routes
-                </button>
-                <button
-                  className="btn btn-outline-primary"
-                  onClick={() => navigate('/target/master/products')}
-                >
-                  <i className="fas fa-box me-2"></i>
-                  Manage Products
-                </button>
+              <div style={{display:'flex', flexWrap:'wrap', gap:10}}>
+                <button className="pill danger" onClick={() => navigate('/target/call/assign')}>Assign Call Target</button>
+                <button className="pill" onClick={() => navigate('/target/route/assign')}>Assign Route Target</button>
+                <button className="pill" onClick={() => navigate('/target/call/list')}>View Call Targets</button>
+                <button className="pill" onClick={() => navigate('/target/route/list')}>View Route Targets</button>
+                <button className="pill" onClick={() => navigate('/target/master/routes')}>Manage Routes</button>
+                <button className="pill" onClick={() => navigate('/target/master/products')}>Manage Products</button>
               </div>
             </div>
           </div>

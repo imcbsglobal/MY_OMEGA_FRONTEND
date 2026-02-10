@@ -1,5 +1,6 @@
 // src/components/TargetManagement/RouteTargetList.jsx
 import React, { useState, useEffect } from 'react';
+import "./targetManagement.css";
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from "../../api/client";
@@ -96,8 +97,12 @@ const RouteTargetList = () => {
   // Helper function to format date
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const d = new Date(dateString);
+    if (isNaN(d)) return dateString;
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   // Helper function to calculate days between dates
@@ -118,21 +123,19 @@ const RouteTargetList = () => {
       <div className="row">
         <div className="col-12">
           <div className="card">
-            <div className="card-header pb-0">
-              <div className="d-flex align-items-center justify-content-between">
-                <h6>Route Target List</h6>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => navigate('/target/route/assign')}
-                >
-                  + Assign New Target
-                </button>
-              </div>
+            <div className="card-header pb-0 tm-header">
+              <h6 className="tm-title mb-0">Route Target List</h6>
+              <button
+                className="assign-btn btn btn-danger btn-sm"
+                onClick={() => navigate('/target/route/assign')}
+              >
+                + Assign New Target
+              </button>
             </div>
 
             {/* Filters */}
             <div className="card-body">
-              <div className="row mb-3">
+              <div className="tm-filters row mb-3">
                 <div className="col-md-4 mb-2">
                   <label className="form-label text-xs">Filter by Employee</label>
                   <select
@@ -204,7 +207,7 @@ const RouteTargetList = () => {
 
               {/* Table */}
               <div className="table-responsive">
-                <table className="table align-items-center mb-0">
+                <table className="table align-items-center mb-0 tm-table">
                   <thead>
                     <tr>
                       <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
@@ -256,7 +259,11 @@ const RouteTargetList = () => {
                             <div className="d-flex px-2 py-1">
                               <div className="d-flex flex-column justify-content-center">
                                 <h6 className="mb-0 text-sm">{target.employee_name || 'N/A'}</h6>
-                                <p className="text-xs text-secondary mb-0">{target.employee_id_display || 'N/A'}</p>
+                                <p className="text-xs text-secondary mb-0">
+                                  {target.employee_email ? (
+                                    <a href={`mailto:${target.employee_email}`} style={{color:'#6b7280', textDecoration:'none'}}>{target.employee_email}</a>
+                                  ) : (target.employee_id_display || 'N/A')}
+                                </p>
                               </div>
                             </div>
                           </td>
@@ -319,12 +326,11 @@ const RouteTargetList = () => {
                               {target.is_active ? 'Active' : 'Inactive'}
                             </span>
                           </td>
-                          <td className="align-middle">
+                          <td className="align-middle text-end">
                             <button
-                              className="btn btn-link text-danger text-gradient px-3 mb-0"
+                              className="btn btn-sm btn-outline-danger"
                               onClick={() => handleDelete(target.id)}
                             >
-                              <i className="far fa-trash-alt me-2"></i>
                               Delete
                             </button>
                           </td>

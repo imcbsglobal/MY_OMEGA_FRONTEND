@@ -1,5 +1,6 @@
 // src/components/TargetManagement/CallTargetAssign.jsx
 import React, { useState, useEffect } from 'react';
+import "./targetManagement.css";
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from "../../api/client";

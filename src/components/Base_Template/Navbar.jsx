@@ -136,8 +136,7 @@ import { useState, useEffect, useRef } from "react";
   'daily activity': Calendar,
   'call performance': TrendingUp,
   'employee dashboard': BarChart2,
-  'achievement report': Award,
-  'summary report': TrendingUp,
+    
       };
 
       const lowerName = name.toLowerCase();
@@ -324,8 +323,6 @@ import { useState, useEffect, useRef } from "react";
             icon: BarChart2,
             children: [
               { name: "Employee Dashboard", path: "/target/reports/dashboard", icon: BarChart2 },
-              { name: "Achievement Report", path: "/target/reports/achievement", icon: Award },
-              { name: "Summary Report", path: "/target/reports/summary", icon: TrendingUp },
             ]
           },
         ]
