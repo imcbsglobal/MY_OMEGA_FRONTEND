@@ -331,7 +331,7 @@ const RouteTargetAssign = () => {
                     <path d="M9 2H15C16.1046 2 17 2.89543 17 4V20C17 21.1046 16.1046 22 15 22H9C7.89543 22 7 21.1046 7 20V4C7 2.89543 7.89543 2 9 2Z" fill="#fff"/>
                     <path d="M8 7H16" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M8 11H16" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>  nbjn b 
+                  </svg> 
                 </div>
                 <h6 className="mb-0 ms-2">Assign Call Target</h6>
               </div>
