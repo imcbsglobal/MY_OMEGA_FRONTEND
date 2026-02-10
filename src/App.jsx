@@ -78,10 +78,10 @@ import CallSummary from "./components/TargetManagement/CallSummary";
 // CallDaily component removed
 
 // Target Management - NEW Components
-import EmployeeTargetView from "./components/TargetManagement/EmployeeTargetView";
-import EmployeeTargetReport from "./components/TargetManagement/EmployeeTargetReport";
+import EmployeeTargetView from "./components/TargetManagement/Employeetargetview";
+import EmployeeTargetReport from "./components/TargetManagement/Employeetargetreport";
 import EmployeeDashboard from "./components/TargetManagement/EmployeeDashboard";
-import ManagerDashboard from "./components/TargetManagement/ManagerDashboard";
+import ManagerDashboard from "./components/TargetManagement/Managerdashboard";
 import ComparativePerformance from "./components/TargetManagement/ComparativePerformance";
 // import EmployeeDetailedReport from "./components/TargetManagement/EmployeeDetailedReport";
 
