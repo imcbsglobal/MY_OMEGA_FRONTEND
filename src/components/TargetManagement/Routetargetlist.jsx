@@ -322,9 +322,19 @@ const RouteTargetList = () => {
                             </div>
                           </td>
                           <td className="align-middle text-center">
-                            <span className={`badge badge-sm ${target.is_active ? 'bg-gradient-success' : 'bg-gradient-secondary'}`}>
-                              {target.is_active ? 'Active' : 'Inactive'}
-                            </span>
+                            <div className={`status-icon ${target.is_active ? 'status-active' : 'status-inactive'}`}>
+                              {target.is_active ? (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <circle cx="12" cy="12" r="10" fill="#10b981"/>
+                                  <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              ) : (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <circle cx="12" cy="12" r="10" fill="#6b7280"/>
+                                  <path d="M15 9l-6 6M9 9l6 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              )}
+                            </div>
                           </td>
                           <td className="align-middle text-end">
                             <button
