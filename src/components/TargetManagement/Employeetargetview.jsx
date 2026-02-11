@@ -9,6 +9,16 @@ const EmployeeTargetView = () => {
   const [routeTargets, setRouteTargets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('call'); // 'call' or 'route'
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState(null);
+  const [updateValues, setUpdateValues] = useState({
+    achieved_calls: '',
+    productive_calls: '',
+    orders_taken: '',
+    achieved_boxes: '',
+    target_amount: '',
+    target_boxes: ''
+  });
 
   useEffect(() => {
     fetchMyTargets();
@@ -22,18 +32,123 @@ const EmployeeTargetView = () => {
   const fetchMyTargets = async () => {
     setLoading(true);
     try {
+      console.log('Fetching call targets...');
       const [callRes, routeRes] = await Promise.all([
-        api.get('/target-management/my-call-targets/'),
-        api.get('/target-management/my-route-targets/')
+        api.get('/target-management/call-targets/'),  // Changed endpoint
+        api.get('/target-management/route-targets/') // Changed endpoint
       ]);
 
-      setCallTargets(callRes.data.results || callRes.data);
-      setRouteTargets(routeRes.data.results || routeRes.data);
+      console.log('Call targets response:', callRes.data);
+      console.log('Route targets response:', routeRes.data);
+
+      const callData = callRes.data.results || callRes.data;
+      const routeData = routeRes.data.results || routeRes.data;
+
+      // Filter for current user's targets
+      const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+      const employeeId = localStorage.getItem('employee_id');
+      
+      console.log('Current user ID:', userId, 'Employee ID:', employeeId);
+      
+      const myCallTargets = Array.isArray(callData) 
+        ? callData.filter(target => 
+            target.employee === userId || 
+            target.employee_id === userId ||
+            target.employee === employeeId ||
+            target.employee_id === employeeId
+          )
+        : [];
+        
+      const myRouteTargets = Array.isArray(routeData)
+        ? routeData.filter(target => 
+            target.employee === userId || 
+            target.employee_id === userId ||
+            target.employee === employeeId ||
+            target.employee_id === employeeId
+          )
+        : [];
+
+      console.log('Filtered call targets:', myCallTargets);
+      console.log('Filtered route targets:', myRouteTargets);
+
+      setCallTargets(myCallTargets);
+      setRouteTargets(myRouteTargets);
     } catch (error) {
+      console.error('API Error:', error);
       toast.error('Failed to load your targets');
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenModal = (target) => {
+    setSelectedTarget(target);
+    if (activeTab === 'call') {
+      setUpdateValues({
+        achieved_calls: target.total_achieved_calls || '',
+        productive_calls: target.total_productive_calls || '',
+        orders_taken: target.total_orders_taken || '',
+        achieved_boxes: '',
+        target_amount: '',
+        target_boxes: ''
+      });
+    } else {
+      setUpdateValues({
+        achieved_calls: '',
+        productive_calls: '',
+        orders_taken: '',
+        achieved_boxes: target.achieved_boxes || '',
+        target_amount: target.target_amount || '',
+        target_boxes: target.target_boxes || ''
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedTarget(null);
+    setUpdateValues({
+      achieved_calls: '',
+      productive_calls: '',
+      orders_taken: '',
+      achieved_boxes: '',
+      target_amount: '',
+      target_boxes: ''
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedTarget) return;
+
+    const url = activeTab === 'call'
+      ? `/target-management/call-daily-targets/${selectedTarget.id}/`
+      : `/target-management/route-targets/${selectedTarget.id}/`;
+
+    let payload;
+    if (activeTab === 'call') {
+      payload = { 
+        total_achieved_calls: updateValues.achieved_calls,
+        total_productive_calls: updateValues.productive_calls,
+        total_orders_taken: updateValues.orders_taken
+      };
+    } else {
+      payload = {
+        achieved_boxes: updateValues.achieved_boxes,
+        target_amount: updateValues.target_amount,
+        target_boxes: updateValues.target_boxes
+      };
+    }
+
+    try {
+      await api.patch(url, payload);
+      toast.success('Target updated successfully!');
+      handleCloseModal();
+      fetchMyTargets(); // Refresh data
+    } catch (error) {
+      toast.error('Failed to update target.');
+      console.error('Update error:', error);
     }
   };
 
@@ -81,7 +196,7 @@ const EmployeeTargetView = () => {
               Achievement %
             </th>
             <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-              Status
+              Actions
             </th>
           </tr>
         </thead>
@@ -143,14 +258,13 @@ const EmployeeTargetView = () => {
                   </div>
                 </td>
                 <td className="align-middle text-center">
-                  {(() => {
-                    const s = getStatus(target.achievement_percentage);
-                    return (
-                      <span className={`badge badge-sm ${s.className}`}>
-                        {s.label}
-                      </span>
-                    );
-                  })()}
+                  <button
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => handleOpenModal(target)}
+                    title="Update Target"
+                  >
+                    <i className="fas fa-edit me-1"></i> Edit
+                  </button>
                 </td>
               </tr>
             ))
@@ -184,7 +298,7 @@ const EmployeeTargetView = () => {
               Achievement %
             </th>
             <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-              Status
+              Actions
             </th>
           </tr>
         </thead>
@@ -257,14 +371,13 @@ const EmployeeTargetView = () => {
                   </div>
                 </td>
                 <td className="align-middle text-center">
-                  {(() => {
-                    const s = getStatus(target.achievement_percentage_boxes);
-                    return (
-                      <span className={`badge badge-sm ${s.className}`}>
-                        {s.label}
-                      </span>
-                    );
-                  })()}
+                  <button
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => handleOpenModal(target)}
+                    title="Update Target"
+                  >
+                    <i className="fas fa-edit me-1"></i> Edit
+                  </button>
                 </td>
               </tr>
             ))
@@ -344,6 +457,116 @@ const EmployeeTargetView = () => {
           </div>
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-custom">
+              <h5 className="modal-title-custom">
+                Update {activeTab === 'call' ? 'Call Target' : 'Route Target'}
+              </h5>
+              <button type="button" className="modal-close-btn" onClick={handleCloseModal}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body-custom">
+              {activeTab === 'call' ? (
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <div className="form-group-custom">
+                      <label className="form-label-custom">Achieved Calls</label>
+                      <input
+                        type="number"
+                        className="form-control-custom"
+                        value={updateValues.achieved_calls}
+                        onChange={(e) => setUpdateValues({...updateValues, achieved_calls: e.target.value})}
+                        placeholder="Enter achieved calls..."
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="form-group-custom">
+                      <label className="form-label-custom">Productive Calls</label>
+                      <input
+                        type="number"
+                        className="form-control-custom"
+                        value={updateValues.productive_calls}
+                        onChange={(e) => setUpdateValues({...updateValues, productive_calls: e.target.value})}
+                        placeholder="Enter productive calls..."
+                      />
+                    </div>
+                  </div>
+                  <div className="col-md-12">
+                    <div className="form-group-custom">
+                      <label className="form-label-custom">Orders Taken</label>
+                      <input
+                        type="number"
+                        className="form-control-custom"
+                        value={updateValues.orders_taken}
+                        onChange={(e) => setUpdateValues({...updateValues, orders_taken: e.target.value})}
+                        placeholder="Enter orders taken..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <div className="form-group-custom">
+                      <label className="form-label-custom">Target Boxes</label>
+                      <input
+                        type="number"
+                        className="form-control-custom"
+                        value={updateValues.target_boxes}
+                        onChange={(e) => setUpdateValues({...updateValues, target_boxes: e.target.value})}
+                        placeholder="Enter target boxes..."
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="form-group-custom">
+                      <label className="form-label-custom">Achieved Boxes</label>
+                      <input
+                        type="number"
+                        className="form-control-custom"
+                        value={updateValues.achieved_boxes}
+                        onChange={(e) => setUpdateValues({...updateValues, achieved_boxes: e.target.value})}
+                        placeholder="Enter achieved boxes..."
+                        step="0.01"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="col-md-12">
+                    <div className="form-group-custom">
+                      <label className="form-label-custom">Target Amount (₹)</label>
+                      <input
+                        type="number"
+                        className="form-control-custom"
+                        value={updateValues.target_amount}
+                        onChange={(e) => setUpdateValues({...updateValues, target_amount: e.target.value})}
+                        placeholder="Enter target amount..."
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer-custom">
+              <button type="button" className="btn-cancel" onClick={handleCloseModal}>
+                Cancel
+              </button>
+              <button type="button" className="btn-save" onClick={handleUpdate}>
+                <i className="fas fa-save me-1"></i>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

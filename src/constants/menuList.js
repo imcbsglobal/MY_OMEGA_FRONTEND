@@ -2,12 +2,6 @@
 
 const menuList = [
   {
-    id: 1,
-    title: "Dashboard",
-    path: "/",
-  },
-
-  {
     id: 2,
     title: "HR Management",
     children: [
@@ -58,7 +52,6 @@ const menuList = [
     title: "Target Management",
     children: [
       { id: 24, title: "Target Setup", path: "/target-setup" },
-      { id: 25, title: "Target Review", path: "/target-review" },
     ],
   },
 

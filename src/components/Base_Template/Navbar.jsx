@@ -121,7 +121,6 @@ import { useState, useEffect, useRef } from "react";
   'manager dashboard': BarChart2,
   'my targets': Target,
   'view my targets': Target,
-  'update progress': ClipboardList,
   'route targets': MapPin,
   'call targets': Phone,
   'master data': Settings,
@@ -207,7 +206,6 @@ import { useState, useEffect, useRef } from "react";
     };
 
     const adminNavItems = [
-      { name: "Dashboard", path: "/", icon: LayoutDashboard },
       { 
         name: "HR Management", 
         icon: Users,
@@ -282,13 +280,11 @@ import { useState, useEffect, useRef } from "react";
         name: "Target Management", 
         icon: Target,
         children: [
-          { name: "Manager Dashboard", path: "/target/dashboard", icon: BarChart2 },
           {
             name: "My Targets",
             icon: Target,
             children: [
               { name: "View My Targets", path: "/target/my-targets", icon: Target },
-              { name: "Update Progress", path: "/target/update-report", icon: ClipboardList },
             ]
           },
           {
