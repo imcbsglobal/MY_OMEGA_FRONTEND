@@ -25,50 +25,70 @@ const EmployeeDashboard = () => {
     log_type: 'both', // both, call, route, summary
     limit: 20,
     start_date: '',
-    end_date: ''
+    end_date: '',
+    page: 1
   });
+
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
 
   // Add custom CSS styles for the red and white theme
   React.useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
-      .employee-dashboard-nav .nav-link {
-        transition: all 0.3s ease !important;
-      }
+      :root { --mild-red: #f87171; --mild-red-dark: #ef4444; --mild-accent: #fecaca; }
+      .employee-dashboard-nav .nav-link { transition: all 0.3s ease !important; }
       .employee-dashboard-nav .nav-link:not(.active):hover {
-        background: linear-gradient(135deg, #fecaca 0%, #fef2f2 100%) !important;
-        color: #b91c1c !important;
-        border-color: #dc2626 !important;
+        background: linear-gradient(135deg, var(--mild-accent) 0%, #fef2f2 100%) !important;
+        color: var(--mild-red-dark) !important;
+        border-color: var(--mild-red) !important;
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(220, 38, 38, 0.2) !important;
+        box-shadow: 0 4px 8px rgba(248, 113, 113, 0.18) !important;xxxxxxx
       }
       .employee-dashboard-nav .nav-link.active {
-        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-        border-color: #dc2626 !important;
+        background: linear-gradient(135deg, var(--mild-red) 0%, var(--mild-red-dark) 100%) !important;
+        border-color: var(--mild-red) !important;
       }
-      .employee-dashboard-summary-card {
-        transition: all 0.3s ease !important;
-      }
+      .employee-dashboard-summary-card { transition: all 0.3s ease !important; }
       .employee-dashboard-summary-card:hover {
         transform: translateY(-4px) !important;
-        box-shadow: 0 8px 25px rgba(220, 38, 38, 0.15) !important;
-        border-color: #dc2626 !important;
+        box-shadow: 0 8px 25px rgba(248, 113, 113, 0.12) !important;
+        border-color: var(--mild-red) !important;
       }
       .employee-dashboard-table tbody tr:hover {
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 50%, #fef2f2 100%) !important;
+        background: linear-gradient(135deg, #fef2f2 0%, var(--mild-accent) 50%, #fef2f2 100%) !important;
         transform: scale(1.01) !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1) !important;
+        box-shadow: 0 4px 12px rgba(248, 113, 113, 0.08) !important;
       }
       .employee-dashboard-filter-btn:hover {
-        background: linear-gradient(135deg, #fecaca 0%, #fef2f2 100%) !important;
-        color: #b91c1c !important;
-        border-color: #dc2626 !important;
+        background: linear-gradient(135deg, var(--mild-accent) 0%, #fef2f2 100%) !important;
+        color: var(--mild-red-dark) !important;
+        border-color: var(--mild-red) !important;
         transform: scale(1.05) !important;
       }
     `;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
+
+  // Fetch employees list from backend to match frontend display (used for admin views)
+  const fetchEmployees = async () => {
+    try {
+      setEmployeesLoading(true);
+      const res = await api.get('employee-management/employees/');
+      const payload = res.data;
+      const list = Array.isArray(payload) ? payload : (payload.results || payload.data || []);
+      setEmployees(list || []);
+      console.log('🔎 Fetched employees:', list.length);
+    } catch (err) {
+      console.warn('⚠️ Could not fetch employees list:', err.message || err);
+      setEmployees([]);
+    } finally {
+      setEmployeesLoading(false);
+    }
+  };
+
+  React.useEffect(() => { fetchEmployees(); }, []);
 
   // Get logged-in employee ID with enhanced security
   const getLoggedInEmployeeId = () => {
@@ -86,7 +106,13 @@ const EmployeeDashboard = () => {
       
       // CRITICAL: Use employee_id from localStorage (set during login)
       // This is the Employee model ID, NOT the AppUser ID
-      const employeeId = localStorage.getItem('employee_id');
+      // If the current user is an admin, allow overriding the employee via URL param
+      const employeeIdFromStorage = localStorage.getItem('employee_id');
+      const isAdminUser = !!(user && (user.is_staff || user.is_superuser || localStorage.getItem('is_admin') === 'true'));
+      const urlParams = new URLSearchParams(window.location.search);
+      const employeeIdFromUrl = urlParams.get('employee_id') || urlParams.get('view_employee');
+
+      const employeeId = (isAdminUser && employeeIdFromUrl) ? String(employeeIdFromUrl).trim() : employeeIdFromStorage;
       
       console.log('🔍 Employee ID retrieval:', {
         employeeId_from_storage: employeeId,
@@ -132,11 +158,16 @@ const EmployeeDashboard = () => {
       }
       
       console.log('📊 Fetching dashboard data for employee ID:', employeeId);
+
+      // Try to match a prefetched employee from the employees endpoint (helps admin views)
+      const prefetchedEmployee = (employees || []).find(e => String(e.id) === String(employeeId) || String(e.employee_id) === String(employeeId));
+      if (prefetchedEmployee) console.log('🔁 Found prefetched employee for ID:', employeeId, prefetchedEmployee);
       
       // Build strict API parameters to ensure data filtering
       const params = new URLSearchParams({
         employee_id: employeeId,
         limit: filter.limit,
+        page: filter.page || 1
       });
       
       // Add log_type filter (but not for summary calls)
@@ -154,6 +185,12 @@ const EmployeeDashboard = () => {
       // Primary API call to get achievement history with strict employee filtering
       const achievementResponse = await api.get(`/target-management/employee/achievement-history/?${params}`);
       const apiData = achievementResponse.data;
+
+      // If achievement endpoint didn't include employee payload, fall back to prefetched employee
+      if (!apiData.employee && prefetchedEmployee) {
+        console.warn('⚠️ Achievement API did not return employee; using prefetched employee data');
+        apiData.employee = prefetchedEmployee;
+      }
       
       console.log('🎯 API Response received:', apiData);
       console.log('📋 Achievement logs:', apiData.logs);
@@ -304,12 +341,17 @@ const EmployeeDashboard = () => {
       
       const avgAchievement = targetCount > 0 ? totalAchievement / targetCount : 0;
 
+      // Merge logs when loading additional pages (append older logs)
+      const fetchedLogs = apiData.logs || [];
+      const newAchievementLogs = (filter.page && filter.page > 1) ?
+        [...(dashboardData.achievement_logs || []), ...fetchedLogs] : fetchedLogs;
+
       // Structure final data with additional security validation
       const finalDashboardData = {
         employee: apiData.employee, // Use employee data from achievement history API
         route_targets: routeTargets,
         call_targets: callTargets,
-        achievement_logs: apiData.logs || [], // Use logs from API response
+        achievement_logs: newAchievementLogs, // Use merged or fresh logs
         total_logs: apiData.total_logs || 0, // Use total_logs from API response
         summary: {
           total_targets: allTargets.length,
@@ -371,12 +413,13 @@ const EmployeeDashboard = () => {
       });
     } finally {
       setLoading(false);
+      console.log('✅ Rendering with loading=false');
     }
   };
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilter(prev => ({ ...prev, [name]: value }));
+    setFilter(prev => ({ ...prev, [name]: value, page: 1 }));
   };
 
   const resetFilters = () => {
@@ -384,7 +427,8 @@ const EmployeeDashboard = () => {
       log_type: 'both',
       limit: 20,
       start_date: '',
-      end_date: ''
+      end_date: '',
+      page: 1
     });
   };
 
@@ -415,6 +459,25 @@ const EmployeeDashboard = () => {
     return badges[logType] || 'badge bg-secondary text-white';
   };
 
+  const isAdminView = () => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const isAdminUser = !!(user && (user.is_staff || user.is_superuser || localStorage.getItem('is_admin') === 'true'));
+      const urlParams = new URLSearchParams(window.location.search);
+      const employeeIdFromUrl = urlParams.get('employee_id') || urlParams.get('view_employee');
+      return isAdminUser && !!employeeIdFromUrl;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  console.log('Component Render Cycle:', {
+    loading: loading,
+    employeeId: getLoggedInEmployeeId(),
+    hasEmployeeData: !!dashboardData.employee,
+    logCount: dashboardData.achievement_logs.length
+  });
+
   if (loading) {
     return (
       <div className="container-fluid py-4">
@@ -431,7 +494,7 @@ const EmployeeDashboard = () => {
           </div>
         </div>
       </div>
-    );
+      );
   }
 
   // Enhanced security validation for current user
@@ -441,11 +504,11 @@ const EmployeeDashboard = () => {
       <div className="container-fluid py-4">
         <div className="row">
           <div className="col-12">
-            <div className="card" style={{border: '2px solid #dc2626'}}>
+            <div className="card" style={{border: '2px solid var(--mild-red)'}}>
               <div className="card-body text-center py-5" style={{background: '#fef2f2'}}>
-                <div className="alert alert-danger" style={{border: '2px solid #dc2626'}}>
+                <div className="alert alert-danger" style={{border: '2px solid var(--mild-red)'}}>
                   <i className="fas fa-exclamation-triangle me-2" style={{fontSize: '24px'}}></i>
-                  <h4 style={{color: '#dc2626', fontWeight: '700'}}>Authentication Required</h4>
+                  <h4 style={{color: 'var(--mild-red)', fontWeight: '700'}}>Authentication Required</h4>
                   <p className="mb-0 mt-2" style={{fontSize: '16px'}}>
                     Unable to identify your employee credentials. Please log in again to access your personal dashboard.
                   </p>
@@ -457,7 +520,7 @@ const EmployeeDashboard = () => {
                       window.location.href = '/login';
                     }}
                     style={{
-                      background: '#dc2626',
+                      background: 'var(--mild-red)',
                       color: 'white',
                       border: 'none',
                       padding: '12px 24px',
@@ -486,11 +549,11 @@ const EmployeeDashboard = () => {
         <div className="container-fluid py-4">
           <div className="row">
             <div className="col-12">
-              <div className="card" style={{border: '2px solid #dc2626'}}>
+              <div className="card" style={{border: '2px solid var(--mild-red)'}}>
                 <div className="card-body text-center py-5" style={{background: '#fef2f2'}}>
-                  <div className="alert alert-danger" style={{border: '2px solid #dc2626'}}>
+                  <div className="alert alert-danger" style={{border: '2px solid var(--mild-red)'}}>
                     <i className="fas fa-shield-alt me-2" style={{fontSize: '24px'}}></i>
-                    <h4 style={{color: '#dc2626', fontWeight: '700'}}>Security Alert</h4>
+                    <h4 style={{color: 'var(--mild-red)', fontWeight: '700'}}>Security Alert</h4>
                     <p className="mb-3 mt-2" style={{fontSize: '16px'}}>
                       Data access violation detected. The dashboard attempted to display data for employee ID: <strong>{dataEmployeeId}</strong>, 
                       but you are logged in as employee ID: <strong>{currentId}</strong>
@@ -521,7 +584,7 @@ const EmployeeDashboard = () => {
                         className="btn"
                         onClick={fetchEmployeeDashboard}
                         style={{
-                          background: 'white',
+                          background: 'var(--mild-red)',
                           color: '#dc2626',
                           border: '2px solid #dc2626',
                           padding: '12px 24px',
@@ -547,9 +610,9 @@ const EmployeeDashboard = () => {
       {/* Header - Red and White Theme */}
       <div className="row mb-4">
         <div className="col-12">
-          <div className="card shadow-lg" style={{border: '2px solid #dc2626', borderRadius: '12px'}}>
+          <div className="card shadow-lg" style={{border: '2px solid var(--mild-red)', borderRadius: '12px'}}>
             <div className="card-header" style={{
-              background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', 
+              background: 'linear-gradient(135deg, var(--mild-red) 0%, var(--mild-red-dark) 100%)', 
               color: 'white',
               borderRadius: '10px 10px 0 0',
               padding: '20px'
@@ -568,6 +631,11 @@ const EmployeeDashboard = () => {
                     <div style={{color: '#fecaca', fontSize: '12px', fontWeight: '500'}}>Employee</div>
                     <div style={{color: 'white', fontWeight: '700', fontSize: '16px'}}>
                       {dashboardData.employee?.name || 'Unknown'}
+                      {isAdminView() && (
+                        <span style={{marginLeft: '8px', background: 'white', color: 'var(--mild-red)', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '700'}}>
+                          Admin view
+                        </span>
+                      )}
                     </div>
                   </div>
                   {dashboardData.employee?.employee_id && (
@@ -575,7 +643,7 @@ const EmployeeDashboard = () => {
                       <div style={{color: '#fecaca', fontSize: '12px', fontWeight: '500'}}>ID</div>
                       <div style={{
                         background: 'white', 
-                        color: '#dc2626', 
+                        color: 'var(--mild-red)', 
                         padding: '4px 12px', 
                         borderRadius: '15px', 
                         fontSize: '12px', 
@@ -821,6 +889,17 @@ const EmployeeDashboard = () => {
                       </tbody>
                     </table>
                   </div>
+                  {dashboardData.achievement_logs.length < dashboardData.total_logs && (
+                    <div className="d-flex justify-content-center my-3" style={{padding: '16px', borderTop: '1px solid #fecaca', background: '#fff'}}>
+                      <button
+                        className="btn"
+                        onClick={() => setFilter(prev => ({ ...prev, page: (prev.page || 1) + 1 }))}
+                        style={{background: '#dc2626', color: 'white', padding: '10px 20px', borderRadius: '8px', fontWeight: '700'}}
+                      >
+                        Load Previous
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Call Targets Tab */}
