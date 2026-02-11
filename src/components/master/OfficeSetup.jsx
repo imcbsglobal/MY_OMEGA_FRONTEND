@@ -3,14 +3,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
+import api from '../../api/client'; // Using centralized api client
 
 // Add this console log to verify the component is loading
 console.log('OfficeSetup component loaded');
 
-// Configure API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-console.log('API Base URL:', API_BASE_URL);
+// Configure API base URL - REMOVED, handled by client
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// console.log('API Base URL:', API_BASE_URL);
 
 // Import Leaflet marker images
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -92,10 +92,8 @@ export default function OfficeSetup() {
 
   const loadExistingOffices = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.get(`${API_BASE_URL}/api/hr/office-locations/`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('hr/office-locations/');
+
       
       // Handle different response formats
       console.log('API Response:', response.data);
@@ -187,10 +185,8 @@ export default function OfficeSetup() {
   // Reverse geocode to get human-readable address
   const reverseGeocode = async (lat, lng) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.get(`${API_BASE_URL}/api/hr/reverse-geocode/`, {
+      const response = await api.get('hr/reverse-geocode/', {
         params: { latitude: lat, longitude: lng },
-        headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.address) {
         setAddress(response.data.address);
@@ -253,10 +249,9 @@ export default function OfficeSetup() {
           }
           
           try {
-            const response = await axios.post(
-              `${API_BASE_URL}/api/hr/office-locations/${officeId}/test-location/`,
-              { latitude, longitude },
-              { headers: { Authorization: `Bearer ${token}` } }
+            const response = await api.post(
+              `hr/office-locations/${officeId}/test-location/`,
+              { latitude, longitude }
             );
             
             const result = response.data.test_results;
@@ -296,10 +291,8 @@ export default function OfficeSetup() {
     setError(null);
     
     try {
-      const token = localStorage.getItem('accessToken');
-      await axios.delete(
-        `${API_BASE_URL}/api/hr/office-locations/${officeId}/`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.delete(
+        `hr/office-locations/${officeId}/`
       );
       
       setSuccess('✅ Office location deleted successfully!');
@@ -346,11 +339,9 @@ export default function OfficeSetup() {
 
       console.log('Saving payload:', payload);
 
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.post(
-        `${API_BASE_URL}/api/hr/office-locations/detect-my-location/`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await api.post(
+        'hr/office-locations/',
+        payload
       );
 
       console.log('Save response:', response.data);

@@ -66,13 +66,20 @@ import FuelManagement from "./components/VehicleManagement/FuelManagement";
 import Travel from "./components/VehicleManagement/Travel";
 import VehicleChallan from "./components/VehicleManagement/VehicleChallan";
 
+// Delivery Management
+import DeliveryList from "./components/DeliveryManagement/DeliveryList";
+import DeliveryForm from "./components/DeliveryManagement/DeliveryForm";
+import DeliveryDetail from "./components/DeliveryManagement/DeliveryDetail";
+import DeliveryStops from "./components/DeliveryManagement/DeliveryStops";
+import DeliveryProducts from "./components/DeliveryManagement/DeliveryProducts";
+
 // Target Management - Existing Components
 import RouteTargetAssign from "./components/TargetManagement/Routetargetassign";
 import RouteTargetList from "./components/TargetManagement/Routetargetlist";
 import CallTargetAssign from "./components/TargetManagement/Calltargetassign";
 import CallTargetList from "./components/TargetManagement/Calltargetlist";
-import RouteMaster from "./components/TargetManagement/Routemaster";
-import ProductMaster from "./components/TargetManagement/Productmaster";
+import RouteManager from "./components/master/RouteManager";
+import ProductManager from "./components/master/ProductManager";
 import RouteSummary from "./components/TargetManagement/RouteSummary";
 import CallSummary from "./components/TargetManagement/CallSummary";
 // CallDaily component removed
@@ -80,7 +87,6 @@ import CallSummary from "./components/TargetManagement/CallSummary";
 // Target Management - NEW Components
 import EmployeeTargetView from "./components/TargetManagement/Employeetargetview";
 import EmployeeTargetReport from "./components/TargetManagement/Employeetargetreport";
-import EmployeeDashboard from "./components/TargetManagement/EmployeeDashboard";
 import ManagerDashboard from "./components/TargetManagement/Managerdashboard";
 import ComparativePerformance from "./components/TargetManagement/ComparativePerformance";
 // import EmployeeDetailedReport from "./components/TargetManagement/EmployeeDetailedReport";
@@ -188,7 +194,6 @@ function App() {
           {/* ============== TARGET MANAGEMENT ROUTES ============== */}
           
           {/* 🆕 Employee Self-Service Routes */}
-          <Route path="target/employee-dashboard" element={<EmployeeDashboard />} />
           <Route path="target/my-targets" element={<EmployeeTargetView />} />
           <Route path="target/update-report" element={<EmployeeTargetReport />} />
           
@@ -209,8 +214,8 @@ function App() {
           <Route path="target/call/performance" element={<CallSummary />} />
           
           {/* Target Master Data */}
-          <Route path="target/master/routes" element={<RouteMaster />} />
-          <Route path="target/master/products" element={<ProductMaster />} />
+          <Route path="target/master/routes" element={<RouteManager />} />
+          <Route path="target/master/products" element={<ProductManager />} />
           
           {/* Target Reports - Legacy routes (keeping for backward compatibility) */}
           <Route path="target/reports/dashboard" element={<ManagerDashboard />} />
@@ -224,6 +229,14 @@ function App() {
           <Route path="add-user" element={<AddUser />} />
           <Route path="user-control" element={<UserControl />} />
           <Route path="configure-access/:id" element={<ConfigureAccess />} />
+
+          {/* Delivery Management */}
+          <Route path="delivery-management/deliveries" element={<DeliveryList />} />
+          <Route path="delivery-management/deliveries/new" element={<DeliveryForm />} />
+          <Route path="delivery-management/deliveries/:id" element={<DeliveryDetail />} />
+          <Route path="delivery-management/deliveries/:id/edit" element={<DeliveryForm />} />
+          <Route path="delivery-management/deliveries/:id/stops" element={<DeliveryStops />} />
+          <Route path="delivery-management/deliveries/:id/products" element={<DeliveryProducts />} />
 
           <Route path="my-menu" element={<MyMenu />} />
 

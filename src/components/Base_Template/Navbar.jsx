@@ -287,7 +287,6 @@ import { useState, useEffect, useRef } from "react";
             name: "My Targets",
             icon: Target,
             children: [
-              { name: "My Dashboard", path: "/target/employee-dashboard", icon: BarChart2 },
               { name: "View My Targets", path: "/target/my-targets", icon: Target },
               { name: "Update Progress", path: "/target/update-report", icon: ClipboardList },
             ]
@@ -318,17 +317,17 @@ import { useState, useEffect, useRef } from "react";
               { name: "Products", path: "/target/master/products", icon: Package },
             ]
           },
-          {
-            name: "Reports",
-            icon: BarChart2,
-            children: [
-              { name: "Employee Dashboard", path: "/target/employee-dashboard", icon: BarChart2 },
-            ]
-          },
         ]
       },
       { name: "Warehouse Management", path: "/under-construction", icon: Warehouse },
-      { name: "Delivery Management", path: "/under-construction", icon: Truck },
+      {
+        name: "Delivery Management",
+        icon: Truck,
+        children: [
+          { name: "List Deliveries", path: "/delivery-management/deliveries", icon: ClipboardList },
+          { name: "Create Delivery", path: "/delivery-management/deliveries/new", icon: Truck },
+        ]
+      },
       { 
         name: "User Management", 
         icon: UserCog,
