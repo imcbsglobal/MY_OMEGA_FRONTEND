@@ -1,16 +1,13 @@
-// OfficeSetup.jsx - FULLY FIXED VERSION with comprehensive error handling
+// OfficeSetup.jsx - MOBILE FIX VERSION
+// Fixes coordinate precision issues on mobile devices
+
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import api from '../../api/client'; // Using centralized api client
-
+import api from '../../api/client';
 
 console.log('OfficeSetup component loaded');
-
-// Configure API base URL - REMOVED, handled by client
-// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-// console.log('API Base URL:', API_BASE_URL);
 
 // Import Leaflet marker images
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -34,6 +31,31 @@ const officeIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
 });
+
+// ✅ CRITICAL FIX: Coordinate sanitization for mobile compatibility
+const sanitizeCoordinate = (value, isLongitude = false) => {
+  if (value === null || value === undefined) return null;
+  
+  // Convert to number first
+  let num = typeof value === 'string' ? parseFloat(value) : Number(value);
+  
+  // Validate range
+  const maxVal = isLongitude ? 180 : 90;
+  if (isNaN(num) || num < -maxVal || num > maxVal) {
+    console.error(`Invalid coordinate value: ${value}`);
+    return null;
+  }
+  
+  // Round to 7 decimal places (max for DecimalField(max_digits=10, decimal_places=7))
+  // This handles the "11.618002662095822" → "11.6180027" conversion
+  const rounded = Math.round(num * 10000000) / 10000000;
+  
+  // Convert to string with exactly 7 decimal places to avoid scientific notation
+  const str = rounded.toFixed(7);
+  
+  // Remove trailing zeros and unnecessary decimal point
+  return parseFloat(str);
+};
 
 // Component to recenter map
 function RecenterMap({ center }) {
@@ -79,7 +101,7 @@ export default function OfficeSetup() {
   const [mapClickEnabled, setMapClickEnabled] = useState(false);
   const [detectionMethod, setDetectionMethod] = useState('gps');
   
-  // Existing offices - ALWAYS initialize as array
+  // Existing offices
   const [existingOffices, setExistingOffices] = useState([]);
   const [activeOffice, setActiveOffice] = useState(null);
 
@@ -93,10 +115,6 @@ export default function OfficeSetup() {
   const loadExistingOffices = async () => {
     try {
       const response = await api.get('hr/office-locations/');
-
-      
-      // Handle different response formats
-      console.log('API Response:', response.data);
       
       let offices = [];
       if (Array.isArray(response.data)) {
@@ -116,71 +134,81 @@ export default function OfficeSetup() {
       setActiveOffice(active);
     } catch (err) {
       console.error('Failed to load offices:', err);
-      setExistingOffices([]); // Set empty array on error
+      setExistingOffices([]);
     }
   };
 
-  // Step 1: Detect current GPS location
+  // ✅ FIXED: Step 1 - Detect current GPS location with mobile-safe coordinate handling
   const detectMyLocation = () => {
-  setLoading(true);
-  setError(null);
-  
-  if (!navigator.geolocation) {
-    setError('Geolocation is not supported by your browser');
-    setLoading(false);
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const { latitude, longitude, accuracy: gpsAccuracy } = position.coords;
-      
-      // ✅ FIX: Round coordinates to 7 decimal places immediately
-      const roundedLat = Number(latitude.toFixed(7));
-      const roundedLng = Number(longitude.toFixed(7));
-      
-      console.log('📍 GPS Location detected:');
-      console.log('  Original:', { lat: latitude, lng: longitude });
-      console.log('  Rounded:', { lat: roundedLat, lng: roundedLng });
-      console.log('  Accuracy:', gpsAccuracy, 'meters');
-      
-      setLocation({ lat: roundedLat, lng: roundedLng });
-      setAccuracy(gpsAccuracy);
-      setDetectionMethod('gps');
-      
-      // Get address for these coordinates
-      reverseGeocode(roundedLat, roundedLng);
-      
+    setLoading(true);
+    setError(null);
+    
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
       setLoading(false);
-      setStep(2); // Move to map adjustment step
-    },
-    (error) => {
-      setLoading(false);
-      let errorMessage = 'Failed to get your location. ';
-      
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage += 'Please allow location access in your browser settings.';
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMessage += 'Location information is unavailable.';
-          break;
-        case error.TIMEOUT:
-          errorMessage += 'Request timeout. Please try again.';
-          break;
-        default:
-          errorMessage += error.message;
-      }
-      
-      setError(errorMessage);
-    },
-    { 
-      enableHighAccuracy: true, 
-      timeout: 10000, 
-      maximumAge: 0 
+      return;
     }
-  );
-};
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy: gpsAccuracy } = position.coords;
+        
+        console.log('📍 RAW GPS Location detected:');
+        console.log('  Raw Latitude:', latitude, typeof latitude);
+        console.log('  Raw Longitude:', longitude, typeof longitude);
+        console.log('  Accuracy:', gpsAccuracy, 'meters');
+        
+        // ✅ CRITICAL: Sanitize coordinates for mobile compatibility
+        const sanitizedLat = sanitizeCoordinate(latitude, false);
+        const sanitizedLng = sanitizeCoordinate(longitude, true);
+        
+        if (sanitizedLat === null || sanitizedLng === null) {
+          setError('Invalid GPS coordinates received. Please try again.');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ Sanitized coordinates:');
+        console.log('  Latitude:', sanitizedLat, typeof sanitizedLat);
+        console.log('  Longitude:', sanitizedLng, typeof sanitizedLng);
+        
+        setLocation({ lat: sanitizedLat, lng: sanitizedLng });
+        setAccuracy(gpsAccuracy);
+        setDetectionMethod('gps');
+        
+        // Get address for these coordinates
+        reverseGeocode(sanitizedLat, sanitizedLng);
+        
+        setLoading(false);
+        setStep(2); // Move to map adjustment step
+      },
+      (error) => {
+        setLoading(false);
+        let errorMessage = 'Failed to get your location. ';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please allow location access in your browser settings.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage += 'Request timeout. Please try again.';
+            break;
+          default:
+            errorMessage += error.message;
+        }
+        
+        setError(errorMessage);
+      },
+      { 
+        enableHighAccuracy: true, 
+        timeout: 10000, 
+        maximumAge: 0 
+      }
+    );
+  };
 
   // Reverse geocode to get human-readable address
   const reverseGeocode = async (lat, lng) => {
@@ -196,11 +224,19 @@ export default function OfficeSetup() {
     }
   };
 
-  // Step 2: Manual fine-tuning on map
+  // ✅ FIXED: Step 2 - Manual fine-tuning on map with sanitized coordinates
   const handleMapClick = (latlng) => {
-    setLocation(latlng);
+    const sanitizedLat = sanitizeCoordinate(latlng.lat, false);
+    const sanitizedLng = sanitizeCoordinate(latlng.lng, true);
+    
+    if (sanitizedLat === null || sanitizedLng === null) {
+      setError('Invalid coordinates selected. Please try again.');
+      return;
+    }
+    
+    setLocation({ lat: sanitizedLat, lng: sanitizedLng });
     setDetectionMethod('map');
-    reverseGeocode(latlng.lat, latlng.lng);
+    reverseGeocode(sanitizedLat, sanitizedLng);
   };
 
   // Step 3: Configure radius
@@ -239,7 +275,6 @@ export default function OfficeSetup() {
         async (position) => {
           const { latitude, longitude } = position.coords;
           
-          const token = localStorage.getItem('accessToken');
           const officeId = activeOffice?.id;
           
           if (!officeId) {
@@ -251,7 +286,10 @@ export default function OfficeSetup() {
           try {
             const response = await api.post(
               `hr/office-locations/${officeId}/test-location/`,
-              { latitude, longitude }
+              { 
+                latitude: sanitizeCoordinate(latitude, false), 
+                longitude: sanitizeCoordinate(longitude, true) 
+              }
             );
             
             const result = response.data.test_results;
@@ -291,32 +329,22 @@ export default function OfficeSetup() {
     setError(null);
     
     try {
-      await api.delete(
-        `hr/office-locations/${officeId}/`
-      );
+      await api.delete(`hr/office-locations/${officeId}/`);
       
-      setSuccess('✅ Office location deleted successfully!');
-      
-      // Reload the office list
+      setSuccess('✅ Office deleted successfully');
       await loadExistingOffices();
-      
       setLoading(false);
     } catch (err) {
       console.error('Delete error:', err);
-      setError('❌ Failed to delete office: ' + (err.response?.data?.error || err.message));
+      setError('❌ Failed to delete: ' + (err.response?.data?.error || err.message));
       setLoading(false);
     }
   };
 
-  // Save configuration
+  // ✅ FIXED: Save configuration with strict coordinate sanitization
   const saveConfiguration = async () => {
-    if (!location) {
-      setError('❌ Please detect or select a location first');
-      return;
-    }
-
-    if (!officeName.trim()) {
-      setError('❌ Please enter an office name');
+    if (!location || !officeName.trim()) {
+      setError('❌ Please provide office name and location');
       return;
     }
 
@@ -325,26 +353,55 @@ export default function OfficeSetup() {
     setSuccess(null);
 
     try {
+      // ✅ CRITICAL: Double-sanitize coordinates before sending
+      const sanitizedLat = sanitizeCoordinate(location.lat, false);
+      const sanitizedLng = sanitizeCoordinate(location.lng, true);
+      
+      if (sanitizedLat === null || sanitizedLng === null) {
+        setError('❌ Invalid coordinates. Please select location again.');
+        setLoading(false);
+        return;
+      }
+      
+      // ✅ Ensure radius is an integer
+      const sanitizedRadius = parseInt(radius);
+      if (isNaN(sanitizedRadius) || sanitizedRadius < 10 || sanitizedRadius > 500) {
+        setError('❌ Invalid radius. Must be between 10 and 500 meters.');
+        setLoading(false);
+        return;
+      }
+      
+      // ✅ Build payload with sanitized values
       const payload = {
-        name: officeName,
-        address: address || 'Office Location',
-        latitude: location.lat,
-        longitude: location.lng,
-        geofence_radius_meters: radius,
-        detection_method: detectionMethod,
-        gps_accuracy_meters: accuracy,
-        notes: notes,
+        name: officeName.trim(),
+        address: address.trim() || 'Office Location',
+        latitude: sanitizedLat,
+        longitude: sanitizedLng,
+        geofence_radius_meters: sanitizedRadius,
+        detection_method: detectionMethod || 'gps',
+        gps_accuracy_meters: accuracy ? parseFloat(accuracy.toFixed(2)) : null,
+        notes: notes.trim() || null,
         is_active: true
       };
 
-      console.log('Saving payload:', payload);
+      console.log('🚀 Sending payload:', JSON.stringify(payload, null, 2));
+      console.log('📊 Payload types:', {
+        latitude: typeof payload.latitude,
+        longitude: typeof payload.longitude,
+        radius: typeof payload.geofence_radius_meters
+      });
 
       const response = await api.post(
         'hr/office-locations/',
-        payload
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       );
 
-      console.log('Save response:', response.data);
+      console.log('✅ Save response:', response.data);
       
       // Handle different response formats
       let savedOffice = null;
@@ -359,14 +416,40 @@ export default function OfficeSetup() {
       setSuccess('✅ Office location configured successfully!');
       setActiveOffice(savedOffice);
       setStep(5);
-      await loadExistingOffices(); // Reload the list
+      await loadExistingOffices();
       setLoading(false);
     } catch (err) {
-      console.error('Save error:', err);
-      const errorMsg = err.response?.data?.error 
-        || err.response?.data?.message 
-        || err.message 
-        || 'Unknown error';
+      console.error('❌ Save error:', err);
+      console.error('❌ Error response:', err.response?.data);
+      
+      // Enhanced error messaging
+      let errorMsg = 'Unknown error';
+      
+      if (err.response?.data) {
+        const data = err.response.data;
+        
+        if (data.details) {
+          // DRF validation errors
+          const errors = [];
+          for (const [field, messages] of Object.entries(data.details)) {
+            if (Array.isArray(messages)) {
+              errors.push(`${field}: ${messages.join(', ')}`);
+            } else {
+              errors.push(`${field}: ${messages}`);
+            }
+          }
+          errorMsg = errors.join(' | ');
+        } else if (data.error) {
+          errorMsg = data.error;
+        } else if (data.message) {
+          errorMsg = data.message;
+        } else if (typeof data === 'string') {
+          errorMsg = data;
+        }
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      
       setError('❌ Failed to save: ' + errorMsg);
       setLoading(false);
     }
@@ -396,7 +479,6 @@ export default function OfficeSetup() {
                   setStep(2);
                   setMapClickEnabled(true);
                   setDetectionMethod('manual');
-                  // Set default location (India center)
                   setLocation({ lat: 20.5937, lng: 78.9629 });
                 }}
               >
@@ -420,9 +502,8 @@ export default function OfficeSetup() {
                           className="btn-delete" 
                           onClick={() => deleteOffice(office.id)}
                           disabled={loading}
-                          title="Delete this office location"
                         >
-                          🗑️ Delete
+                          {loading ? '⏳ Deleting...' : '🗑️ Delete'}
                         </button>
                       )}
                     </div>
@@ -436,54 +517,57 @@ export default function OfficeSetup() {
       case 2:
         return (
           <div className="setup-step">
-            <h2>📍 Step 2: Confirm Location</h2>
-            <p>Click on the map to adjust the exact office location if needed.</p>
+            <h2>📍 Step 2: Adjust Location (Optional)</h2>
+            <p>Your detected location is shown below. You can click on the map to fine-tune the exact position.</p>
             
             {location && (
-              <div className="location-info">
-                <p><strong>Coordinates:</strong> {location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
-                {accuracy && <p><strong>GPS Accuracy:</strong> ±{Math.round(accuracy)}m</p>}
-                {address && <p><strong>Address:</strong> {address}</p>}
-              </div>
-            )}
+              <>
+                <div className="location-info">
+                  <p><strong>📌 Coordinates:</strong> {location.lat.toFixed(7)}, {location.lng.toFixed(7)}</p>
+                  {accuracy && <p><strong>🎯 GPS Accuracy:</strong> ±{accuracy.toFixed(0)} meters</p>}
+                  {address && <p><strong>📍 Address:</strong> {address}</p>}
+                </div>
 
-            <div className="map-container" style={{ height: '400px', marginTop: '20px' }}>
-              <MapContainer
-                center={location || { lat: 20.5937, lng: 78.9629 }}
-                zoom={18}
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                />
-                <MapClickHandler 
-                  onLocationSelect={handleMapClick} 
-                  enabled={mapClickEnabled}
-                />
-                {location && (
-                  <>
+                <div className="map-container">
+                  <MapContainer
+                    center={[location.lat, location.lng]}
+                    zoom={18}
+                    style={{ height: '400px', width: '100%' }}
+                    ref={mapRef}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
                     <Marker position={[location.lat, location.lng]} icon={officeIcon} />
                     <Circle
                       center={[location.lat, location.lng]}
                       radius={radius}
                       pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }}
                     />
-                  </>
-                )}
-                <RecenterMap center={location} />
-              </MapContainer>
-            </div>
+                    <RecenterMap center={[location.lat, location.lng]} />
+                    <MapClickHandler onLocationSelect={handleMapClick} enabled={mapClickEnabled} />
+                  </MapContainer>
+                </div>
+
+                <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={mapClickEnabled}
+                      onChange={(e) => setMapClickEnabled(e.target.checked)}
+                    />
+                    {' '}Enable map click to adjust location
+                  </label>
+                </div>
+              </>
+            )}
 
             <div className="action-buttons">
               <button className="btn btn-secondary" onClick={() => setStep(1)}>
                 ← Back
               </button>
-              <button 
-                className="btn btn-primary" 
-                onClick={() => setStep(3)}
-                disabled={!location}
-              >
+              <button className="btn btn-primary" onClick={() => setStep(3)}>
                 Next: Configure Radius →
               </button>
             </div>
@@ -493,8 +577,8 @@ export default function OfficeSetup() {
       case 3:
         return (
           <div className="setup-step">
-            <h2>⭕ Step 3: Configure Geofence Radius</h2>
-            <p>Set the allowed distance from the office for attendance punching.</p>
+            <h2>🎯 Step 3: Set Geofence Radius</h2>
+            <p>Define how far from the office location employees can be to punch in/out.</p>
 
             <div className="radius-config">
               <div className="radius-display">
@@ -509,7 +593,7 @@ export default function OfficeSetup() {
               <input
                 type="range"
                 min="10"
-                max="300"
+                max="500"
                 value={radius}
                 onChange={handleRadiusChange}
                 className="radius-slider"
@@ -517,35 +601,35 @@ export default function OfficeSetup() {
 
               <div className="radius-presets">
                 <button className="preset-btn" onClick={() => setRadius(30)}>30m - Tight</button>
-                <button className="preset-btn" onClick={() => setRadius(50)}>50m - Small Office</button>
-                <button className="preset-btn" onClick={() => setRadius(100)}>100m - Standard</button>
-                <button className="preset-btn" onClick={() => setRadius(200)}>200m - Large Campus</button>
+                <button className="preset-btn" onClick={() => setRadius(50)}>50m - Standard</button>
+                <button className="preset-btn" onClick={() => setRadius(100)}>100m - Wide</button>
+                <button className="preset-btn" onClick={() => setRadius(200)}>200m - Campus</button>
               </div>
 
               <div className="radius-recommendations">
-                <h4>📋 Recommendations:</h4>
+                <h4>💡 Recommendations:</h4>
                 <ul>
-                  <li><strong>30-50m:</strong> Small offices, single building</li>
+                  <li><strong>30-50m:</strong> Small offices, strict control</li>
                   <li><strong>50-100m:</strong> Standard offices (Recommended)</li>
-                  <li><strong>100-200m:</strong> Large office complexes or campuses</li>
-                  <li><strong>&gt;200m:</strong> May allow punching from outside premises</li>
+                  <li><strong>100-200m:</strong> Large campuses, multiple buildings</li>
+                  <li><strong>200-500m:</strong> Very large areas (use with caution)</li>
                 </ul>
               </div>
             </div>
 
             {location && (
-              <div className="map-preview" style={{ height: '300px', marginTop: '20px' }}>
+              <div className="map-preview">
                 <MapContainer
                   center={[location.lat, location.lng]}
                   zoom={17}
-                  style={{ height: '100%', width: '100%' }}
+                  style={{ height: '300px', width: '100%' }}
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Marker position={[location.lat, location.lng]} icon={officeIcon} />
                   <Circle
                     center={[location.lat, location.lng]}
                     radius={radius}
-                    pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }}
+                    pathOptions={{ color: getRadiusLabel().color, fillColor: getRadiusLabel().color, fillOpacity: 0.2 }}
                   />
                 </MapContainer>
               </div>
@@ -556,7 +640,7 @@ export default function OfficeSetup() {
                 ← Back
               </button>
               <button className="btn btn-primary" onClick={() => setStep(4)}>
-                Next: Add Details →
+                Next: Office Details →
               </button>
             </div>
           </div>
@@ -575,7 +659,8 @@ export default function OfficeSetup() {
                 className="form-control"
                 value={officeName}
                 onChange={(e) => setOfficeName(e.target.value)}
-                placeholder="e.g., Main Office, Branch Office"
+                placeholder="e.g., Head Office, Branch 1, etc."
+                required
               />
             </div>
 
@@ -585,7 +670,7 @@ export default function OfficeSetup() {
                 className="form-control"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Complete office address"
+                placeholder="Office address (auto-detected from GPS)"
                 rows="3"
               />
             </div>
@@ -601,15 +686,17 @@ export default function OfficeSetup() {
               />
             </div>
 
-            <div className="summary-box">
-              <h4>📊 Configuration Summary:</h4>
-              <ul>
-                <li><strong>Location:</strong> {location?.lat.toFixed(6)}, {location?.lng.toFixed(6)}</li>
-                <li><strong>Geofence Radius:</strong> {radius}m</li>
-                <li><strong>Detection Method:</strong> {detectionMethod}</li>
-                {accuracy && <li><strong>GPS Accuracy:</strong> ±{Math.round(accuracy)}m</li>}
-              </ul>
-            </div>
+            {location && (
+              <div className="summary-box">
+                <h4>📊 Configuration Summary:</h4>
+                <ul>
+                  <li><strong>Location:</strong> {location.lat.toFixed(7)}, {location.lng.toFixed(7)}</li>
+                  <li><strong>Radius:</strong> {radius} meters</li>
+                  <li><strong>Detection:</strong> {detectionMethod === 'gps' ? '📡 GPS' : '🗺️ Manual'}</li>
+                  {accuracy && <li><strong>Accuracy:</strong> ±{accuracy.toFixed(0)}m</li>}
+                </ul>
+              </div>
+            )}
 
             <div className="action-buttons">
               <button className="btn btn-secondary" onClick={() => setStep(3)}>
@@ -631,12 +718,13 @@ export default function OfficeSetup() {
           <div className="setup-step success-step">
             <div className="success-icon">✅</div>
             <h2>Success!</h2>
-            <p>Office location has been configured successfully.</p>
+            <p>Your office location has been configured successfully.</p>
 
             {activeOffice && (
               <div className="office-summary">
                 <h3>{activeOffice.name}</h3>
                 <p>{activeOffice.address}</p>
+                
                 <div className="summary-stats">
                   <div className="stat">
                     <span className="stat-label">Geofence Radius</span>
@@ -644,34 +732,24 @@ export default function OfficeSetup() {
                   </div>
                   <div className="stat">
                     <span className="stat-label">Detection Method</span>
-                    <span className="stat-value">{activeOffice.detection_method}</span>
+                    <span className="stat-value">{activeOffice.detection_method_display || activeOffice.detection_method}</span>
                   </div>
+                  {activeOffice.gps_accuracy_meters && (
+                    <div className="stat">
+                      <span className="stat-label">GPS Accuracy</span>
+                      <span className="stat-value">±{activeOffice.gps_accuracy_meters}m</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             <div className="action-buttons">
-              <button 
-                className="btn btn-primary" 
-                onClick={testLocation}
-                disabled={loading}
-              >
-                {loading ? '🧪 Testing...' : '🧪 Test Geofence'}
+              <button className="btn btn-primary" onClick={testLocation} disabled={loading}>
+                {loading ? '🧪 Testing...' : '🧪 Test My Location'}
               </button>
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => {
-                  setStep(1);
-                  setLocation(null);
-                  setOfficeName('');
-                  setAddress('');
-                  setNotes('');
-                  setRadius(50);
-                  setError(null);
-                  setSuccess(null);
-                }}
-              >
-                Configure New Office
+              <button className="btn btn-secondary" onClick={() => window.location.reload()}>
+                🔄 Configure Another Office
               </button>
             </div>
           </div>
@@ -684,19 +762,6 @@ export default function OfficeSetup() {
 
   return (
     <div className="office-setup-container">
-      <div className="setup-header">
-        <h1>🏢 Office Location Setup</h1>
-        <p>Configure your office location and geofence for attendance tracking</p>
-        
-        <div className="step-indicator">
-          {[1, 2, 3, 4, 5].map(s => (
-            <div key={s} className={`step ${s === step ? 'active' : ''} ${s < step ? 'completed' : ''}`}>
-              {s}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {error && (
         <div className="alert alert-danger">
           {error}
@@ -711,28 +776,32 @@ export default function OfficeSetup() {
         </div>
       )}
 
+      <div className="progress-bar">
+        <div className={`progress-step ${step >= 1 ? 'completed' : ''} ${step === 1 ? 'active' : ''}`}>1</div>
+        <div className={`progress-step ${step >= 2 ? 'completed' : ''} ${step === 2 ? 'active' : ''}`}>2</div>
+        <div className={`progress-step ${step >= 3 ? 'completed' : ''} ${step === 3 ? 'active' : ''}`}>3</div>
+        <div className={`progress-step ${step >= 4 ? 'completed' : ''} ${step === 4 ? 'active' : ''}`}>4</div>
+        <div className={`progress-step ${step >= 5 ? 'completed' : ''} ${step === 5 ? 'active' : ''}`}>5</div>
+      </div>
+
       {renderStep()}
 
       <style>{`
         .office-setup-container {
-          max-width: 800px;
+          max-width: 1000px;
           margin: 0 auto;
           padding: 20px;
         }
 
-        .setup-header {
-          text-align: center;
-          margin-bottom: 30px;
-        }
-
-        .step-indicator {
+        .progress-bar {
           display: flex;
           justify-content: center;
-          gap: 10px;
-          margin-top: 20px;
+          align-items: center;
+          margin-bottom: 40px;
+          gap: 15px;
         }
 
-        .step {
+        .progress-step {
           width: 40px;
           height: 40px;
           border-radius: 50%;
@@ -741,16 +810,15 @@ export default function OfficeSetup() {
           align-items: center;
           justify-content: center;
           font-weight: bold;
-          transition: all 0.3s;
+          color: #6c757d;
         }
 
-        .step.active {
+        .progress-step.active {
           background: #007bff;
           color: white;
-          transform: scale(1.2);
         }
 
-        .step.completed {
+        .progress-step.completed {
           background: #28a745;
           color: white;
         }
