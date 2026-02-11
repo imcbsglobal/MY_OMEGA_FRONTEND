@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../../api/client'; // Using centralized api client
 
-// Add this console log to verify the component is loading
+
 console.log('OfficeSetup component loaded');
 
 // Configure API base URL - REMOVED, handled by client
