@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api/client";
+import DeliveryStatistics from "./DeliveryStatistics";
 
 export default function DeliveryList() {
   const [deliveries, setDeliveries] = useState([]);
@@ -18,6 +19,8 @@ export default function DeliveryList() {
         <h2 style={{color: '#1e293b'}}>Delivery Management</h2>
         <Link to="/delivery-management/deliveries/new" style={{background: '#fee2e2', color: '#dc2626', padding: '8px 12px', borderRadius: 8, textDecoration: 'none'}}>Create Delivery</Link>
       </div>
+
+      <DeliveryStatistics />
 
       <div style={{marginTop: 16, background: '#ffffff', borderRadius: 8, padding: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.04)'}}>
         <table style={{width: '100%', borderCollapse: 'collapse'}}>

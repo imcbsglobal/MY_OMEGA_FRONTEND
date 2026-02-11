@@ -86,7 +86,6 @@ import CallSummary from "./components/TargetManagement/CallSummary";
 
 // Target Management - NEW Components
 import EmployeeTargetView from "./components/TargetManagement/Employeetargetview";
-import EmployeeTargetReport from "./components/TargetManagement/Employeetargetreport";
 import ManagerDashboard from "./components/TargetManagement/Managerdashboard";
 import ComparativePerformance from "./components/TargetManagement/ComparativePerformance";
 // import EmployeeDetailedReport from "./components/TargetManagement/EmployeeDetailedReport";
@@ -195,7 +194,6 @@ function App() {
           
           {/* 🆕 Employee Self-Service Routes */}
           <Route path="target/my-targets" element={<EmployeeTargetView />} />
-          <Route path="target/update-report" element={<EmployeeTargetReport />} />
           
           {/* 🆕 Manager Dashboard */}
           <Route path="target/dashboard" element={<ManagerDashboard />} />
