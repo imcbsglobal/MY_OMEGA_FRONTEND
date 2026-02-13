@@ -73,6 +73,7 @@ import DeliveryDetail from "./components/DeliveryManagement/DeliveryDetail";
 import DeliveryStops from "./components/DeliveryManagement/DeliveryStops";
 import DeliveryProducts from "./components/DeliveryManagement/DeliveryProducts";
 import DeliveryWorkflow from "./components/DeliveryManagement/Deliveryworkflow";  // ✅ Correct path
+import Employeedeliveryview from "./components/DeliveryManagement/Employeedeliveryview";
 
 // Target Management - Existing Components
 import RouteTargetAssign from "./components/TargetManagement/Routetargetassign";
@@ -238,6 +239,7 @@ function App() {
           <Route path="delivery-management/deliveries/:id/products" element={<DeliveryProducts />} />
           <Route path="/delivery-management/deliveries/new" element={<DeliveryWorkflow />} />
           <Route path="/delivery-management/deliveries/:id" element={<DeliveryWorkflow />} />
+          <Route path="delivery-management/employee-view" element={<Employeedeliveryview />} />
 
           <Route path="my-menu" element={<MyMenu />} />
 

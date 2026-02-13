@@ -100,7 +100,6 @@ const ModalInput = ({ label, ...p }) => (
 const STEPS = [
   { id: 1, label: "Delivery Info" },
   { id: 2, label: "Products"      },
-  { id: 3, label: "Stops"         },
 ];
 
 const StepBar = ({ current }) => (
@@ -113,7 +112,7 @@ const StepBar = ({ current }) => (
           flex: 1, padding: "12px 16px",
           background: active ? "#0f172a" : done ? "#f0fdf4" : "#f8fafc",
           display: "flex", alignItems: "center", gap: 8,
-          borderRight: i < 2 ? "1px solid #e2e8f0" : "none",
+          borderRight: i < 1 ? "1px solid #e2e8f0" : "none",
         }}>
           <div style={{
             width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
@@ -227,18 +226,7 @@ export default function DeliveryWorkflow() {
             unit_price:       p.unit_price ? parseFloat(p.unit_price) : null,
             notes:            p.notes || "",
           })),
-        stops: stopRows
-          .filter(s => s.customer_name)
-          .map(s => ({
-            stop_sequence:    s.stop_sequence,
-            customer_name:    s.customer_name,
-            customer_address: s.customer_address,
-            customer_phone:   s.customer_phone || "",
-            planned_boxes:    s.planned_boxes  ? parseFloat(s.planned_boxes)  : 0,
-            planned_amount:   s.planned_amount ? parseFloat(s.planned_amount) : 0,
-            estimated_arrival: s.estimated_arrival || null,
-            notes:            s.notes || "",
-          })),
+        stops: [],
       };
       const res = await api.post("/delivery-management/deliveries/", payload);
       flash("Delivery created successfully!");
@@ -367,35 +355,19 @@ export default function DeliveryWorkflow() {
             />
             <div style={{ marginTop: 20, display: "flex", justifyContent: "space-between" }}>
               <Btn variant="ghost" onClick={() => setWizardStep(1)}>← Back</Btn>
-              <Btn onClick={() => {
+              <Btn variant="green" onClick={() => {
                 if (!productRows.some(r => r.product && r.loaded_quantity)) {
                   setError("Add at least one product with a quantity."); return;
                 }
-                setError(""); setWizardStep(3);
-              }}>
-                Next: Stops →
-              </Btn>
-            </div>
-          </Card>
-        )}
-
-        {/* STEP 3 — uses DeliveryStops in wizard mode */}
-        {wizardStep === 3 && (
-          <Card>
-            <SectionTitle>Step 3: Delivery Stops</SectionTitle>
-            <DeliveryStops
-              wizardMode
-              stopRows={stopRows}
-              onStopRowsChange={setStopRows}
-            />
-            <div style={{ marginTop: 20, display: "flex", justifyContent: "space-between" }}>
-              <Btn variant="ghost" onClick={() => setWizardStep(2)}>← Back</Btn>
-              <Btn variant="green" onClick={handleCreateDelivery} disabled={loading} style={{ minWidth: 160 }}>
+                handleCreateDelivery();
+              }} disabled={loading} style={{ minWidth: 160 }}>
                 {loading ? "Creating…" : "✓ Create Delivery"}
               </Btn>
             </div>
           </Card>
         )}
+
+
       </div>
     );
   }

@@ -3,7 +3,7 @@ import axios from "axios";
 import { notifyError, notifySuccess } from "../utils/notification";
 
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000/api",  // Remove trailing slash to handle both /url and url formats
+  baseURL: "http://127.0.0.1:8000/api/",  // Added trailing slash to properly handle endpoint concatenation
   headers: {
     "Content-Type": "application/json",
   },
