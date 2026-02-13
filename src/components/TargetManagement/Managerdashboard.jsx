@@ -1,4 +1,9 @@
 // src/components/TargetManagement/ManagerDashboard.jsx
+// FIXES APPLIED:
+//   F-06: Fixed paginated/non-paginated response handling
+//         Old: data.results || data — if results exists but is [], data never tried
+//         New: check if results key exists, use it; else treat raw as array
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -8,16 +13,8 @@ import "./targetManagement.css";
 const ManagerDashboard = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState({
-    call_targets: {
-      total: 0,
-      active: 0,
-      average_achievement: 0
-    },
-    route_targets: {
-      total: 0,
-      active: 0,
-      average_achievement: 0
-    },
+    call_targets: { total: 0, active: 0, average_achievement: 0 },
+    route_targets: { total: 0, active: 0, average_achievement: 0 },
     top_performers: [],
     recent_updates: []
   });
@@ -27,60 +24,75 @@ const ManagerDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  // FIX F-06: Robust helper to extract list from paginated OR plain array response
+  const extractList = (responseData) => {
+    if (!responseData) return [];
+    // DRF pagination: { count, results: [...] }
+    if (responseData.results !== undefined) return Array.isArray(responseData.results) ? responseData.results : [];
+    // Plain array
+    if (Array.isArray(responseData)) return responseData;
+    // Fallback: try common wrapper keys
+    if (responseData.data && Array.isArray(responseData.data)) return responseData.data;
+    return [];
+  };
+
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Fetch call targets
-      const callResponse = await api.get('/target-management/call-targets/');
-      const callTargets = callResponse.data.results || callResponse.data;
+      const [callResponse, routeResponse] = await Promise.all([
+        api.get('/target-management/call-targets/'),
+        api.get('/target-management/route-targets/'),
+      ]);
 
-      // Fetch route targets
-      const routeResponse = await api.get('/target-management/route-targets/');
-      const routeTargets = routeResponse.data.results || routeResponse.data;
+      // FIX F-06: Use extractList helper instead of naive `data.results || data`
+      const callTargets = extractList(callResponse.data);
+      const routeTargets = extractList(routeResponse.data);
 
       // Calculate statistics
       const activeCallTargets = callTargets.filter(t => t.is_active);
       const activeRouteTargets = routeTargets.filter(t => t.is_active);
 
       const avgCallAchievement = activeCallTargets.length > 0
-        ? activeCallTargets.reduce((sum, t) => sum + (t.achievement_percentage || 0), 0) / activeCallTargets.length
+        ? activeCallTargets.reduce((sum, t) => sum + (parseFloat(t.achievement_percentage) || 0), 0) / activeCallTargets.length
         : 0;
 
       const avgRouteAchievement = activeRouteTargets.length > 0
-        ? activeRouteTargets.reduce((sum, t) => sum + (t.achievement_percentage_boxes || 0), 0) / activeRouteTargets.length
+        ? activeRouteTargets.reduce((sum, t) => sum + (parseFloat(t.achievement_percentage_boxes) || 0), 0) / activeRouteTargets.length
         : 0;
 
-      // Get top performers (combining both call and route targets)
+      // Top performers from both call and route targets, sorted by achievement
       const allPerformers = [
         ...callTargets.map(t => ({
-          name: t.employee_name,
+          name: t.employee_name || `Employee ${t.employee}`,
           type: 'Call',
-          achievement: t.achievement_percentage || 0,
+          achievement: parseFloat(t.achievement_percentage) || 0,
           target: t.total_target_calls,
-          achieved: t.total_achieved_calls
+          achieved: t.total_achieved_calls,
         })),
         ...routeTargets.map(t => ({
-          name: t.employee_name,
+          name: t.employee_name || `Employee ${t.employee}`,
           type: 'Route',
-          achievement: t.achievement_percentage_boxes || 0,
+          achievement: parseFloat(t.achievement_percentage_boxes) || 0,
           target: t.target_boxes,
-          achieved: t.achieved_boxes
-        }))
-      ].sort((a, b) => b.achievement - a.achievement).slice(0, 5);
+          achieved: t.achieved_boxes,
+        })),
+      ]
+        .sort((a, b) => b.achievement - a.achievement)
+        .slice(0, 5);
 
       setDashboardData({
         call_targets: {
           total: callTargets.length,
           active: activeCallTargets.length,
-          average_achievement: avgCallAchievement
+          average_achievement: avgCallAchievement,
         },
         route_targets: {
           total: routeTargets.length,
           active: activeRouteTargets.length,
-          average_achievement: avgRouteAchievement
+          average_achievement: avgRouteAchievement,
         },
         top_performers: allPerformers,
-        recent_updates: [] // Can be populated if you have an activity log
+        recent_updates: [],
       });
     } catch (error) {
       toast.error('Failed to load dashboard data');
@@ -92,11 +104,11 @@ const ManagerDashboard = () => {
 
   const StatCard = ({ title, value, subtitle }) => (
     <div className="stat-card tm-card">
-      <div className="card-body p-3" style={{padding:12}}>
+      <div className="card-body p-3">
         <p className="stat-label">{title}</p>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="stat-value">{value}</div>
-          {subtitle && <div style={{fontSize:12, color:'#6b7280'}}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 12, color: '#6b7280' }}>{subtitle}</div>}
         </div>
       </div>
     </div>
@@ -106,7 +118,7 @@ const ManagerDashboard = () => {
     return (
       <div className="container-fluid py-4">
         <div className="text-center">
-          <div className="spinner-border" role="status">
+          <div className="spinner-border text-danger" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
         </div>
@@ -119,7 +131,7 @@ const ManagerDashboard = () => {
       {/* Header */}
       <div className="row mb-4">
         <div className="col-12">
-          <div className="tm-header tm-card" style={{padding:12}}>
+          <div className="tm-header tm-card" style={{ padding: 12 }}>
             <div>
               <h4 className="tm-title">Target Management Dashboard</h4>
               <p className="tm-sub">Overview of team performance and targets</p>
@@ -132,10 +144,24 @@ const ManagerDashboard = () => {
       <div className="row mb-4">
         <div className="col-12">
           <div className="tm-top-stats">
-            <StatCard title="Total Call Targets" value={dashboardData.call_targets.total} subtitle={`${dashboardData.call_targets.active} active`} />
-            <StatCard title="Avg Call Achievement" value={`${dashboardData.call_targets.average_achievement.toFixed(1)}%`} />
-            <StatCard title="Total Route Targets" value={dashboardData.route_targets.total} subtitle={`${dashboardData.route_targets.active} active`} />
-            <StatCard title="Avg Route Achievement" value={`${dashboardData.route_targets.average_achievement.toFixed(1)}%`} />
+            <StatCard
+              title="Total Call Targets"
+              value={dashboardData.call_targets.total}
+              subtitle={`${dashboardData.call_targets.active} active`}
+            />
+            <StatCard
+              title="Avg Call Achievement"
+              value={`${dashboardData.call_targets.average_achievement.toFixed(1)}%`}
+            />
+            <StatCard
+              title="Total Route Targets"
+              value={dashboardData.route_targets.total}
+              subtitle={`${dashboardData.route_targets.active} active`}
+            />
+            <StatCard
+              title="Avg Route Achievement"
+              value={`${dashboardData.route_targets.average_achievement.toFixed(1)}%`}
+            />
           </div>
         </div>
       </div>
@@ -144,8 +170,8 @@ const ManagerDashboard = () => {
         {/* Top Performers */}
         <div className="col-lg-7 mb-4">
           <div className="tm-card h-100">
-            <div className="tm-header" style={{padding:12}}>
-              <h6 className="tm-title" style={{margin:0,fontSize:16}}>Top Performers</h6>
+            <div className="tm-header" style={{ padding: 12 }}>
+              <h6 className="tm-title" style={{ margin: 0, fontSize: 16 }}>Top Performers</h6>
             </div>
             <div className="card-body p-3">
               {dashboardData.top_performers.length === 0 ? (
@@ -155,18 +181,10 @@ const ManagerDashboard = () => {
                   <table className="table align-items-center mb-0">
                     <thead>
                       <tr>
-                        <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                          Employee
-                        </th>
-                        <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                          Type
-                        </th>
-                        <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                          Achievement
-                        </th>
-                        <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                          Progress
-                        </th>
+                        <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Employee</th>
+                        <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Type</th>
+                        <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Achievement</th>
+                        <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Progress</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -200,7 +218,7 @@ const ManagerDashboard = () => {
                                   }`}
                                   role="progressbar"
                                   style={{ width: `${Math.min(performer.achievement, 100)}%` }}
-                                ></div>
+                                />
                               </div>
                             </div>
                           </td>
@@ -217,17 +235,18 @@ const ManagerDashboard = () => {
         {/* Quick Actions */}
         <div className="col-lg-5 mb-4">
           <div className="tm-card h-100">
-            <div className="tm-header" style={{padding:12}}>
-              <h6 className="tm-title" style={{margin:0,fontSize:16}}>Quick Actions</h6>
+            <div className="tm-header" style={{ padding: 12 }}>
+              <h6 className="tm-title" style={{ margin: 0, fontSize: 16 }}>Quick Actions</h6>
             </div>
             <div className="card-body p-3">
-              <div style={{display:'flex', flexWrap:'wrap', gap:10}}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                 <button className="pill danger" onClick={() => navigate('/target/call/assign')}>Assign Call Target</button>
                 <button className="pill" onClick={() => navigate('/target/route/assign')}>Assign Route Target</button>
                 <button className="pill" onClick={() => navigate('/target/call/list')}>View Call Targets</button>
                 <button className="pill" onClick={() => navigate('/target/route/list')}>View Route Targets</button>
                 <button className="pill" onClick={() => navigate('/target/master/routes')}>Manage Routes</button>
                 <button className="pill" onClick={() => navigate('/target/master/products')}>Manage Products</button>
+                <button className="pill" onClick={() => navigate('/target/performance/comparative')}>Compare Performance</button>
               </div>
             </div>
           </div>
@@ -237,12 +256,8 @@ const ManagerDashboard = () => {
       {/* Refresh Button */}
       <div className="row mt-4">
         <div className="col-12 text-end">
-          <button
-            className="btn btn-outline-secondary btn-sm"
-            onClick={fetchDashboardData}
-          >
-            <i className="fas fa-sync-alt me-2"></i>
-            Refresh Data
+          <button className="btn btn-outline-secondary btn-sm" onClick={fetchDashboardData}>
+            <i className="fas fa-sync-alt me-2"></i>Refresh Data
           </button>
         </div>
       </div>

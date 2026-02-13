@@ -72,6 +72,7 @@ import DeliveryForm from "./components/DeliveryManagement/DeliveryForm";
 import DeliveryDetail from "./components/DeliveryManagement/DeliveryDetail";
 import DeliveryStops from "./components/DeliveryManagement/DeliveryStops";
 import DeliveryProducts from "./components/DeliveryManagement/DeliveryProducts";
+import DeliveryWorkflow from "./components/DeliveryManagement/Deliveryworkflow";  // ✅ Correct path
 
 // Target Management - Existing Components
 import RouteTargetAssign from "./components/TargetManagement/Routetargetassign";
@@ -235,6 +236,8 @@ function App() {
           <Route path="delivery-management/deliveries/:id/edit" element={<DeliveryForm />} />
           <Route path="delivery-management/deliveries/:id/stops" element={<DeliveryStops />} />
           <Route path="delivery-management/deliveries/:id/products" element={<DeliveryProducts />} />
+          <Route path="/delivery-management/deliveries/new" element={<DeliveryWorkflow />} />
+          <Route path="/delivery-management/deliveries/:id" element={<DeliveryWorkflow />} />
 
           <Route path="my-menu" element={<MyMenu />} />
 

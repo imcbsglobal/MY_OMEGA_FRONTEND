@@ -1,30 +1,26 @@
-import React, { useEffect, useState } from "react";
+// src/components/TargetManagement/CallSummary.jsx
+// FIXES APPLIED:
+//   F-04: Split into two separate API calls:
+//         - /call-targets/ for the paginated list table
+//         - /reports/call-summary/ for the aggregate summary cards
+//   Also: Fixed employee dropdown to use actual employee names from list data
+//   Also: Fixed ₹ symbol encoding (was corrupted as â‚¹)
+
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from 'react-router-dom';
-import { getCallSummary } from "../../api/targetManagement";
-import theme from "../../styles/targetTheme";
+import api from "../../api/client";
 import "./targetManagement.css";
 
 export default function CallSummary() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await getCallSummary();
-        setData(res);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  const styles = theme;
-
   const navigate = useNavigate();
+
+  // Separate state for list vs summary
+  const [listData, setListData] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [employeeOptions, setEmployeeOptions] = useState([]);
+
+  // Filters
   const [employeeFilter, setEmployeeFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -35,141 +31,223 @@ export default function CallSummary() {
     setEndDate('');
   };
 
+  // FIX F-04: Fetch list and summary from their correct separate endpoints
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (employeeFilter) params.employee = employeeFilter;
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+
+      const [listRes, summaryRes] = await Promise.all([
+        api.get('/target-management/call-targets/', { params }),
+        api.get('/target-management/reports/call-summary/', { params }),
+      ]);
+
+      const list = listRes.data.results ?? (Array.isArray(listRes.data) ? listRes.data : []);
+      setListData(list);
+      setSummaryData(summaryRes.data);
+
+      // Build employee filter dropdown from the list
+      const uniqueEmployees = [];
+      const seen = new Set();
+      list.forEach(row => {
+        const key = row.employee;
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          uniqueEmployees.push({ id: key, name: row.employee_name || `Employee ${key}` });
+        }
+      });
+      setEmployeeOptions(uniqueEmployees);
+    } catch (err) {
+      console.error('CallSummary fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [employeeFilter, startDate, endDate]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
   const fmtDMY = (dstr) => {
     if (!dstr) return '-';
     const d = new Date(dstr);
     if (isNaN(d)) return dstr;
-    const day = d.getDate();
-    const month = d.getMonth() + 1;
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   };
 
-  const fmt = (v) => (v === null || v === undefined ? "-" : new Intl.NumberFormat().format(v));
+  const fmt = (v) => (v == null ? '-' : new Intl.NumberFormat().format(v));
 
-  const rows = data
+  const pct = (v) => {
+    if (v == null) return '-';
+    const n = parseFloat(v);
+    return isNaN(n) ? '-' : `${n.toFixed(2)}%`;
+  };
+
+  const pctColor = (v) => {
+    const n = parseFloat(v);
+    if (n >= 80) return '#16a34a';
+    if (n >= 50) return '#d97706';
+    return '#dc2626';
+  };
+
+  // Summary card metrics mapped from backend response
+  const summaryCards = summaryData
     ? [
-        { label: "Total Call Targets", value: fmt(data.total_targets ?? data.total_call_targets ?? data.total_target_calls) },
-        { label: "Total Target Calls", value: fmt(data.total_target_calls ?? data.total_calls) },
-        { label: "Total Target Amount", value: data.total_target_amount ? `₹${fmt(data.total_target_amount)}` : "-" },
-        { label: "Total Achieved Calls", value: fmt(data.total_achieved_calls ?? data.total_achieved) },
-        { label: "Total Achieved Amount", value: data.total_achieved_amount ? `₹${fmt(data.total_achieved_amount)}` : "-" },
-        { label: "Calls Achievement %", value: data.calls_achievement_percentage ?? data.achievement_percentage ?? "-" },
-        { label: "Amount Achievement %", value: data.amount_achievement_percentage ?? "-" },
+        { label: 'Total Periods', value: fmt(summaryData.total_periods ?? summaryData.total_targets ?? 0) },
+        { label: 'Total Target Calls', value: fmt(summaryData.total_target_calls ?? 0) },
+        { label: 'Total Achieved Calls', value: fmt(summaryData.total_achieved_calls ?? 0) },
+        { label: 'Call Achievement %', value: pct(summaryData.call_achievement_percentage ?? summaryData.calls_achievement_percentage ?? 0) },
+        { label: 'Productive Calls', value: fmt(summaryData.total_productive_calls ?? 0) },
+        { label: 'Productivity %', value: pct(summaryData.productivity_percentage ?? 0) },
+        { label: 'Total Orders', value: fmt(summaryData.total_orders ?? summaryData.total_order_received ?? 0) },
+        { label: 'Total Order Amount', value: summaryData.total_order_amount != null ? `₹${fmt(summaryData.total_order_amount)}` : '-' },
       ]
     : [];
 
   return (
-    <div className="tm-page" style={styles.page}>
-      <div className="tm-card" style={styles.card}>
-        <div className="tm-header" style={styles.header}>
+    <div className="tm-page">
+      {/* Page Header */}
+      <div className="tm-card" style={{ marginBottom: 16 }}>
+        <div className="tm-header">
           <div>
-            <h3 className="tm-title" style={styles.headerTitle}>Call Target List</h3>
+            <h3 className="tm-title">Call Target List</h3>
+            <p className="tm-sub">View and manage all assigned call targets</p>
           </div>
-          <div>
-            <button className="btn btn-danger btn-sm assign-btn" onClick={() => navigate('/target/call/assign')}>+ Assign New Target</button>
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={() => navigate('/target/call/assign')}
+          >
+            + Assign New Target
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      {summaryData && (
+        <div className="tm-top-stats" style={{ marginBottom: 16 }}>
+          {summaryCards.map(card => (
+            <div key={card.label} className="stat-card tm-card">
+              <p className="stat-label">{card.label}</p>
+              <div className="stat-value">{card.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Filters + Table */}
+      <div className="tm-card">
+        <div className="tm-filters" style={{ marginBottom: 16 }}>
+          <div className="tm-filter-col">
+            <label className="form-label">Filter by Employee</label>
+            <select
+              className="form-control"
+              value={employeeFilter}
+              onChange={e => setEmployeeFilter(e.target.value)}
+            >
+              <option value="">All Employees</option>
+              {employeeOptions.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="tm-filter-col">
+            <label className="form-label">Start Date</label>
+            <input
+              type="date" className="form-control"
+              value={startDate} onChange={e => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="tm-filter-col">
+            <label className="form-label">End Date</label>
+            <input
+              type="date" className="form-control"
+              value={endDate} onChange={e => setEndDate(e.target.value)}
+            />
+          </div>
+          <div className="tm-filter-actions">
+            <button className="btn btn-sm btn-outline-secondary" onClick={resetFilters}>
+              Reset
+            </button>
+            <button className="btn btn-sm btn-danger ms-2" onClick={fetchData}>
+              Apply
+            </button>
           </div>
         </div>
 
-        <div className="tm-table-wrap" style={styles.tableWrap}>
-          <div className="tm-filters" style={{marginBottom:12}}>
-            <div className="tm-filter-col">
-              <label className="form-label">Filter by Employee</label>
-              <select className="form-control" value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)}>
-                <option value="">All Employees</option>
-                {/* populate employee options if API provides list; fallback minimal */}
-              </select>
-            </div>
-
-            <div className="tm-filter-col">
-              <label className="form-label">Start Date (From)</label>
-              <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-
-            <div className="tm-filter-col">
-              <label className="form-label">End Date (To)</label>
-              <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-
-            <div className="tm-filter-actions">
-              <button className="btn-reset btn-sm" onClick={resetFilters}>Reset Filters</button>
-            </div>
+        {loading ? (
+          <div className="text-center py-4">
+            <div className="spinner-border text-danger" role="status" />
           </div>
-          {loading ? (
-            <div>Loading...</div>
-          ) : data ? (
-            (() => {
-              // If API returned an array/list of targets, render list table similar to screenshot
-              const list = data.results || data.items || data.targets || data.list || [];
-              if (Array.isArray(list) && list.length > 0) {
-                return (
-                  <div className="table-responsive">
-                    <table className="table tm-table">
-                      <thead>
-                        <tr>
-                          <th>Employee</th>
-                          <th>Period</th>
-                          <th className="text-center">Target Calls</th>
-                          <th className="text-center">Achieved Calls</th>
-                          <th className="text-center">Achievement %</th>
-                          <th className="text-center">Status</th>
-                          <th className="text-center">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {list.map((row, idx) => (
-                          <tr key={row.id || idx}>
-                            <td>
-                              <div style={{display:'flex', alignItems:'center', gap:12}}>
-                                <div style={{fontWeight:700}}>{row.employee_name || row.employee || '—'}</div>
-                                  {row.employee_email && <div className="text-muted" style={{fontSize:13}}><a href={`mailto:${row.employee_email}`} style={{color:'#6b7280', textDecoration:'none'}}>{row.employee_email}</a></div>}
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{fontSize:13}}>
-                                {row.period_text || (row.start_date && row.end_date ? `${fmtDMY(row.start_date)} - ${fmtDMY(row.end_date)}` : '-')}
-                              </div>
-                              {row.days && <div className="text-muted" style={{fontSize:12}}>{row.days} days</div>}
-                            </td>
-                            <td className="text-center">{row.total_target_calls ?? row.target_calls ?? 0}</td>
-                            <td className="text-center">{row.total_achieved_calls ?? row.achieved_calls ?? 0}</td>
-                            <td className="text-center">{(row.achievement_percentage ?? row.calls_achievement_percentage ?? 0).toString().includes('%') ? (row.achievement_percentage ?? row.calls_achievement_percentage ?? '0%') : `${Number(row.achievement_percentage ?? row.calls_achievement_percentage ?? 0).toFixed(2)}%`}</td>
-                            <td className="text-center">{row.is_active || row.status ? (row.is_active ? 'Active' : row.status) : '—'}</td>
-                            <td className="text-center">
-                              <button className="btn-outline-danger btn-sm">Delete</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              }
-
-              // Fallback: show summary metrics table
-              return (
-                <table className="tm-table" style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Metric</th>
-                      <th style={styles.th}>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.label}>
-                        <td style={styles.td}>{r.label}</td>
-                        <td style={styles.td}>{r.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              );
-            })()
-          ) : (
-            <div className="alert alert-info">No data available.</div>
-          )}
-        </div>
+        ) : listData.length === 0 ? (
+          <div className="alert alert-info">No call targets found.</div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table tm-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Period</th>
+                  <th className="text-center">Target Calls</th>
+                  <th className="text-center">Achieved Calls</th>
+                  <th className="text-center">Achievement %</th>
+                  <th className="text-center">Status</th>
+                  <th className="text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listData.map((row, idx) => (
+                  <tr key={row.id || idx}>
+                    <td>
+                      <div style={{ fontWeight: 700 }}>{row.employee_name || `Employee ${row.employee}`}</div>
+                      {row.employee_email && (
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>
+                          <a href={`mailto:${row.employee_email}`} style={{ color: '#6b7280', textDecoration: 'none' }}>
+                            {row.employee_email}
+                          </a>
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 13 }}>
+                        {row.period_display || `${fmtDMY(row.start_date)} – ${fmtDMY(row.end_date)}`}
+                      </div>
+                      {row.duration_days && (
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>{row.duration_days} days</div>
+                      )}
+                    </td>
+                    <td className="text-center">{row.total_target_calls ?? 0}</td>
+                    <td className="text-center">{row.total_achieved_calls ?? 0}</td>
+                    <td className="text-center">
+                      <span style={{ color: pctColor(row.achievement_percentage), fontWeight: 600 }}>
+                        {pct(row.achievement_percentage)}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <span className={`badge ${row.is_active ? 'bg-success' : 'bg-secondary'}`}>
+                        {row.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => {
+                          if (window.confirm(`Delete call target for ${row.employee_name}?`)) {
+                            api.delete(`/target-management/call-targets/${row.id}/`)
+                              .then(() => fetchData())
+                              .catch(err => console.error(err));
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

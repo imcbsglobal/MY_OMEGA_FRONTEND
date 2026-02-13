@@ -43,7 +43,7 @@ const EmployeeDashboard = () => {
         color: var(--mild-red-dark) !important;
         border-color: var(--mild-red) !important;
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(248, 113, 113, 0.18) !important;xxxxxxx
+        box-shadow: 0 4px 8px rgba(248, 113, 113, 0.18) !important;
       }
       .employee-dashboard-nav .nav-link.active {
         background: linear-gradient(135deg, var(--mild-red) 0%, var(--mild-red-dark) 100%) !important;
