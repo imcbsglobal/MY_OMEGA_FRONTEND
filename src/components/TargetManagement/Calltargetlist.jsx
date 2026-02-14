@@ -46,7 +46,25 @@ const CallTargetList = () => {
       });
 
       const response = await api.get(`/target-management/call-targets/?${params}`);
-      setTargets(response.data.results || response.data);
+      const responseData = response.data.results || response.data;
+      
+      // Debug logging to see what we're getting from the API
+      console.log('=== Call Targets API Response Debug ===');
+      console.log('Full response:', response.data);
+      console.log('Number of targets:', responseData.length);
+      if (responseData.length > 0) {
+        console.log('First target structure:', responseData[0]);
+        console.log('Available fields in first target:', Object.keys(responseData[0]));
+        
+        // Check specific fields we're looking for
+        const first = responseData[0];
+        console.log('total_target_calls:', first.total_target_calls);
+        console.log('total_achieved_calls:', first.total_achieved_calls);
+        console.log('daily_targets:', first.daily_targets);
+      }
+      console.log('================================');
+      
+      setTargets(responseData);
     } catch (error) {
       toast.error('Failed to load call targets');
       console.error(error);
@@ -359,12 +377,32 @@ const CallTargetList = () => {
             </thead>
             <tbody>
               {targets.map(target => {
-                const targetCalls = target.total_target_calls || 0;
-                const achievedCalls = target.total_achieved_calls || 0;
+                // Try to get target calls from multiple sources
+                let targetCalls = target.total_target_calls || 0;
+                let achievedCalls = target.total_achieved_calls || 0;
+                
+                // Backup calculation: if totals are 0 but we have daily_targets, calculate manually
+                if (targetCalls === 0 && target.daily_targets && Array.isArray(target.daily_targets)) {
+                  targetCalls = target.daily_targets.reduce((sum, dt) => sum + (dt.target_calls || 0), 0);
+                  console.log(`Manually calculated target_calls for target ${target.id}: ${targetCalls}`);
+                }
+                
+                if (achievedCalls === 0 && target.daily_targets && Array.isArray(target.daily_targets)) {
+                  achievedCalls = target.daily_targets.reduce((sum, dt) => sum + (dt.achieved_calls || 0), 0);
+                  console.log(`Manually calculated achieved_calls for target ${target.id}: ${achievedCalls}`);
+                }
+                
                 const achievement = targetCalls > 0 
                   ? ((achievedCalls / targetCalls) * 100).toFixed(1)
                   : '0.0';
                 const targetAmount = targetCalls * 100; // Assuming 100 per call
+                
+                // Debug logging for each target row
+                console.log(`Target ID ${target.id}: target_calls=${targetCalls}, achieved_calls=${achievedCalls}, from API:`, {
+                  total_target_calls: target.total_target_calls,
+                  total_achieved_calls: target.total_achieved_calls,
+                  daily_targets_count: target.daily_targets ? target.daily_targets.length : 'N/A'
+                });
                 
                 return (
                   <tr key={target.id} style={{'&:hover': {background: '#fafafa'}}}>

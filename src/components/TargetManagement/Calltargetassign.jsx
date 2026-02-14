@@ -123,7 +123,14 @@ const CallTargetAssign = () => {
         daily_targets: dailyTargetsPayload,
       };
       
-      console.log('Submitting call target data:', submitData);
+      console.log('Submitting call target data:');
+      console.log('- Employee ID:', submitData.employee);
+      console.log('- Date range:', submitData.start_date, 'to', submitData.end_date);
+      console.log('- Number of daily targets:', submitData.daily_targets.length);
+      console.log('- First 3 daily targets:', submitData.daily_targets.slice(0, 3));
+      console.log('- Total target calls:', submitData.daily_targets.reduce((sum, t) => sum + t.target_calls, 0));
+      console.log('Full submit data:', JSON.stringify(submitData, null, 2));
+      
       const response = await api.post('/target-management/call-targets/', submitData);
       console.log('Success response:', response.data);
       toast.success('Call target assigned successfully! Daily targets have been auto-generated.');
