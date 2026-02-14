@@ -884,7 +884,7 @@ export default function EmployeeDeliveryView() {
             <h3 style={{ margin: "0 0 12px 0", fontSize: 14, color: "#64748b" }}>
               📊 Current Delivery Status
             </h3>
-            <div style={styles.summaryGrid}>
+            <div style={styles.summaryGridCompact}>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(deliverySummary.total_delivered_boxes)}</div>
                 <div style={{ fontSize: 11, color: "#64748b" }}>Delivered</div>
@@ -1014,7 +1014,7 @@ export default function EmployeeDeliveryView() {
 
         <div style={styles.deliverySummaryCard}>
           <h3>Delivery Progress</h3>
-          <div style={styles.summaryGrid}>
+          <div style={styles.summaryGridCompact}>
             <div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{fmt(selectedDelivery.total_loaded_boxes)}</div>
               <div style={styles.metricLabel}>Loaded</div>
@@ -1028,7 +1028,7 @@ export default function EmployeeDeliveryView() {
               <div style={styles.metricLabel}>Balance</div>
             </div>
           </div>
-          <div style={{ ...styles.summaryGrid, marginTop: 16, paddingTop: 16, borderTop: "1px solid #e2e8f0" }}>
+          <div style={{ ...styles.summaryGridCompact, marginTop: 16, paddingTop: 16, borderTop: "1px solid #e2e8f0" }}>
             <div>
               <div style={{ fontSize: 24, fontWeight: 700, color: "#15803d" }}>₹{fmt(selectedDelivery.collected_amount)}</div>
               <div style={styles.metricLabel}>Collected</div>
@@ -1416,7 +1416,7 @@ const styles = {
     marginBottom: 16,
     border: "1px solid #e2e8f0",
   },
-  summaryGrid: {
+  summaryGridCompact: {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
     gap: 16,
