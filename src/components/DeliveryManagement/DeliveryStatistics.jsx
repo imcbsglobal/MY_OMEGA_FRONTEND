@@ -84,7 +84,7 @@ export default function DeliveryStatistics({ compact = false }) {
             {[
               { label: "Boxes Loaded",    value: fmt(stats.total_boxes_loaded),    color: "#0f172a" },
               { label: "Boxes Delivered", value: fmt(stats.total_boxes_delivered), color: "#15803d" },
-              { label: "Boxes Returned",  value: fmt(stats.total_boxes_returned),  color: "#a16207" },
+              { label: "Balance Boxes",   value: fmt(stats.total_boxes_returned),  color: "#a16207" },
               { label: "Total Invoice",   value: `₹${fmt(stats.total_amount)}`,    color: "#0f172a" },
               { label: "Total Collected", value: `₹${fmt(stats.total_collected)}`, color: "#15803d" },
             ].map(s => (
