@@ -37,9 +37,7 @@ export default function LeaveRequest() {
         console.log("✅ User data loaded:", response.data);
       } catch (err) {
         console.error("❌ Failed to fetch user info:", err);
-        const token = localStorage.getItem("accessToken") || 
-                     localStorage.getItem("access") || 
-                     localStorage.getItem("token");
+        const token = localStorage.getItem("accessToken");
         
         if (token) {
           setEmployee({ 

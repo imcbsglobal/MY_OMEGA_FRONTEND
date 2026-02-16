@@ -1,1249 +1,1992 @@
 /**
  * EmployeeDeliveryView.jsx
- *
- * Complete employee delivery workflow:
- *  1. LIST    → See assigned deliveries
- *  2. DETAIL  → View delivery info, products, stops
- *  3. START   → Start delivery (odometer + location)
- *  4. STOPS   → Work through each stop one-by-one
- *  5. STOP FORM → Log boxes delivered + cash collected
- *  6. ADD STOP  → Employee can add extra stops mid-delivery
- *  7. COMPLETE  → Finalise delivery with odometer + notes
- *  8. SUMMARY   → Read-only recap
+ * 
+ * Shows the employee's assigned deliveries with filtering and search capabilities
+ * Provides detailed view and delivery management workflow
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
+import DeliveryProducts from "./DeliveryProducts";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
-const STATUS = {
-  scheduled:   { bg: "#E8F4FD", color: "#1565C0", dot: "#2196F3", label: "Scheduled",   icon: "📅" },
-  in_progress: { bg: "#FFF8E1", color: "#E65100", dot: "#FF9800", label: "In Progress",  icon: "🚚" },
-  completed:   { bg: "#E8F5E9", color: "#1B5E20", dot: "#4CAF50", label: "Completed",    icon: "✅" },
-  cancelled:   { bg: "#FFEBEE", color: "#B71C1C", dot: "#F44336", label: "Cancelled",    icon: "❌" },
+// Status configuration
+const STATUS_META = {
+  scheduled:   { bg: "#dbeafe", color: "#1d4ed8", dot: "#3b82f6", label: "Scheduled", icon: "📅" },
+  in_progress: { bg: "#fef9c3", color: "#a16207", dot: "#f59e0b", label: "In Progress", icon: "🚚" },
+  completed:   { bg: "#dcfce7", color: "#15803d", dot: "#10b981", label: "Completed", icon: "✅" },
+  cancelled:   { bg: "#fee2e2", color: "#b91c1c", dot: "#ef4444", label: "Cancelled", icon: "❌" },
 };
 
 const STOP_STATUS = {
-  pending:   { bg: "#F5F5F5", color: "#616161", label: "Pending",   icon: "⏳" },
-  delivered: { bg: "#E8F5E9", color: "#2E7D32", label: "Delivered", icon: "✅" },
-  partial:   { bg: "#FFF8E1", color: "#E65100", label: "Partial",   icon: "⚡" },
-  failed:    { bg: "#FFEBEE", color: "#C62828", label: "Failed",    icon: "❌" },
-  skipped:   { bg: "#ECEFF1", color: "#546E7A", label: "Skipped",   icon: "⏭" },
+  pending:   { bg: "#f1f5f9", color: "#64748b", label: "Pending" },
+  delivered: { bg: "#dcfce7", color: "#15803d", label: "Delivered" },
+  partial:   { bg: "#fef9c3", color: "#a16207", label: "Partial" },
+  failed:    { bg: "#fee2e2", color: "#b91c1c", label: "Failed" },
+  skipped:   { bg: "#f3f4f6", color: "#6b7280", label: "Skipped" },
 };
 
-const fmt  = (n) => parseFloat(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtN = (n) => parseFloat(n || 0).toFixed(0);
+// Utility function
+const fmt = (n) => parseFloat(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
 export default function EmployeeDeliveryView() {
-  // ── View state ──
-  // "list" | "detail" | "start_modal" | "stops_overview" | "stop_form" | "add_stop" | "complete_modal" | "summary"
-  const [view, setView] = useState("list");
-
-  // ── Data ──
-  const [deliveries,       setDeliveries]       = useState([]);
-  const [selected,         setSelected]         = useState(null);  // full delivery object
-  const [stops,            setStops]            = useState([]);
-  const [products,         setProducts]         = useState([]);
-  const [currentStop,      setCurrentStop]      = useState(null);
-
-  // ── UI ──
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState(false);
-  const [filter,   setFilter]   = useState("all");
-  const [search,   setSearch]   = useState("");
-  const [tab,      setTab]      = useState("stops"); // detail tabs: stops | products
-
-  // ── Forms ──
-  const [startForm, setStartForm] = useState({
-    odometer_start: "", fuel_start: "", start_notes: "",
-    start_latitude: "", start_longitude: "", start_location: "",
-  });
+  const navigate = useNavigate();
+  
+  // Main state
+  const [deliveries, setDeliveries] = useState([]);
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("list"); // list, detail, all_stops, stop_detail, summary 
+  const [activeTab, setActiveTab] = useState("products");
+  
+  // Current stop management
+  const [currentStop, setCurrentStop] = useState(null);
   const [stopForm, setStopForm] = useState({
-    delivered_boxes: "", collected_amount: "",
-    status: "delivered", notes: "", failure_reason: "",
+    delivered_boxes: "",
+    collected_amount: "",
+    status: "delivered",
+    notes: "",
   });
-  const [addStopForm, setAddStopForm] = useState({
-    customer_name: "", customer_address: "", customer_phone: "",
-    planned_boxes: "", planned_amount: "", estimated_arrival: "", notes: "",
+  const [deliverySummary, setDeliverySummary] = useState(null);
+  
+  // Start delivery modal state
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [locationData, setLocationData] = useState({
+    address: "",
+    latitude: "",
+    longitude: "",
   });
-  const [completeForm, setCompleteForm] = useState({
-    odometer_end: "", fuel_end: "", end_notes: "",
-  });
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // DATA FETCHING
-  // ─────────────────────────────────────────────────────────────────────────
-  const fetchDeliveries = useCallback(async () => {
-    setLoading(true);
-    try {
-      const q = filter !== "all" ? `?status=${filter}` : "";
-      const res = await api.get(`delivery-management/deliveries/${q}`);
-      setDeliveries(res.data?.results || res.data || []);
-    } catch { setDeliveries([]); }
-    finally { setLoading(false); }
+  
+  // Filtering and search state
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  
+  useEffect(() => {
+    fetchMyDeliveries();
   }, [filter]);
 
-  useEffect(() => { fetchDeliveries(); }, [fetchDeliveries]);
-
-  const loadDelivery = async (id) => {
+  // API Functions
+  const fetchMyDeliveries = async () => {
     setLoading(true);
     try {
-      const [delRes, stopRes, prodRes] = await Promise.all([
-        api.get(`delivery-management/deliveries/${id}/`),
-        api.get(`delivery-management/deliveries/${id}/stops/`),
-        api.get(`delivery-management/deliveries/${id}/products/`),
-      ]);
-      setSelected(delRes.data);
-      setStops(stopRes.data?.results || stopRes.data || []);
-      setProducts(prodRes.data?.results || prodRes.data || []);
-      setView("detail");
-    } catch (e) {
-      alert("Failed to load delivery: " + (e.response?.data?.error || e.message));
-    } finally { setLoading(false); }
+      const params = filter !== "all" ? `?status=${filter}` : "";
+      console.log(`Fetching deliveries from: delivery-management/deliveries/${params}`);
+      const res = await api.get(`delivery-management/deliveries/${params}`);
+      console.log("Deliveries response:", res.data);
+      
+      // Handle paginated response: extract results array or use data directly
+      const deliveriesData = res.data?.results || res.data || [];
+      setDeliveries(deliveriesData);
+    } catch (err) {
+      console.error("Failed to fetch deliveries:", err);
+      console.error("Error details:", err.response?.data);
+      setDeliveries([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const refreshStops = async () => {
-    if (!selected) return;
+  const selectDelivery = async (delivery) => {
+    setLoading(true);
     try {
-      const res = await api.get(`delivery-management/deliveries/${selected.id}/stops/`);
-      setStops(res.data?.results || res.data || []);
-    } catch {}
+      console.log(`Fetching delivery details for ID: ${delivery.id}`);
+      const res = await api.get(`delivery-management/deliveries/${delivery.id}/`);
+      console.log("Delivery details response:", res.data);
+      setSelectedDelivery(res.data);
+      setView("detail"); // Show detailed view first
+    } catch (err) {
+      console.error("Failed to load delivery details:", err);
+      console.error("Error details:", err.response?.data);
+      alert("Failed to load delivery details: " + (err.response?.data?.error || err.message || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // GEOLOCATION HELPER
-  // ─────────────────────────────────────────────────────────────────────────
-  const getLocation = (onSuccess) => {
-    if (!navigator.geolocation) { alert("Geolocation not supported."); return; }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = parseFloat(pos.coords.latitude.toFixed(6));
-        const lng = parseFloat(pos.coords.longitude.toFixed(6));
-        onSuccess(lat, lng);
-      },
-      () => alert("Could not get location. Please enter manually.")
-    );
-  };
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // ACTIONS
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleStart = async () => {
-    if (!startForm.odometer_start) { alert("Please enter starting odometer reading."); return; }
-    setSaving(true);
+  // NEW: Load next pending stop
+  const loadNextStop = async (deliveryId) => {
     try {
-      await api.post(`delivery-management/deliveries/${selected.id}/start/`, {
-        odometer_start:   parseFloat(startForm.odometer_start),
-        fuel_start:       startForm.fuel_start ? parseFloat(startForm.fuel_start) : null,
-        start_notes:      startForm.start_notes,
-        start_latitude:   startForm.start_latitude || null,
-        start_longitude:  startForm.start_longitude || null,
-        start_location:   startForm.start_location || "Current Location",
-      });
-      await loadDelivery(selected.id);
-      await fetchDeliveries();
-      setView("stops_overview");
-    } catch (e) {
-      alert("Failed to start: " + (e.response?.data?.error || e.message));
-    } finally { setSaving(false); }
+      const res = await api.get(`delivery-management/deliveries/${deliveryId}/next-stop/`);
+      if (res.data && res.data.id) {
+        setCurrentStop(res.data);
+        setStopForm({
+          delivered_boxes: res.data.planned_boxes || "",
+          collected_amount: res.data.planned_amount || "",
+          status: "delivered",
+          notes: "",
+        });
+        setView("stop_detail");
+      } else {
+        // No more stops - show summary
+        alert(res.data.message || "No pending stops remaining");
+        setView("summary");
+      }
+    } catch (err) {
+      console.error("Failed to load next stop:", err);
+      setView("all_stops");
+    }
   };
 
-  const openStopForm = (stop) => {
-    setCurrentStop(stop);
-    setStopForm({
-      delivered_boxes:  stop.planned_boxes || "",
-      collected_amount: stop.planned_amount || "",
-      status:           "delivered",
-      notes:            "",
-      failure_reason:   "",
-    });
-    setView("stop_form");
+  const startDelivery = async (deliveryId) => {
+    console.log("🚀 Starting delivery process for ID:", deliveryId);
+    console.log("📦 Selected delivery:", selectedDelivery);
+    console.log("📍 Show start modal:", showStartModal);
+    
+    setShowStartModal(true);
+    getCurrentLocation(); // Auto-get location when opening modal
+    
+    console.log("✅ Modal should now be visible");
   };
 
-  const handleCompleteStop = async () => {
-    if (!stopForm.delivered_boxes && stopForm.status === "delivered") {
-      alert("Please enter number of boxes delivered.");
+  const getCurrentLocation = () => {
+    console.log("Getting current location...");
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log("Location obtained:", position.coords);
+          // Round to 6 decimal places to match backend requirements (max_digits=9, decimal_places=6)
+          const lat = parseFloat(position.coords.latitude.toFixed(6));
+          const lng = parseFloat(position.coords.longitude.toFixed(6));
+          setLocationData({
+            latitude: lat.toString(),
+            longitude: lng.toString(),
+            address: "Current Location"
+          });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          alert("Failed to get current location. Please enter manually.");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
+
+  const handleStartDelivery = async () => {
+    if (!selectedDelivery) return;
+
+    // Validate location data
+    if (!locationData.address && !locationData.latitude) {
+      alert("Please get your current location or enter address manually");
       return;
     }
-    setSaving(true);
+
+    setLoading(true);
     try {
-      await api.post(`delivery-management/delivery-stops/${currentStop.id}/complete/`, {
-        delivered_boxes:  parseFloat(stopForm.delivered_boxes || 0),
-        collected_amount: parseFloat(stopForm.collected_amount || 0),
-        status:           stopForm.status,
-        notes:            stopForm.notes,
-        failure_reason:   stopForm.failure_reason,
-      });
-      await refreshStops();
-      // Reload selected delivery summary numbers
-      const res = await api.get(`delivery-management/deliveries/${selected.id}/`);
-      setSelected(res.data);
-      setView("stops_overview");
-    } catch (e) {
-      alert("Failed to complete stop: " + (e.response?.data?.error || e.message));
-    } finally { setSaving(false); }
+      // Round coordinates to 6 decimal places to match backend validation
+      const roundedLat = locationData.latitude ? parseFloat(parseFloat(locationData.latitude).toFixed(6)) : null;
+      const roundedLng = locationData.longitude ? parseFloat(parseFloat(locationData.longitude).toFixed(6)) : null;
+      
+      const payload = {
+        start_location: locationData.address || "Current Location",
+        start_latitude: roundedLat,
+        start_longitude: roundedLng
+      };
+
+      console.log("Starting/updating delivery with payload:", payload);
+      
+      // Use the start endpoint - backend now handles both scheduled and in_progress
+      const response = await api.post(`delivery-management/deliveries/${selectedDelivery.id}/start/`, payload);
+      
+      alert(response.data.message || "✅ Delivery updated successfully!");
+      
+      setShowStartModal(false);
+      fetchMyDeliveries(); // Refresh list
+      
+      // Refresh selected delivery
+      const res = await api.get(`delivery-management/deliveries/${selectedDelivery.id}/`);
+      setSelectedDelivery(res.data);
+    } catch (error) {
+      console.error("Error starting delivery:", error);
+      let errorMessage = "Failed to start delivery";
+      if (error.response?.data) {
+        if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (typeof error.response.data === 'object') {
+          errorMessage = Object.entries(error.response.data)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+            .join('\n');
+        }
+      }
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddStop = async () => {
-    if (!addStopForm.customer_name || !addStopForm.customer_address) {
-      alert("Customer name and address are required.");
+  // NEW: Complete current stop with new API response
+  const completeCurrentStop = async () => {
+    if (!currentStop || !selectedDelivery) return;
+
+    if (!stopForm.delivered_boxes || !stopForm.collected_amount) {
+      alert("Please enter delivered boxes and collected amount");
       return;
     }
-    setSaving(true);
+
+    setLoading(true);
     try {
-      // Find next sequence number
-      const maxSeq = stops.reduce((m, s) => Math.max(m, s.stop_sequence || 0), 0);
-      await api.post(`delivery-management/deliveries/${selected.id}/stops/`, {
-        ...addStopForm,
-        stop_sequence:  maxSeq + 1,
-        planned_boxes:  parseFloat(addStopForm.planned_boxes || 0),
-        planned_amount: parseFloat(addStopForm.planned_amount || 0),
+      const res = await api.patch(`delivery-management/delivery-stops/${currentStop.id}/`, {
+        delivered_boxes: parseFloat(stopForm.delivered_boxes),
+        collected_amount: parseFloat(stopForm.collected_amount),
+        status: stopForm.status,
+        notes: stopForm.notes,
+        // Add GPS if available
+        latitude: null, // You can add geolocation here
+        longitude: null,
       });
-      await refreshStops();
-      setAddStopForm({ customer_name: "", customer_address: "", customer_phone: "", planned_boxes: "", planned_amount: "", estimated_arrival: "", notes: "" });
-      setView("stops_overview");
-    } catch (e) {
-      alert("Failed to add stop: " + (e.response?.data?.error || e.message));
-    } finally { setSaving(false); }
+
+      // NEW: Response includes delivery summary
+      if (res.data.delivery_summary) {
+        setDeliverySummary(res.data.delivery_summary);
+      }
+
+      alert(`✅ Stop completed!\n\nRunning Totals:\nDelivered: ${res.data.delivery_summary?.total_delivered_boxes || 0}\nBalance: ${res.data.delivery_summary?.total_balance_boxes || 0}\nCollected: ₹${res.data.delivery_summary?.collected_amount || 0}\nPending: ₹${res.data.delivery_summary?.total_pending_amount || 0}`);
+
+      // Load next stop
+      loadNextStop(selectedDelivery.id);
+    } catch (err) {
+      alert("Failed to update stop: " + (err.response?.data?.error || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleComplete = async () => {
-    if (!completeForm.odometer_end) { alert("Please enter ending odometer reading."); return; }
-    setSaving(true);
+  const completeDelivery = async () => {
+    if (!selectedDelivery) return;
+
+    // Enhanced completion with location capture
+    const confirmComplete = confirm("Complete this delivery? This will finalize all stops and delivery data.");
+    if (!confirmComplete) return;
+
+    const odometer = prompt("Enter ending odometer reading (km):");
+    if (!odometer) return;
+
+    const fuel = prompt("Enter ending fuel level (liters) - optional:");
+
+    setLoading(true);
     try {
-      await api.post(`delivery-management/deliveries/${selected.id}/complete/`, {
-        odometer_reading: parseFloat(completeForm.odometer_end),
-        fuel_level:       completeForm.fuel_end ? parseFloat(completeForm.fuel_end) : null,
-        notes:            completeForm.end_notes || "Delivery completed.",
-        products: products.map(p => ({
-          product_id: p.product,
-          delivered_quantity: parseFloat(p.delivered_quantity || 0),
-        })),
+      // Get completion location
+      let completionLocation = {};
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
+          completionLocation = {
+            completion_latitude: position.coords.latitude,
+            completion_longitude: position.coords.longitude,
+            completion_location: "Delivery completion location"
+          };
+        } catch (err) {
+          console.log("Could not get completion location:", err);
+        }
+      }
+
+      // Get product quantities
+      const products = selectedDelivery.products.map(p => ({
+        product_id: p.product,
+        delivered_quantity: p.delivered_quantity || 0,
+      }));
+
+      await api.post(`delivery-management/deliveries/${selectedDelivery.id}/complete/`, {
+        odometer_reading: parseFloat(odometer),
+        fuel_level: fuel ? parseFloat(fuel) : null,
+        notes: "Delivery completed via mobile interface",
+        products: products,
+        ...completionLocation
       });
-      const res = await api.get(`delivery-management/deliveries/${selected.id}/`);
-      setSelected(res.data);
-      await fetchDeliveries();
+
+      alert("🎉 Delivery completed successfully!");
+      
+      // Refresh delivery data and show summary
+      const res = await api.get(`delivery-management/deliveries/${selectedDelivery.id}/`);
+      setSelectedDelivery(res.data);
       setView("summary");
-    } catch (e) {
-      alert("Failed to complete delivery: " + (e.response?.data?.error || e.message));
-    } finally { setSaving(false); }
+      fetchMyDeliveries(); // Refresh main list too
+      
+    } catch (err) {
+      alert("Failed to complete delivery: " + (err.response?.data?.error || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // COMPUTED
-  // ─────────────────────────────────────────────────────────────────────────
-  const filtered = deliveries.filter(d =>
+  // Filter deliveries based on search
+  const filteredDeliveries = deliveries.filter(d =>
     !search ||
     d.delivery_number?.toLowerCase().includes(search.toLowerCase()) ||
-    d.route_name?.toLowerCase().includes(search.toLowerCase()) ||
-    d.vehicle_number?.toLowerCase().includes(search.toLowerCase())
+    d.route_name?.toLowerCase().includes(search.toLowerCase())      ||
+    d.vehicle_number?.toLowerCase().includes(search.toLowerCase())  ||
+    d.customer_names?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const pendingStops    = stops.filter(s => s.status === "pending");
-  const completedStops  = stops.filter(s => s.status !== "pending");
-  const allStopsDone    = stops.length > 0 && pendingStops.length === 0;
+  // Helper functions for detailed view
+  const getStatusLabel = (status) => {
+    const labels = {
+      scheduled: "Scheduled",
+      in_progress: "In Progress", 
+      completed: "Completed",
+      cancelled: "Cancelled"
+    };
+    return labels[status] || status;
+  };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ══════════════════════════════════════════════════════════════════════════
-  //  V I E W   R E N D E R E R S
-  // ══════════════════════════════════════════════════════════════════════════
-  // ─────────────────────────────────────────────────────────────────────────
+  const getStatusBadgeStyle = (status) => {
+    const styles = {
+      scheduled: { background: "#e0f2fe", color: "#0369a1", padding: "4px 12px", borderRadius: "16px", fontSize: "12px", fontWeight: "600" },
+      in_progress: { background: "#fef3c7", color: "#d97706", padding: "4px 12px", borderRadius: "16px", fontSize: "12px", fontWeight: "600" },
+      completed: { background: "#d1fae5", color: "#059669", padding: "4px 12px", borderRadius: "16px", fontSize: "12px", fontWeight: "600" },
+      cancelled: { background: "#fee2e2", color: "#dc2626", padding: "4px 12px", borderRadius: "16px", fontSize: "12px", fontWeight: "600" }
+    };
+    return styles[status] || styles.scheduled;
+  };
 
-  // ── LOADING SCREEN ──────────────────────────────────────────────────────
-  if (loading && !deliveries.length && !selected) {
-    return (
-      <div style={S.fullCenter}>
-        <div style={S.spinner} />
-        <p style={{ color: "#78909C", fontFamily: "DM Sans, sans-serif", marginTop: 16 }}>Loading deliveries…</p>
-      </div>
-    );
+  // ========== RENDER ==========
+
+  if (loading && !deliveries.length && !selectedDelivery) {
+    return <div style={styles.loading}>Loading...</div>;
   }
 
-  // ── LIST VIEW ────────────────────────────────────────────────────────────
+  // LIST VIEW
   if (view === "list") {
     return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-
-        {/* Header */}
-        <div style={S.listHeader}>
-          <div>
-            <div style={S.listHeaderBadge}>Employee Portal</div>
-            <h1 style={S.listTitle}>My Deliveries</h1>
+      <div style={styles.container}>
+        <style>{FONTS}</style>
+        
+        <div style={styles.header}>
+          <h1 style={styles.title}>📦 My Deliveries</h1>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button 
+              onClick={() => fetchMyDeliveries()} 
+              style={styles.refreshBtn}
+            >
+              🔄 Refresh
+            </button>
+            {/* Quick Start button - works on first scheduled delivery */}
+            {filteredDeliveries.find(d => d.status === "scheduled") && (
+              <button 
+                onClick={() => {
+                  const scheduledDelivery = filteredDeliveries.find(d => d.status === "scheduled");
+                  if (scheduledDelivery) {
+                    setSelectedDelivery(scheduledDelivery);
+                    startDelivery(scheduledDelivery.id);
+                  }
+                }}
+                style={styles.quickStartBtn}
+              >
+                🚀 Quick Start
+              </button>
+            )}
           </div>
-          <button onClick={fetchDeliveries} style={S.iconBtn} title="Refresh">⟳</button>
         </div>
 
-        {/* Search + Filters */}
-        <div style={{ padding: "0 20px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* Filter + Search Controls */}
+        <div style={styles.filterSection}>
           <input
-            placeholder="Search by delivery #, route, vehicle…"
+            placeholder="Search by delivery #, route, vehicle, customer…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={S.searchInput}
+            style={styles.searchInput}
           />
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={styles.filterButtons}>
             {["all", "scheduled", "in_progress", "completed", "cancelled"].map(s => (
-              <button key={s} onClick={() => setFilter(s)}
-                style={{ ...S.filterChip, ...(filter === s ? S.filterChipActive : {}) }}>
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                style={{
+                  ...styles.filterBtn,
+                  background: filter === s ? "#0f172a" : "#fff",
+                  color:      filter === s ? "#fff"    : "#475569",
+                  border:     filter === s ? "none"    : "1px solid #e2e8f0",
+                }}
+              >
                 {s === "all" ? "All" : s.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Delivery Cards */}
-        <div style={{ padding: "0 20px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
-          {loading ? (
-            <div style={S.emptyState}>Loading…</div>
-          ) : filtered.length === 0 ? (
-            <div style={S.emptyState}>No deliveries found.</div>
-          ) : (
-            filtered.map(d => {
-              const sm = STATUS[d.status] || STATUS.scheduled;
-              const isActive = d.status === "in_progress";
+        {filteredDeliveries.length === 0 ? (
+          <div style={styles.emptyState}>
+            <p>{search ? "No deliveries match your search" : "No deliveries assigned"}</p>
+          </div>
+        ) : (
+          <div style={styles.deliveryList}>
+            {filteredDeliveries.map((delivery) => {
+              const meta = STATUS_META[delivery.status] || STATUS_META.scheduled;
               return (
-                <div key={d.id} style={{ ...S.deliveryCard, ...(isActive ? S.deliveryCardActive : {}) }}
-                  onClick={() => loadDelivery(d.id)}>
-                  {/* Status strip */}
-                  <div style={{ ...S.statusStrip, background: sm.dot }} />
-
-                  <div style={{ padding: "14px 16px 14px 20px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <div>
-                        <div style={S.deliveryNumber}>{d.delivery_number}</div>
-                        <div style={S.deliveryMeta}>{d.route_name || "—"} · {d.vehicle_number || "—"}</div>
-                      </div>
-                      <span style={{ ...S.statusBadge, background: sm.bg, color: sm.color }}>
-                        <span style={{ ...S.statusDot, background: sm.dot }} />
-                        {sm.label}
-                      </span>
-                    </div>
-                    <div style={S.deliveryInfoRow}>
-                      <span style={S.infoChip}>📅 {d.scheduled_date}</span>
-                      <span style={S.infoChip}>⏰ {d.scheduled_time}</span>
-                      {d.total_loaded_boxes > 0 && (
-                        <span style={S.infoChip}>📦 {fmtN(d.total_loaded_boxes)} boxes</span>
-                      )}
-                    </div>
-                    {isActive && (
-                      <div style={S.activeIndicator}>
-                        <span style={{ animation: "pulse 1.5s infinite", display: "inline-block" }}>●</span>
-                        &nbsp;Active — Tap to manage
-                      </div>
-                    )}
-                  </div>
-                  <div style={S.cardArrow}>›</div>
-                </div>
-              );
-            })
-          )}
-        </div>
-        <style>{ANIM_CSS}</style>
-      </div>
-    );
-  }
-
-  // ── DETAIL VIEW ──────────────────────────────────────────────────────────
-  if (view === "detail" && selected) {
-    const sm = STATUS[selected.status] || STATUS.scheduled;
-    const isScheduled   = selected.status === "scheduled";
-    const isInProgress  = selected.status === "in_progress";
-    const isCompleted   = selected.status === "completed";
-
-    return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-        {/* Top nav */}
-        <div style={S.topNav}>
-          <button onClick={() => setView("list")} style={S.backBtn}>← Back</button>
-          <span style={{ ...S.statusBadge, background: sm.bg, color: sm.color, fontSize: 12 }}>
-            <span style={{ ...S.statusDot, background: sm.dot }} />{sm.label}
-          </span>
-        </div>
-
-        {/* Hero card */}
-        <div style={S.heroCard}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#90A4AE", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
-            Delivery
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#0D1B2A", fontFamily: "DM Sans, sans-serif", letterSpacing: -0.5 }}>
-            {selected.delivery_number}
-          </div>
-          <div style={{ fontSize: 13, color: "#546E7A", marginTop: 4, marginBottom: 14 }}>
-            {selected.route_name || "—"} · {selected.vehicle_number || "—"}
-          </div>
-
-          {/* Stats strip */}
-          <div style={S.statsStrip}>
-            {[
-              { label: "Loaded",    value: fmtN(selected.total_loaded_boxes),    unit: "boxes" },
-              { label: "Delivered", value: fmtN(selected.total_delivered_boxes), unit: "boxes", green: true },
-              { label: "Balance",   value: fmtN(selected.total_balance_boxes),   unit: "boxes", amber: parseFloat(selected.total_balance_boxes) > 0 },
-              { label: "Collected", value: `₹${fmt(selected.collected_amount)}`, unit: "",      green: true },
-            ].map(s => (
-              <div key={s.label} style={S.statItem}>
-                <div style={{ fontSize: 17, fontWeight: 800, color: s.green ? "#2E7D32" : s.amber ? "#E65100" : "#0D1B2A", fontFamily: "DM Mono, monospace" }}>
-                  {s.value}
-                </div>
-                <div style={{ fontSize: 9, color: "#90A4AE", textTransform: "uppercase", letterSpacing: .5 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA button */}
-        <div style={{ padding: "0 20px 16px" }}>
-          {isScheduled && (
-            <button onClick={() => { setStartForm({ odometer_start: "", fuel_start: "", start_notes: "", start_latitude: "", start_longitude: "", start_location: "" }); setView("start_modal"); }}
-              style={S.primaryBtn}>
-              🚀 Start Delivery
-            </button>
-          )}
-          {isInProgress && (
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setView("stops_overview")} style={{ ...S.primaryBtn, flex: 1 }}>
-                📍 Manage Stops
-              </button>
-              {allStopsDone && (
-                <button onClick={() => setView("complete_modal")} style={{ ...S.successBtn, flex: 1 }}>
-                  ✅ Complete
-                </button>
-              )}
-            </div>
-          )}
-          {isCompleted && (
-            <button onClick={() => setView("summary")} style={{ ...S.primaryBtn, background: "#1B5E20" }}>
-              📊 View Summary
-            </button>
-          )}
-        </div>
-
-        {/* Tab nav */}
-        <div style={S.tabNav}>
-          {["stops", "products"].map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ ...S.tabBtn, ...(tab === t ? S.tabBtnActive : {}) }}>
-              {t === "stops" ? `📍 Stops (${stops.length})` : `📦 Products (${products.length})`}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div style={{ padding: "0 20px 32px" }}>
-          {tab === "stops" ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {stops.length === 0 ? (
-                <div style={S.emptyState}>No stops assigned.</div>
-              ) : (
-                stops.map((stop, i) => {
-                  const ss = STOP_STATUS[stop.status] || STOP_STATUS.pending;
-                  const isPending = stop.status === "pending";
-                  return (
-                    <div key={stop.id} style={{ ...S.stopCard, ...(isPending && isInProgress ? S.stopCardClickable : {}) }}
-                      onClick={() => isPending && isInProgress && openStopForm(stop)}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ ...S.stopSeq, background: isPending ? "#0D1B2A" : ss.bg, color: isPending ? "#fff" : ss.color }}>
-                            {stop.stop_sequence}
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>{stop.customer_name}</div>
-                            <div style={{ fontSize: 12, color: "#78909C", marginTop: 1 }}>{stop.customer_address}</div>
-                          </div>
-                        </div>
-                        <span style={{ ...S.statusBadge, background: ss.bg, color: ss.color, fontSize: 11 }}>
-                          {ss.icon} {ss.label}
-                        </span>
-                      </div>
-                      <div style={S.stopInfoRow}>
-                        <span style={S.stopInfoItem}>Planned: <b>{fmtN(stop.planned_boxes)} boxes</b></span>
-                        {stop.status !== "pending" && (
-                          <>
-                            <span style={S.stopInfoItem}>Delivered: <b style={{ color: "#2E7D32" }}>{fmtN(stop.delivered_boxes)}</b></span>
-                            <span style={S.stopInfoItem}>Cash: <b style={{ color: "#2E7D32" }}>₹{fmt(stop.collected_amount)}</b></span>
-                          </>
-                        )}
-                      </div>
-                      {isPending && isInProgress && (
-                        <div style={S.tapHint}>Tap to complete this stop →</div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-              {isInProgress && (
-                <button onClick={() => setView("add_stop")} style={S.addStopBtn}>
-                  + Add Extra Stop
-                </button>
-              )}
-            </div>
-          ) : (
-            <div style={S.productTable}>
-              {products.length === 0 ? (
-                <div style={S.emptyState}>No products.</div>
-              ) : (
-                products.map(p => (
-                  <div key={p.id} style={S.productRow}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "#0D1B2A" }}>{p.product_name || p.product}</div>
-                      {p.unit_price && <div style={{ fontSize: 12, color: "#78909C" }}>₹{fmt(p.unit_price)} / unit</div>}
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 13, fontFamily: "DM Mono, monospace", color: "#0D1B2A" }}>
-                        {fmtN(p.delivered_quantity || 0)} / {fmtN(p.loaded_quantity)}
-                      </div>
-                      <div style={{ fontSize: 11, color: "#90A4AE" }}>del / loaded</div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-        <style>{ANIM_CSS}</style>
-      </div>
-    );
-  }
-
-  // ── START MODAL ──────────────────────────────────────────────────────────
-  if (view === "start_modal") {
-    return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-        <div style={S.topNav}>
-          <button onClick={() => setView("detail")} style={S.backBtn}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>Start Delivery</span>
-          <div style={{ width: 60 }} />
-        </div>
-        <div style={{ padding: "20px 20px 32px" }}>
-          <div style={S.sectionTitle}>🚀 Ready to go?</div>
-          <p style={{ fontSize: 13, color: "#546E7A", marginBottom: 20 }}>
-            Fill in the start details before heading out.
-          </p>
-
-          <label style={S.label}>Odometer Start (km) <span style={S.required}>*</span></label>
-          <input type="number" placeholder="e.g. 45230" value={startForm.odometer_start}
-            onChange={e => setStartForm(f => ({ ...f, odometer_start: e.target.value }))}
-            style={S.input} />
-
-          <label style={S.label}>Fuel Level (liters)</label>
-          <input type="number" placeholder="e.g. 35" value={startForm.fuel_start}
-            onChange={e => setStartForm(f => ({ ...f, fuel_start: e.target.value }))}
-            style={S.input} />
-
-          <label style={S.label}>Start Location</label>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            <input placeholder="Address / warehouse name" value={startForm.start_location}
-              onChange={e => setStartForm(f => ({ ...f, start_location: e.target.value }))}
-              style={{ ...S.input, marginBottom: 0, flex: 1 }} />
-            <button onClick={() => getLocation((lat, lng) =>
-              setStartForm(f => ({ ...f, start_latitude: lat, start_longitude: lng, start_location: `GPS ${lat}, ${lng}` }))
-            )} style={S.gpsBtn} title="Get GPS location">📍</button>
-          </div>
-          {startForm.start_latitude && (
-            <div style={S.gpsConfirm}>📍 GPS: {startForm.start_latitude}, {startForm.start_longitude}</div>
-          )}
-
-          <label style={S.label}>Start Notes</label>
-          <textarea placeholder="Any notes before you go…" value={startForm.start_notes}
-            onChange={e => setStartForm(f => ({ ...f, start_notes: e.target.value }))}
-            rows={3} style={S.textarea} />
-
-          <button onClick={handleStart} disabled={saving} style={S.primaryBtn}>
-            {saving ? "Starting…" : "🚀 Start Delivery"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── STOPS OVERVIEW ───────────────────────────────────────────────────────
-  if (view === "stops_overview" && selected) {
-    const totalPlanned   = stops.reduce((a, s) => a + parseFloat(s.planned_boxes  || 0), 0);
-    const totalDelivered = stops.reduce((a, s) => a + parseFloat(s.delivered_boxes|| 0), 0);
-    const totalCash      = stops.reduce((a, s) => a + parseFloat(s.collected_amount|| 0), 0);
-    const progress       = totalPlanned > 0 ? Math.round((totalDelivered / totalPlanned) * 100) : 0;
-
-    return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-        <div style={S.topNav}>
-          <button onClick={() => setView("detail")} style={S.backBtn}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>Stops</span>
-          <button onClick={() => setView("add_stop")} style={S.addBtnSmall}>+ Add</button>
-        </div>
-
-        {/* Progress banner */}
-        <div style={S.progressBanner}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#0D1B2A" }}>
-              {completedStops.length} of {stops.length} stops done
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: "#2E7D32" }}>{progress}%</span>
-          </div>
-          <div style={S.progressTrack}>
-            <div style={{ ...S.progressFill, width: `${progress}%` }} />
-          </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
-            <span style={{ fontSize: 12, color: "#546E7A" }}>📦 {fmtN(totalDelivered)} / {fmtN(totalPlanned)} boxes</span>
-            <span style={{ fontSize: 12, color: "#2E7D32", fontWeight: 700 }}>💰 ₹{fmt(totalCash)} collected</span>
-          </div>
-        </div>
-
-        {/* Stop list */}
-        <div style={{ padding: "8px 20px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {stops.map(stop => {
-            const ss      = STOP_STATUS[stop.status] || STOP_STATUS.pending;
-            const isNext  = stop.status === "pending" && stops.filter(s => s.status === "pending")[0]?.id === stop.id;
-            return (
-              <div key={stop.id}
-                style={{ ...S.stopCard, ...(stop.status === "pending" ? S.stopCardClickable : {}), ...(isNext ? S.nextStopHighlight : {}) }}
-                onClick={() => stop.status === "pending" && openStopForm(stop)}>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ ...S.stopSeq, background: isNext ? "#FF9800" : stop.status !== "pending" ? ss.bg : "#0D1B2A", color: isNext ? "#fff" : stop.status !== "pending" ? ss.color : "#fff" }}>
-                      {stop.stop_sequence}
-                    </div>
+                <div key={delivery.id} style={styles.deliveryCard} onClick={() => selectDelivery(delivery)}>
+                  <div style={styles.deliveryHeader}>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>{stop.customer_name}</div>
-                      <div style={{ fontSize: 11, color: "#78909C" }}>{stop.customer_address?.slice(0, 40)}{stop.customer_address?.length > 40 ? "…" : ""}</div>
+                      <h3 style={styles.deliveryNumber}>{delivery.delivery_number}</h3>
+                      <p style={styles.deliveryRoute}>{delivery.route_name}</p>
+                    </div>
+                    <div style={{ ...styles.statusBadge, background: meta.bg, color: meta.color }}>
+                      {meta.icon} {meta.label}
                     </div>
                   </div>
-                  <span style={{ ...S.statusBadge, background: ss.bg, color: ss.color, fontSize: 11 }}>
-                    {ss.icon} {ss.label}
-                  </span>
-                </div>
 
-                {stop.status !== "pending" ? (
-                  <div style={{ ...S.stopInfoRow, marginTop: 8 }}>
-                    <span style={S.stopInfoItem}>🎁 {fmtN(stop.delivered_boxes)} boxes</span>
-                    <span style={S.stopInfoItem}>💰 ₹{fmt(stop.collected_amount)}</span>
-                    {parseFloat(stop.balance_boxes) > 0 && (
-                      <span style={{ ...S.stopInfoItem, color: "#E65100" }}>↩ {fmtN(stop.balance_boxes)} returned</span>
-                    )}
+                  <div style={styles.deliveryInfo}>
+                    <div style={styles.infoRow}>
+                      <span>📅 {delivery.scheduled_date} at {delivery.scheduled_time}</span>
+                    </div>
+                    <div style={styles.infoRow}>
+                      <span>🚗 {delivery.vehicle_number}</span>
+                    </div>
                   </div>
-                ) : (
-                  <div style={{ ...S.stopInfoRow, marginTop: 8 }}>
-                    <span style={S.stopInfoItem}>Planned: {fmtN(stop.planned_boxes)} boxes · ₹{fmt(stop.planned_amount)}</span>
+
+                  <div style={styles.deliveryMetrics}>
+                    <div style={styles.metric}>
+                      <div style={styles.metricValue}>{fmt(delivery.total_loaded_boxes)}</div>
+                      <div style={styles.metricLabel}>Loaded Boxes</div>
+                    </div>
+                    <div style={styles.metric}>
+                      <div style={styles.metricValue}>{fmt(delivery.total_delivered_boxes)}</div>
+                      <div style={styles.metricLabel}>Delivered</div>
+                    </div>
+                    <div style={styles.metric}>
+                      <div style={{ ...styles.metricValue, color: "#dc2626" }}>{fmt(delivery.total_balance_boxes)}</div>
+                      <div style={styles.metricLabel}>Balance</div>
+                    </div>
                   </div>
-                )}
 
-                {isNext && <div style={S.nextHint}>← Next stop — tap to deliver</div>}
-              </div>
-            );
-          })}
-
-          {stops.length === 0 && <div style={S.emptyState}>No stops yet. Add one below.</div>}
-
-          <button onClick={() => setView("add_stop")} style={S.addStopBtn}>+ Add Extra Stop</button>
-
-          {allStopsDone && (
-            <button onClick={() => setView("complete_modal")} style={S.successBtn}>
-              ✅ Complete Delivery
-            </button>
-          )}
-        </div>
-        <style>{ANIM_CSS}</style>
-      </div>
-    );
-  }
-
-  // ── STOP FORM ────────────────────────────────────────────────────────────
-  if (view === "stop_form" && currentStop) {
-    const isFailOrSkip = ["failed", "skipped"].includes(stopForm.status);
-    return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-        <div style={S.topNav}>
-          <button onClick={() => setView("stops_overview")} style={S.backBtn}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>Stop #{currentStop.stop_sequence}</span>
-          <div style={{ width: 60 }} />
-        </div>
-
-        <div style={{ padding: "16px 20px 32px" }}>
-          {/* Customer card */}
-          <div style={S.customerCard}>
-            <div style={{ fontSize: 10, color: "#90A4AE", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Customer</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#0D1B2A" }}>{currentStop.customer_name}</div>
-            <div style={{ fontSize: 12, color: "#546E7A", marginTop: 2 }}>{currentStop.customer_address}</div>
-            {currentStop.customer_phone && (
-              <a href={`tel:${currentStop.customer_phone}`} style={{ display: "inline-block", marginTop: 8, fontSize: 13, color: "#1565C0", fontWeight: 600, textDecoration: "none" }}>
-                📞 {currentStop.customer_phone}
-              </a>
-            )}
-            <div style={{ marginTop: 12, padding: "10px 0 0", borderTop: "1px solid #ECEFF1", display: "flex", gap: 20 }}>
-              <div>
-                <div style={{ fontSize: 11, color: "#90A4AE" }}>Planned Boxes</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#0D1B2A", fontFamily: "DM Mono, monospace" }}>{fmtN(currentStop.planned_boxes)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: "#90A4AE" }}>Planned Amount</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#0D1B2A", fontFamily: "DM Mono, monospace" }}>₹{fmt(currentStop.planned_amount)}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Status selector */}
-          <label style={S.label}>Delivery Status <span style={S.required}>*</span></label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            {[
-              { v: "delivered", label: "✅ Delivered",    color: "#2E7D32", bg: "#E8F5E9" },
-              { v: "partial",   label: "⚡ Partial",       color: "#E65100", bg: "#FFF8E1" },
-              { v: "failed",    label: "❌ Failed",         color: "#C62828", bg: "#FFEBEE" },
-              { v: "skipped",   label: "⏭ Skipped",        color: "#546E7A", bg: "#ECEFF1" },
-            ].map(opt => (
-              <button key={opt.v} onClick={() => setStopForm(f => ({ ...f, status: opt.v }))}
-                style={{ padding: "8px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "2px solid",
-                  borderColor: stopForm.status === opt.v ? opt.color : "transparent",
-                  background: stopForm.status === opt.v ? opt.bg : "#F5F5F5",
-                  color: stopForm.status === opt.v ? opt.color : "#78909C" }}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          {!isFailOrSkip && (
-            <>
-              <label style={S.label}>Boxes Delivered <span style={S.required}>*</span></label>
-              <input type="number" min="0" max={currentStop.planned_boxes} placeholder="0"
-                value={stopForm.delivered_boxes}
-                onChange={e => setStopForm(f => ({ ...f, delivered_boxes: e.target.value }))}
-                style={S.inputLarge} />
-
-              <label style={S.label}>Cash Collected (₹) <span style={S.required}>*</span></label>
-              <input type="number" min="0" placeholder="0.00"
-                value={stopForm.collected_amount}
-                onChange={e => setStopForm(f => ({ ...f, collected_amount: e.target.value }))}
-                style={S.inputLarge} />
-            </>
-          )}
-
-          {isFailOrSkip && (
-            <>
-              <label style={S.label}>Reason <span style={S.required}>*</span></label>
-              <textarea placeholder="Why couldn't this stop be completed?"
-                value={stopForm.failure_reason}
-                onChange={e => setStopForm(f => ({ ...f, failure_reason: e.target.value }))}
-                rows={3} style={S.textarea} />
-            </>
-          )}
-
-          <label style={S.label}>Notes (optional)</label>
-          <textarea placeholder="Any notes about this stop…" value={stopForm.notes}
-            onChange={e => setStopForm(f => ({ ...f, notes: e.target.value }))}
-            rows={2} style={S.textarea} />
-
-          <button onClick={handleCompleteStop} disabled={saving} style={S.primaryBtn}>
-            {saving ? "Saving…" : "✅ Complete Stop"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── ADD STOP FORM ────────────────────────────────────────────────────────
-  if (view === "add_stop") {
-    return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-        <div style={S.topNav}>
-          <button onClick={() => setView("stops_overview")} style={S.backBtn}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>Add Extra Stop</span>
-          <div style={{ width: 60 }} />
-        </div>
-
-        <div style={{ padding: "16px 20px 32px" }}>
-          <p style={{ fontSize: 13, color: "#546E7A", marginBottom: 20 }}>
-            Add an unplanned stop to this delivery route.
-          </p>
-
-          <label style={S.label}>Customer Name <span style={S.required}>*</span></label>
-          <input placeholder="Full name or shop name" value={addStopForm.customer_name}
-            onChange={e => setAddStopForm(f => ({ ...f, customer_name: e.target.value }))}
-            style={S.input} />
-
-          <label style={S.label}>Address <span style={S.required}>*</span></label>
-          <textarea placeholder="Full delivery address" value={addStopForm.customer_address}
-            onChange={e => setAddStopForm(f => ({ ...f, customer_address: e.target.value }))}
-            rows={2} style={S.textarea} />
-
-          <label style={S.label}>Phone</label>
-          <input type="tel" placeholder="Mobile number" value={addStopForm.customer_phone}
-            onChange={e => setAddStopForm(f => ({ ...f, customer_phone: e.target.value }))}
-            style={S.input} />
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={S.label}>Planned Boxes</label>
-              <input type="number" min="0" placeholder="0" value={addStopForm.planned_boxes}
-                onChange={e => setAddStopForm(f => ({ ...f, planned_boxes: e.target.value }))}
-                style={S.input} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={S.label}>Planned Amount (₹)</label>
-              <input type="number" min="0" placeholder="0.00" value={addStopForm.planned_amount}
-                onChange={e => setAddStopForm(f => ({ ...f, planned_amount: e.target.value }))}
-                style={S.input} />
-            </div>
-          </div>
-
-          <label style={S.label}>Estimated Arrival Time</label>
-          <input type="time" value={addStopForm.estimated_arrival}
-            onChange={e => setAddStopForm(f => ({ ...f, estimated_arrival: e.target.value }))}
-            style={S.input} />
-
-          <label style={S.label}>Notes</label>
-          <textarea placeholder="Any notes for this stop…" value={addStopForm.notes}
-            onChange={e => setAddStopForm(f => ({ ...f, notes: e.target.value }))}
-            rows={2} style={S.textarea} />
-
-          <button onClick={handleAddStop} disabled={saving} style={S.primaryBtn}>
-            {saving ? "Adding…" : "+ Add Stop"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── COMPLETE MODAL ───────────────────────────────────────────────────────
-  if (view === "complete_modal") {
-    return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-        <div style={S.topNav}>
-          <button onClick={() => setView("stops_overview")} style={S.backBtn}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>Complete Delivery</span>
-          <div style={{ width: 60 }} />
-        </div>
-
-        <div style={{ padding: "16px 20px 32px" }}>
-          {/* Summary snapshot */}
-          <div style={S.completeSummaryCard}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1B5E20", marginBottom: 12 }}>📊 Delivery Summary</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {[
-                { label: "Stops Done",    value: `${completedStops.length}/${stops.length}` },
-                { label: "Boxes Loaded",  value: fmtN(selected.total_loaded_boxes) },
-                { label: "Boxes Delivered", value: fmtN(selected.total_delivered_boxes), green: true },
-                { label: "Cash Collected",  value: `₹${fmt(selected.collected_amount)}`, green: true },
-              ].map(s => (
-                <div key={s.label} style={{ background: "#fff", borderRadius: 8, padding: "10px 12px", border: "1px solid #E8F5E9" }}>
-                  <div style={{ fontSize: 11, color: "#90A4AE", textTransform: "uppercase", letterSpacing: .5 }}>{s.label}</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: s.green ? "#2E7D32" : "#0D1B2A", fontFamily: "DM Mono, monospace", marginTop: 2 }}>{s.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <label style={S.label}>Odometer End (km) <span style={S.required}>*</span></label>
-          <input type="number" placeholder="e.g. 45530" value={completeForm.odometer_end}
-            onChange={e => setCompleteForm(f => ({ ...f, odometer_end: e.target.value }))}
-            style={S.input} />
-
-          <label style={S.label}>Fuel Level at End (liters)</label>
-          <input type="number" placeholder="e.g. 22" value={completeForm.fuel_end}
-            onChange={e => setCompleteForm(f => ({ ...f, fuel_end: e.target.value }))}
-            style={S.input} />
-
-          <label style={S.label}>Final Notes</label>
-          <textarea placeholder="Any observations, issues, or notes…" value={completeForm.end_notes}
-            onChange={e => setCompleteForm(f => ({ ...f, end_notes: e.target.value }))}
-            rows={3} style={S.textarea} />
-
-          <button onClick={handleComplete} disabled={saving} style={S.successBtn}>
-            {saving ? "Completing…" : "🎉 Complete Delivery"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── SUMMARY VIEW ─────────────────────────────────────────────────────────
-  if (view === "summary" && selected) {
-    const distance = selected.odometer_end && selected.odometer_start
-      ? (parseFloat(selected.odometer_end) - parseFloat(selected.odometer_start)).toFixed(1)
-      : null;
-
-    return (
-      <div style={S.page}>
-        {FONT_IMPORT}
-        <div style={S.topNav}>
-          <button onClick={() => setView("list")} style={S.backBtn}>← Home</button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#0D1B2A" }}>Summary</span>
-          <div style={{ width: 60 }} />
-        </div>
-
-        <div style={{ padding: "16px 20px 32px" }}>
-          {/* Celebration banner */}
-          <div style={S.celebrationBanner}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#1B5E20" }}>Delivery Complete!</div>
-            <div style={{ fontSize: 13, color: "#2E7D32", marginTop: 4 }}>{selected.delivery_number}</div>
-          </div>
-
-          {/* Key metrics */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-            {[
-              { label: "Stops Completed",  value: `${completedStops.length}/${stops.length}`,         icon: "📍" },
-              { label: "Boxes Delivered",  value: fmtN(selected.total_delivered_boxes),                icon: "📦", green: true },
-              { label: "Balance Boxes",    value: fmtN(selected.total_balance_boxes),                  icon: "↩",  amber: parseFloat(selected.total_balance_boxes) > 0 },
-              { label: "Cash Collected",   value: `₹${fmt(selected.collected_amount)}`,                icon: "💰", green: true },
-              { label: "Total Invoice",    value: `₹${fmt(selected.total_amount)}`,                    icon: "📄" },
-              { label: "Pending Amount",   value: `₹${fmt(selected.total_pending_amount)}`,            icon: "⏳", amber: parseFloat(selected.total_pending_amount) > 0 },
-              distance && { label: "Distance",          value: `${distance} km`,                        icon: "🛣" },
-              distance && { label: "Fuel Consumed",     value: selected.fuel_consumed ? `${fmt(selected.fuel_consumed)} L` : "—", icon: "⛽" },
-            ].filter(Boolean).map(m => (
-              <div key={m.label} style={S.summaryTile}>
-                <div style={{ fontSize: 18, marginBottom: 4 }}>{m.icon}</div>
-                <div style={{ fontSize: 11, color: "#90A4AE", textTransform: "uppercase", letterSpacing: .4 }}>{m.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: m.green ? "#2E7D32" : m.amber ? "#E65100" : "#0D1B2A", fontFamily: "DM Mono, monospace", marginTop: 2 }}>
-                  {m.value}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Stop breakdown */}
-          <div style={{ ...S.sectionTitle, marginBottom: 10 }}>Stop Breakdown</div>
-          {stops.map(stop => {
-            const ss = STOP_STATUS[stop.status] || STOP_STATUS.pending;
-            return (
-              <div key={stop.id} style={{ ...S.stopCard, marginBottom: 8, cursor: "default" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ ...S.stopSeq, background: ss.bg, color: ss.color }}>{stop.stop_sequence}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1B2A" }}>{stop.customer_name}</div>
+                  <div style={styles.deliveryMetrics}>
+                    <div style={styles.metric}>
+                      <div style={{ ...styles.metricValue, color: "#15803d" }}>₹{fmt(delivery.collected_amount)}</div>
+                      <div style={styles.metricLabel}>Collected</div>
+                    </div>
+                    <div style={styles.metric}>
+                      <div style={{ ...styles.metricValue, color: "#dc2626" }}>₹{fmt(delivery.total_pending_amount)}</div>
+                      <div style={styles.metricLabel}>Pending Cash</div>
+                    </div>
                   </div>
-                  <span style={{ ...S.statusBadge, background: ss.bg, color: ss.color, fontSize: 11 }}>{ss.icon} {ss.label}</span>
-                </div>
-                <div style={{ ...S.stopInfoRow, marginTop: 6 }}>
-                  <span style={S.stopInfoItem}>{fmtN(stop.delivered_boxes)} boxes</span>
-                  <span style={S.stopInfoItem}>₹{fmt(stop.collected_amount)}</span>
-                  {parseFloat(stop.balance_boxes) > 0 && (
-                    <span style={{ ...S.stopInfoItem, color: "#E65100" }}>{fmtN(stop.balance_boxes)} returned</span>
+
+                  {delivery.status === "scheduled" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDelivery(delivery); // Set selected delivery for modal
+                        startDelivery(delivery.id);
+                      }}
+                      style={styles.startBtn}
+                    >
+                      🚀 Start Delivery
+                    </button>
+                  )}
+
+                  {delivery.status === "in_progress" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectDelivery(delivery);
+                      }}
+                      style={styles.continueBtn}
+                    >
+                      ▶️ Continue Delivery
+                    </button>
                   )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        )}
 
-          <button onClick={() => setView("list")} style={{ ...S.primaryBtn, marginTop: 8 }}>
-            ← Back to My Deliveries
-          </button>
-        </div>
-        <style>{ANIM_CSS}</style>
+        {/* Start Delivery Modal */}
+        {showStartModal && selectedDelivery && (
+          <div style={modalStyles.overlay}>
+            <div style={modalStyles.modal}>
+              {/* Modal Header */}
+              <div style={modalStyles.header}>
+                <button 
+                  onClick={() => setShowStartModal(false)}
+                  style={modalStyles.backButton}
+                >
+                  ← Back to delivery
+                </button>
+              </div>
+
+              {/* Delivery Title Card */}
+              <div style={modalStyles.titleCard}>
+                <div style={modalStyles.iconBox}>
+                  <span style={{fontSize: "24px"}}>🚚</span>
+                </div>
+                <div>
+                  <h3 style={modalStyles.title}>Start Delivery</h3>
+                  <p style={modalStyles.deliveryNumber}>#{selectedDelivery.delivery_number}</p>
+                </div>
+              </div>
+
+              {/* Delivery Info Card */}
+              <div style={modalStyles.infoCard}>
+                <div style={modalStyles.infoItem}>
+                  <div style={modalStyles.infoLabel}>EMPLOYEE</div>
+                  <div style={modalStyles.infoValue}>
+                    {selectedDelivery.employee_details?.full_name || 
+                     selectedDelivery.employee_details?.employee_id || 
+                     selectedDelivery.employee_name || "Not assigned"}
+                  </div>
+                </div>
+                <div style={modalStyles.infoItem}>
+                  <div style={modalStyles.infoLabel}>VEHICLE</div>
+                  <div style={modalStyles.infoValue}>
+                    {selectedDelivery.vehicle_details?.registration_number || 
+                     selectedDelivery.vehicle_number || "Not assigned"}
+                  </div>
+                </div>
+                <div style={modalStyles.infoItem}>
+                  <div style={modalStyles.infoLabel}>ROUTE</div>
+                  <div style={modalStyles.infoValue}>
+                    {selectedDelivery.route_details?.route_name || 
+                     selectedDelivery.route_name || "Not assigned"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Starting Location Card */}
+              <div style={modalStyles.locationCard}>
+                <div style={modalStyles.locationHeader}>
+                  <span style={{fontSize: "18px", marginRight: "8px"}}>📍</span>
+                  <span style={{fontSize: "15px", fontWeight: "600", color: "#1e293b"}}>Starting Location</span>
+                </div>
+
+                <div style={modalStyles.locationForm}>
+                  <div style={modalStyles.inputGroup}>
+                    <label style={modalStyles.inputLabel}>Address</label>
+                    <input
+                      type="text"
+                      placeholder="Enter starting address"
+                      value={locationData.address}
+                      onChange={(e) => setLocationData({...locationData, address: e.target.value})}
+                      style={modalStyles.input}
+                    />
+                  </div>
+
+                  <div style={modalStyles.locationInputs}>
+                    <div style={{flex: 1}}>
+                      <label style={modalStyles.inputLabel}>Latitude</label>
+                      <input
+                        type="text"
+                        placeholder="0.0"
+                        value={locationData.latitude}
+                        onChange={(e) => setLocationData({...locationData, latitude: e.target.value})}
+                        style={modalStyles.input}
+                      />
+                    </div>
+                    <div style={{flex: 1, marginLeft: 12}}>
+                      <label style={modalStyles.inputLabel}>Longitude</label>
+                      <input
+                        type="text"
+                        placeholder="0.0"
+                        value={locationData.longitude}
+                        onChange={(e) => setLocationData({...locationData, longitude: e.target.value})}
+                        style={modalStyles.input}
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={getCurrentLocation}
+                    style={modalStyles.locationButton}
+                  >
+                    📍 Get Current Location
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={modalStyles.actionButtons}>
+                <button 
+                  onClick={() => setShowStartModal(false)}
+                  style={modalStyles.cancelButton}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleStartDelivery}
+                  disabled={loading}
+                  style={modalStyles.startButton}
+                >
+                  🚚 {loading ? "Starting..." : "Start Delivery"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  return null;
+  // DETAILED VIEW (matches DeliveryDetail component)
+  if (view === "detail" && selectedDelivery) {
+    return (
+      <div style={styles.container}>
+        <style>{FONTS}</style>
+        
+        {/* Header Card */}
+        <div style={detailStyles.headerCard}>
+          <div style={detailStyles.headerLeft}>
+            <div style={detailStyles.iconBox}>
+              <span style={detailStyles.icon}>📦</span>
+            </div>
+            <div>
+              <h1 style={detailStyles.deliveryTitle}>Delivery #{selectedDelivery.id}</h1>
+              <span style={getStatusBadgeStyle(selectedDelivery.status)}>
+                {getStatusLabel(selectedDelivery.status)}
+              </span>
+            </div>
+          </div>
+          <div style={detailStyles.actionButtons}>
+            <button 
+              onClick={() => setView("list")}
+              style={detailStyles.backButton}
+            >
+              ← Back to List
+            </button>
+            {selectedDelivery.status === "scheduled" && (
+              <button 
+                onClick={() => startDelivery(selectedDelivery.id)} 
+                style={detailStyles.startButton}
+              >
+                ▶️ Start
+              </button>
+            )}
+            {selectedDelivery.status === "in_progress" && (
+              <button 
+                onClick={() => {
+                  if (selectedDelivery.status === "in_progress") {
+                    loadNextStop(selectedDelivery.id);
+                  } else {
+                    setView("all_stops");
+                  }
+                }}
+                style={detailStyles.continueButton}
+              >
+                🚚 Continue Delivery
+              </button>
+            )}
+            {selectedDelivery.status === "in_progress" && (
+              <button 
+                onClick={() => startDelivery(selectedDelivery.id)} 
+                style={detailStyles.startButton}
+              >
+                🚀 Start
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Info Grid */}
+        <div style={detailStyles.infoGrid}>
+          <div style={detailStyles.infoCard}>
+            <div style={detailStyles.infoLabel}>DELIVERY NUMBER</div>
+            <div style={detailStyles.infoValue}>{selectedDelivery.delivery_number || "-"}</div>
+          </div>
+          <div style={detailStyles.infoCard}>
+            <div style={detailStyles.infoLabel}>STATUS</div>
+            <div style={detailStyles.infoValue}>{getStatusLabel(selectedDelivery.status)}</div>
+          </div>
+          <div style={detailStyles.infoCard}>
+            <div style={detailStyles.infoLabel}>ASSIGNED TO</div>
+            <div style={detailStyles.infoValue}>
+              {selectedDelivery.employee_details?.full_name || 
+               selectedDelivery.employee_name || "-"}
+            </div>
+          </div>
+          <div style={detailStyles.infoCard}>
+            <div style={detailStyles.infoLabel}>VEHICLE</div>
+            <div style={detailStyles.infoValue}>
+              {selectedDelivery.vehicle_details?.registration_number || 
+               selectedDelivery.vehicle_number || "-"}
+            </div>
+          </div>
+          <div style={detailStyles.infoCard}>
+            <div style={detailStyles.infoLabel}>ROUTE</div>
+            <div style={detailStyles.infoValue}>
+              {selectedDelivery.route_details?.route_name || 
+               selectedDelivery.route_name || "-"}
+            </div>
+          </div>
+          <div style={detailStyles.infoCard}>
+            <div style={detailStyles.infoLabel}>SCHEDULED</div>
+            <div style={detailStyles.infoValue}>
+              {selectedDelivery.scheduled_date} {selectedDelivery.scheduled_time}
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={detailStyles.tabsContainer}>
+          <button
+            onClick={() => setActiveTab("products")}
+            style={activeTab === "products" ? detailStyles.activeTabBtn : detailStyles.tabBtn}
+          >
+            Products
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div style={detailStyles.tabContentArea}>
+          {activeTab === "products" && (
+            <div>
+              <div style={detailStyles.sectionHeader}>
+                <div style={detailStyles.sectionIconBox}>
+                  <span>📦</span>
+                </div>
+                <h3 style={detailStyles.sectionTitle}>Products</h3>
+              </div>
+              <DeliveryProducts deliveryId={selectedDelivery.id} />
+            </div>
+          )}
+        </div>
+
+        {/* Start Delivery Modal */}
+        {showStartModal && selectedDelivery && (
+          <div style={modalStyles.overlay}>
+            <div style={modalStyles.modal}>
+              {/* Modal Header */}
+              <div style={modalStyles.header}>
+                <button 
+                  onClick={() => setShowStartModal(false)}
+                  style={modalStyles.backButton}
+                >
+                  ← Back to delivery
+                </button>
+              </div>
+
+              {/* Delivery Title Card */}
+              <div style={modalStyles.titleCard}>
+                <div style={modalStyles.iconBox}>
+                  <span style={{fontSize: "24px"}}>🚚</span>
+                </div>
+                <div>
+                  <h3 style={modalStyles.title}>Start Delivery</h3>
+                  <p style={modalStyles.deliveryNumber}>#{selectedDelivery.delivery_number}</p>
+                </div>
+              </div>
+
+              {/* Delivery Info Card */}
+              <div style={modalStyles.infoCard}>
+                <div style={modalStyles.infoItem}>
+                  <div style={modalStyles.infoLabel}>EMPLOYEE</div>
+                  <div style={modalStyles.infoValue}>
+                    {selectedDelivery.employee_details?.full_name || 
+                     selectedDelivery.employee_details?.employee_id || 
+                     selectedDelivery.employee_name || "Not assigned"}
+                  </div>
+                </div>
+                <div style={modalStyles.infoItem}>
+                  <div style={modalStyles.infoLabel}>VEHICLE</div>
+                  <div style={modalStyles.infoValue}>
+                    {selectedDelivery.vehicle_details?.registration_number || 
+                     selectedDelivery.vehicle_number || "Not assigned"}
+                  </div>
+                </div>
+                <div style={modalStyles.infoItem}>
+                  <div style={modalStyles.infoLabel}>ROUTE</div>
+                  <div style={modalStyles.infoValue}>
+                    {selectedDelivery.route_details?.route_name || 
+                     selectedDelivery.route_name || "Not assigned"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Starting Location Card */}
+              <div style={modalStyles.locationCard}>
+                <div style={modalStyles.locationHeader}>
+                  <span style={{fontSize: "18px", marginRight: "8px"}}>📍</span>
+                  <span style={{fontSize: "15px", fontWeight: "600", color: "#1e293b"}}>Starting Location</span>
+                </div>
+
+                <div style={modalStyles.locationForm}>
+                  <div style={modalStyles.inputGroup}>
+                    <label style={modalStyles.inputLabel}>Address</label>
+                    <input
+                      type="text"
+                      placeholder="Enter starting address"
+                      value={locationData.address}
+                      onChange={(e) => setLocationData({...locationData, address: e.target.value})}
+                      style={modalStyles.input}
+                    />
+                  </div>
+
+                  <div style={modalStyles.locationInputs}>
+                    <div style={{flex: 1}}>
+                      <label style={modalStyles.inputLabel}>Latitude</label>
+                      <input
+                        type="text"
+                        placeholder="0.0"
+                        value={locationData.latitude}
+                        onChange={(e) => setLocationData({...locationData, latitude: e.target.value})}
+                        style={modalStyles.input}
+                      />
+                    </div>
+                    <div style={{flex: 1, marginLeft: 12}}>
+                      <label style={modalStyles.inputLabel}>Longitude</label>
+                      <input
+                        type="text"
+                        placeholder="0.0"
+                        value={locationData.longitude}
+                        onChange={(e) => setLocationData({...locationData, longitude: e.target.value})}
+                        style={modalStyles.input}
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={getCurrentLocation}
+                    style={modalStyles.locationButton}
+                  >
+                    📍 Get Current Location
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={modalStyles.actionButtons}>
+                <button 
+                  onClick={() => setShowStartModal(false)}
+                  style={modalStyles.cancelButton}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleStartDelivery}
+                  disabled={loading}
+                  style={modalStyles.startButton}
+                >
+                  🚚 {loading ? "Starting..." : "Start Delivery"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // STOP DETAIL VIEW (Current Stop)
+  if (view === "stop_detail" && currentStop) {
+    const stopMeta = STOP_STATUS[currentStop.status] || STOP_STATUS.pending;
+    
+    return (
+      <div style={styles.container}>
+        <style>{FONTS}</style>
+
+        <div style={styles.header}>
+          <button onClick={() => setView("all_stops")} style={styles.backBtn}>← Back</button>
+          <h1 style={styles.title}>Stop #{currentStop.stop_sequence}</h1>
+        </div>
+
+        {/* Delivery Summary Banner */}
+        {deliverySummary && (
+          <div style={styles.summaryBanner}>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: 14, color: "#64748b" }}>
+              📊 Current Delivery Status
+            </h3>
+            <div style={styles.summaryGridCompact}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(deliverySummary.total_delivered_boxes)}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Delivered</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#dc2626" }}>{fmt(deliverySummary.total_balance_boxes)}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Balance</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#15803d" }}>₹{fmt(deliverySummary.collected_amount)}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Collected</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#dc2626" }}>₹{fmt(deliverySummary.total_pending_amount)}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Pending</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={styles.card}>
+          <div style={styles.stopHeader}>
+            <h2 style={styles.customerName}>🏪 {currentStop.customer_name}</h2>
+            <div style={{ ...styles.statusBadge, background: stopMeta.bg, color: stopMeta.color }}>
+              {stopMeta.label}
+            </div>
+          </div>
+
+          <div style={styles.customerInfo}>
+            <p>📍 {currentStop.customer_address}</p>
+            {currentStop.customer_phone && <p>📞 {currentStop.customer_phone}</p>}
+          </div>
+
+          <div style={styles.plannedInfo}>
+            <div style={styles.plannedItem}>
+              <span style={styles.plannedLabel}>Planned Boxes:</span>
+              <span style={styles.plannedValue}>{fmt(currentStop.planned_boxes)}</span>
+            </div>
+            <div style={styles.plannedItem}>
+              <span style={styles.plannedLabel}>Planned Amount:</span>
+              <span style={styles.plannedValue}>₹{fmt(currentStop.planned_amount)}</span>
+            </div>
+          </div>
+
+          <div style={styles.formSection}>
+            <h3 style={styles.formTitle}>Update Delivery</h3>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Boxes Delivered *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={stopForm.delivered_boxes}
+                onChange={(e) => setStopForm({ ...stopForm, delivered_boxes: e.target.value })}
+                style={styles.input}
+                placeholder="Enter quantity"
+              />
+              <div style={styles.hint}>
+                Balance: {fmt((currentStop.planned_boxes || 0) - (stopForm.delivered_boxes || 0))} boxes
+              </div>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Cash Collected *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={stopForm.collected_amount}
+                onChange={(e) => setStopForm({ ...stopForm, collected_amount: e.target.value })}
+                style={styles.input}
+                placeholder="Enter amount"
+              />
+              <div style={styles.hint}>
+                Pending: ₹{fmt((currentStop.planned_amount || 0) - (stopForm.collected_amount || 0))}
+              </div>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Status *</label>
+              <select
+                value={stopForm.status}
+                onChange={(e) => setStopForm({ ...stopForm, status: e.target.value })}
+                style={styles.input}
+              >
+                <option value="delivered">Delivered</option>
+                <option value="partial">Partial</option>
+                <option value="failed">Failed</option>
+                <option value="skipped">Skipped</option>
+              </select>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Notes (Optional)</label>
+              <textarea
+                value={stopForm.notes}
+                onChange={(e) => setStopForm({ ...stopForm, notes: e.target.value })}
+                style={{ ...styles.input, minHeight: 80 }}
+                placeholder="Add any notes about this delivery..."
+              />
+            </div>
+
+            <button
+              onClick={completeCurrentStop}
+              disabled={loading}
+              style={styles.primaryBtn}
+            >
+              {loading ? "Saving..." : "✅ Complete Stop & Continue"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ALL STOPS VIEW
+  if (view === "all_stops" && selectedDelivery) {
+    return (
+      <div style={styles.container}>
+        <style>{FONTS}</style>
+
+        <div style={styles.header}>
+          <button onClick={() => { setView("list"); setSelectedDelivery(null); }} style={styles.backBtn}>
+            ← Back to List
+          </button>
+          <h1 style={styles.title}>{selectedDelivery.delivery_number}</h1>
+        </div>
+
+        <div style={styles.deliverySummaryCard}>
+          <h3>Delivery Progress</h3>
+          <div style={styles.summaryGridCompact}>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700 }}>{fmt(selectedDelivery.total_loaded_boxes)}</div>
+              <div style={styles.metricLabel}>Loaded</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#15803d" }}>{fmt(selectedDelivery.total_delivered_boxes)}</div>
+              <div style={styles.metricLabel}>Delivered</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#dc2626" }}>{fmt(selectedDelivery.total_balance_boxes)}</div>
+              <div style={styles.metricLabel}>Balance</div>
+            </div>
+          </div>
+          <div style={{ ...styles.summaryGridCompact, marginTop: 16, paddingTop: 16, borderTop: "1px solid #e2e8f0" }}>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#15803d" }}>₹{fmt(selectedDelivery.collected_amount)}</div>
+              <div style={styles.metricLabel}>Collected</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#dc2626" }}>₹{fmt(selectedDelivery.total_pending_amount)}</div>
+              <div style={styles.metricLabel}>Pending Cash</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={styles.stopsSection}>
+          <h3 style={styles.sectionTitle}>Delivery Stops</h3>
+          {selectedDelivery.stops?.map((stop) => {
+            const meta = STOP_STATUS[stop.status] || STOP_STATUS.pending;
+            return (
+              <div key={stop.id} style={styles.stopCard}>
+                <div style={styles.stopCardHeader}>
+                  <div>
+                    <div style={styles.stopSequence}>Stop #{stop.stop_sequence}</div>
+                    <div style={styles.stopCustomer}>{stop.customer_name}</div>
+                  </div>
+                  <div style={{ ...styles.statusBadge, background: meta.bg, color: meta.color }}>
+                    {meta.label}
+                  </div>
+                </div>
+
+                <div style={styles.stopMetrics}>
+                  <div>
+                    <span style={styles.stopMetricLabel}>Boxes:</span>
+                    <span style={styles.stopMetricValue}>
+                      {fmt(stop.delivered_boxes)} / {fmt(stop.planned_boxes)}
+                      {stop.balance_boxes > 0 && (
+                        <span style={{ color: "#dc2626", marginLeft: 8 }}>
+                          (Bal: {fmt(stop.balance_boxes)})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={styles.stopMetricLabel}>Cash:</span>
+                    <span style={styles.stopMetricValue}>
+                      ₹{fmt(stop.collected_amount)} / ₹{fmt(stop.planned_amount)}
+                      {stop.pending_amount > 0 && (
+                        <span style={{ color: "#dc2626", marginLeft: 8 }}>
+                          (Pending: ₹{fmt(stop.pending_amount)})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {stop.notes && (
+                  <div style={styles.stopNotes}>📝 {stop.notes}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedDelivery.status === "in_progress" && (
+          <div style={styles.actionButtons}>
+            <button onClick={() => loadNextStop(selectedDelivery.id)} style={styles.primaryBtn}>
+              ▶️ Continue to Next Stop
+            </button>
+            <button onClick={completeDelivery} style={styles.completeBtn}>
+              ✅ Complete Delivery
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // DELIVERY SUMMARY VIEW
+  if (view === "summary" && selectedDelivery) {
+    return (
+      <div style={styles.container}>
+        <style>{FONTS}</style>
+
+        <div style={styles.header}>
+          <button onClick={() => setView("list")} style={styles.backBtn}>← Back to List</button>
+          <h1 style={styles.title}>📋 Delivery Summary</h1>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.summaryHeader}>
+            <h2 style={styles.deliveryNumber}>#{selectedDelivery.delivery_number}</h2>
+            <div style={{ ...styles.statusBadge, background: STATUS_META.completed.bg, color: STATUS_META.completed.color }}>
+              ✅ Completed
+            </div>
+          </div>
+
+          <div style={styles.summarySection}>
+            <h3 style={styles.sectionTitle}>📊 Final Summary</h3>
+            <div style={styles.summaryGrid}>
+              <div style={styles.summaryItem}>
+                <div style={styles.summaryValue}>{fmt(selectedDelivery.total_loaded_boxes)}</div>
+                <div style={styles.summaryLabel}>Total Loaded</div>
+              </div>
+              <div style={styles.summaryItem}>
+                <div style={{ ...styles.summaryValue, color: "#15803d" }}>{fmt(selectedDelivery.total_delivered_boxes)}</div>
+                <div style={styles.summaryLabel}>Total Delivered</div>
+              </div>
+              <div style={styles.summaryItem}>
+                <div style={{ ...styles.summaryValue, color: "#dc2626" }}>{fmt(selectedDelivery.total_balance_boxes)}</div>
+                <div style={styles.summaryLabel}>Balance Returned</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.summarySection}>
+            <h3 style={styles.sectionTitle}>💰 Cash Summary</h3>
+            <div style={styles.summaryGrid}>
+              <div style={styles.summaryItem}>
+                <div style={styles.summaryValue}>₹{fmt(selectedDelivery.total_amount)}</div>
+                <div style={styles.summaryLabel}>Total Amount</div>
+              </div>
+              <div style={styles.summaryItem}>
+                <div style={{ ...styles.summaryValue, color: "#15803d" }}>₹{fmt(selectedDelivery.collected_amount)}</div>
+                <div style={styles.summaryLabel}>Collected</div>
+              </div>
+              <div style={styles.summaryItem}>
+                <div style={{ ...styles.summaryValue, color: "#dc2626" }}>₹{fmt(selectedDelivery.total_pending_amount)}</div>
+                <div style={styles.summaryLabel}>Pending</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.summarySection}>
+            <h3 style={styles.sectionTitle}>📍 Delivery Timeline</h3>
+            <div style={styles.timelineItem}>
+              <span style={styles.timelineLabel}>Started:</span>
+              <span>{selectedDelivery.start_datetime ? new Date(selectedDelivery.start_datetime).toLocaleString() : "Not recorded"}</span>
+            </div>
+            <div style={styles.timelineItem}>
+              <span style={styles.timelineLabel}>Completed:</span>
+              <span>{selectedDelivery.end_datetime ? new Date(selectedDelivery.end_datetime).toLocaleString() : "Just now"}</span>
+            </div>
+            {selectedDelivery.start_datetime && selectedDelivery.end_datetime && (
+              <div style={styles.timelineItem}>
+                <span style={styles.timelineLabel}>Duration:</span>
+                <span>
+                  {Math.floor((new Date(selectedDelivery.end_datetime) - new Date(selectedDelivery.start_datetime)) / (1000 * 60))} minutes
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div style={styles.summarySection}>
+            <h3 style={styles.sectionTitle}>🛣️ Stops Completed</h3>
+            {selectedDelivery.stops?.map((stop, index) => {
+              const stopMeta = STOP_STATUS[stop.status] || STOP_STATUS.delivered;
+              return (
+                <div key={stop.id} style={styles.completedStopCard}>
+                  <div style={styles.stopCardHeader}>
+                    <div>
+                      <div style={styles.stopSequence}>Stop #{stop.stop_sequence}</div>
+                      <div style={styles.stopCustomer}>{stop.customer_name}</div>
+                    </div>
+                    <div style={{ ...styles.statusBadge, background: stopMeta.bg, color: stopMeta.color }}>
+                      {stopMeta.label}
+                    </div>
+                  </div>
+                  <div style={styles.stopMetrics}>
+                    <div>📦 {fmt(stop.delivered_boxes)} / {fmt(stop.planned_boxes)} boxes</div>
+                    <div>💰 ₹{fmt(stop.collected_amount)} / ₹{fmt(stop.planned_amount)} collected</div>
+                  </div>
+                  {stop.notes && (
+                    <div style={styles.stopNotes}>📝 {stop.notes}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={styles.actionButtons}>
+            <button onClick={() => setView("list")} style={styles.primaryBtn}>
+              🏠 Back to Deliveries
+            </button>
+            <button 
+              onClick={() => window.print()} 
+              style={{...styles.secondaryBtn, marginLeft: "12px"}}
+            >
+              🖨️ Print Summary
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <div style={styles.container}>Loading...</div>;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────────────────────────────────────
-const FONT_IMPORT = (
-  <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');`}</style>
-);
+// ========== STYLES ==========
 
-const ANIM_CSS = `
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
-  @keyframes slideUp { from { transform:translateY(12px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-  * { box-sizing: border-box; }
-`;
-
-const BASE = {
-  fontFamily: "'DM Sans', system-ui, sans-serif",
-  WebkitFontSmoothing: "antialiased",
-};
-
-const S = {
-  // ── Layout ──
-  page: {
-    ...BASE,
-    background: "#F7F9FC",
-    minHeight: "100vh",
-    maxWidth: 480,
+const styles = {
+  container: {
+    fontFamily: "'Outfit', system-ui, sans-serif",
+    maxWidth: 600,
     margin: "0 auto",
-    position: "relative",
+    padding: 16,
+    background: "#f8fafc",
+    minHeight: "100vh",
   },
-  fullCenter: {
-    ...BASE,
-    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    minHeight: "100vh", background: "#F7F9FC",
+  loading: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100vh",
+    fontSize: 18,
+    color: "#64748b",
   },
-  spinner: {
-    width: 36, height: 36, border: "3px solid #E0E0E0",
-    borderTopColor: "#0D1B2A", borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
-
-  // ── List ──
-  listHeader: {
-    padding: "24px 20px 16px",
-    display: "flex", justifyContent: "space-between", alignItems: "flex-end",
-    borderBottom: "1px solid #ECEFF1",
-    background: "#fff",
-  },
-  listHeaderBadge: {
-    fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase",
-    color: "#90A4AE", marginBottom: 4,
-  },
-  listTitle: {
-    margin: 0, fontSize: 24, fontWeight: 800, color: "#0D1B2A", letterSpacing: -0.5,
-  },
-  iconBtn: {
-    background: "none", border: "1px solid #ECEFF1", borderRadius: 8,
-    width: 36, height: 36, cursor: "pointer", fontSize: 18, color: "#546E7A",
-    display: "flex", alignItems: "center", justifyContent: "center",
-  },
-  searchInput: {
-    width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E0E0E0",
-    fontSize: 14, background: "#fff", outline: "none",
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  filterChip: {
-    padding: "6px 12px", borderRadius: 20, border: "1px solid #E0E0E0",
-    fontSize: 12, fontWeight: 600, cursor: "pointer",
-    background: "#fff", color: "#546E7A",
-  },
-  filterChipActive: {
-    background: "#0D1B2A", color: "#fff", borderColor: "#0D1B2A",
-  },
-  emptyState: {
-    padding: "32px 0", textAlign: "center", color: "#90A4AE", fontSize: 13,
-  },
-
-  // ── Delivery Card ──
-  deliveryCard: {
-    background: "#fff", borderRadius: 14, border: "1px solid #ECEFF1",
-    display: "flex", position: "relative", overflow: "hidden",
-    cursor: "pointer", transition: "transform .1s, box-shadow .1s",
-    boxShadow: "0 1px 4px rgba(0,0,0,.04)",
-    animation: "slideUp .2s ease",
-  },
-  deliveryCardActive: {
-    border: "1.5px solid #FFB74D",
-    boxShadow: "0 2px 10px rgba(255,152,0,.15)",
-  },
-  statusStrip: {
-    width: 4, flexShrink: 0, borderRadius: "14px 0 0 14px",
-  },
-  deliveryNumber: {
-    fontSize: 15, fontWeight: 800, color: "#0D1B2A",
-    fontFamily: "'DM Mono', monospace", letterSpacing: -0.5,
-  },
-  deliveryMeta: {
-    fontSize: 12, color: "#78909C", marginTop: 2,
-  },
-  deliveryInfoRow: {
-    display: "flex", gap: 6, flexWrap: "wrap",
-  },
-  infoChip: {
-    fontSize: 11, color: "#546E7A", background: "#F5F5F5",
-    padding: "3px 8px", borderRadius: 6,
-  },
-  activeIndicator: {
-    marginTop: 8, fontSize: 12, color: "#E65100", fontWeight: 700,
-  },
-  cardArrow: {
-    position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
-    fontSize: 20, color: "#CFD8DC",
-  },
-
-  // ── Status ──
-  statusBadge: {
-    display: "inline-flex", alignItems: "center", gap: 4,
-    padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700,
-  },
-  statusDot: {
-    width: 6, height: 6, borderRadius: "50%", display: "inline-block",
-  },
-
-  // ── Nav ──
-  topNav: {
-    display: "flex", justifyContent: "space-between", alignItems: "center",
-    padding: "14px 20px", background: "#fff", borderBottom: "1px solid #ECEFF1",
-    position: "sticky", top: 0, zIndex: 10,
+  title: {
+    fontSize: 24,
+    fontWeight: 800,
+    color: "#0f172a",
+    margin: 0,
   },
   backBtn: {
-    background: "none", border: "none", cursor: "pointer",
-    fontSize: 14, fontWeight: 600, color: "#1565C0",
-    fontFamily: "'DM Sans', sans-serif", padding: 0, minWidth: 60,
-  },
-  addBtnSmall: {
-    background: "#0D1B2A", color: "#fff", border: "none", cursor: "pointer",
-    fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 8,
-    fontFamily: "'DM Sans', sans-serif",
-  },
-
-  // ── Hero card ──
-  heroCard: {
-    background: "#fff", borderRadius: 0,
-    padding: "20px 20px 16px",
-    borderBottom: "1px solid #ECEFF1",
-  },
-  statsStrip: {
-    display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0,
-    background: "#F7F9FC", borderRadius: 12, padding: "12px 8px",
-    border: "1px solid #ECEFF1",
-  },
-  statItem: {
-    display: "flex", flexDirection: "column", alignItems: "center",
-    padding: "4px 8px",
-    borderRight: "1px solid #ECEFF1",
-  },
-
-  // ── Tabs ──
-  tabNav: {
-    display: "flex", background: "#fff", borderBottom: "1px solid #ECEFF1",
-    padding: "0 20px",
-  },
-  tabBtn: {
-    flex: 1, padding: "12px 8px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-    background: "none", border: "none", color: "#90A4AE",
-    borderBottom: "2px solid transparent",
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  tabBtnActive: {
-    color: "#0D1B2A", borderBottomColor: "#0D1B2A",
-  },
-
-  // ── Stop cards ──
-  stopCard: {
-    background: "#fff", borderRadius: 12, padding: "14px",
-    border: "1px solid #ECEFF1",
-    boxShadow: "0 1px 3px rgba(0,0,0,.04)",
-  },
-  stopCardClickable: {
+    background: "#f1f5f9",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
     cursor: "pointer",
-    transition: "box-shadow .15s",
+    color: "#475569",
   },
-  nextStopHighlight: {
-    border: "1.5px solid #FFB74D",
-    boxShadow: "0 2px 10px rgba(255,152,0,.12)",
+  refreshBtn: {
+    background: "#0f172a",
+    color: "#fff",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
   },
-  stopSeq: {
-    width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center",
-    justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0,
+  quickStartBtn: {
+    background: "#059669",
+    color: "#fff",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    animation: "pulse 2s infinite",
   },
-  stopInfoRow: {
-    display: "flex", gap: 12, flexWrap: "wrap",
+  filterSection: {
+    marginBottom: 20,
   },
-  stopInfoItem: {
-    fontSize: 12, color: "#546E7A",
+  searchInput: {
+    width: "100%",
+    padding: "12px 16px",
+    marginBottom: 12,
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
+    background: "#fff",
+    boxSizing: "border-box",
   },
-  tapHint: {
-    marginTop: 8, fontSize: 11, color: "#FF9800", fontWeight: 700,
+  filterButtons: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
   },
-  nextHint: {
-    marginTop: 6, fontSize: 11, color: "#FF9800", fontWeight: 700,
+  filterBtn: {
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s",
   },
-
-  // ── Forms ──
-  sectionTitle: {
-    fontSize: 16, fontWeight: 800, color: "#0D1B2A", marginBottom: 16,
+  emptyState: {
+    textAlign: "center",
+    padding: "60px 20px",
+    color: "#64748b",
+  },
+  deliveryList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  deliveryCard: {
+    background: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    border: "1px solid #e2e8f0",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  deliveryHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  deliveryNumber: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#0f172a",
+    margin: "0 0 4px 0",
+  },
+  deliveryRoute: {
+    fontSize: 13,
+    color: "#64748b",
+    margin: 0,
+  },
+  statusBadge: {
+    padding: "6px 12px",
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  deliveryInfo: {
+    marginBottom: 16,
+  },
+  infoRow: {
+    fontSize: 13,
+    color: "#475569",
+    marginBottom: 4,
+  },
+  deliveryMetrics: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTop: "1px solid #f1f5f9",
+  },
+  metric: {
+    textAlign: "center",
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#0f172a",
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: "#64748b",
+    marginTop: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  startBtn: {
+    width: "100%",
+    marginTop: 16,
+    background: "#15803d",
+    color: "#fff",
+    border: "none",
+    padding: "12px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  continueBtn: {
+    width: "100%",
+    marginTop: 16,
+    background: "#0f172a",
+    color: "#fff",
+    border: "none",
+    padding: "12px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  summaryBanner: {
+    background: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    border: "1px solid #e2e8f0",
+  },
+  summaryGridCompact: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: 16,
+  },
+  card: {
+    background: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    border: "1px solid #e2e8f0",
+  },
+  stopHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  customerName: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#0f172a",
+    margin: 0,
+  },
+  customerInfo: {
+    marginBottom: 20,
+    paddingBottom: 20,
+    borderBottom: "1px solid #f1f5f9",
+  },
+  plannedInfo: {
+    background: "#f8fafc",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  plannedItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  plannedLabel: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: 600,
+  },
+  plannedValue: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#0f172a",
+  },
+  formSection: {
+    marginTop: 20,
+  },
+  formTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 16,
+  },
+  formGroup: {
+    marginBottom: 16,
   },
   label: {
-    display: "block", fontSize: 11, fontWeight: 700, color: "#546E7A",
-    textTransform: "uppercase", letterSpacing: .8, marginBottom: 6,
+    display: "block",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#64748b",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  required: { color: "#F44336" },
   input: {
-    display: "block", width: "100%", padding: "11px 14px",
-    borderRadius: 10, border: "1px solid #E0E0E0",
-    fontSize: 15, background: "#fff", outline: "none", marginBottom: 14,
-    fontFamily: "'DM Sans', sans-serif",
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    fontSize: 14,
+    boxSizing: "border-box",
+    background: "#f8fafc",
   },
-  inputLarge: {
-    display: "block", width: "100%", padding: "14px",
-    borderRadius: 10, border: "2px solid #E0E0E0",
-    fontSize: 24, fontWeight: 800, background: "#fff", outline: "none", marginBottom: 14,
-    fontFamily: "'DM Mono', monospace", textAlign: "center",
-    color: "#0D1B2A",
-  },
-  textarea: {
-    display: "block", width: "100%", padding: "11px 14px",
-    borderRadius: 10, border: "1px solid #E0E0E0",
-    fontSize: 14, background: "#fff", outline: "none", resize: "vertical", marginBottom: 14,
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  gpsBtn: {
-    padding: "11px 14px", borderRadius: 10, border: "1px solid #E0E0E0",
-    background: "#F7F9FC", cursor: "pointer", fontSize: 18,
-  },
-  gpsConfirm: {
-    fontSize: 12, color: "#2E7D32", fontWeight: 600, marginBottom: 14,
-    background: "#E8F5E9", padding: "8px 12px", borderRadius: 8,
-  },
-
-  // ── Buttons ──
-  primaryBtn: {
-    display: "block", width: "100%", padding: "14px",
-    borderRadius: 12, border: "none", cursor: "pointer",
-    background: "#0D1B2A", color: "#fff",
-    fontSize: 15, fontWeight: 800, fontFamily: "'DM Sans', sans-serif",
+  hint: {
+    fontSize: 12,
+    color: "#64748b",
     marginTop: 4,
   },
-  successBtn: {
-    display: "block", width: "100%", padding: "14px",
-    borderRadius: 12, border: "none", cursor: "pointer",
-    background: "#1B5E20", color: "#fff",
-    fontSize: 15, fontWeight: 800, fontFamily: "'DM Sans', sans-serif",
+  primaryBtn: {
+    width: "100%",
+    background: "#0f172a",
+    color: "#fff",
+    border: "none",
+    padding: "14px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    marginTop: 8,
   },
-  addStopBtn: {
-    display: "block", width: "100%", padding: "12px",
-    borderRadius: 12, border: "1.5px dashed #B0BEC5", cursor: "pointer",
-    background: "#fff", color: "#546E7A",
-    fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+  deliverySummaryCard: {
+    background: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    border: "1px solid #e2e8f0",
   },
-
-  // ── Products ──
-  productTable: {
-    background: "#fff", borderRadius: 12, border: "1px solid #ECEFF1", overflow: "hidden",
+  stopsSection: {
+    marginTop: 20,
   },
-  productRow: {
-    display: "flex", justifyContent: "space-between", alignItems: "center",
-    padding: "12px 16px", borderBottom: "1px solid #F5F5F5",
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 12,
   },
-
-  // ── Progress ──
-  progressBanner: {
-    margin: "12px 20px", background: "#fff", borderRadius: 14,
-    padding: "14px 16px", border: "1px solid #ECEFF1",
+  stopCard: {
+    background: "#fff",
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 12,
+    border: "1px solid #e2e8f0",
   },
-  progressTrack: {
-    background: "#ECEFF1", borderRadius: 99, height: 8, overflow: "hidden",
+  stopCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
-  progressFill: {
-    height: "100%", background: "linear-gradient(90deg, #2E7D32, #4CAF50)",
-    borderRadius: 99, transition: "width .4s ease",
+  stopSequence: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-
-  // ── Customer card ──
-  customerCard: {
-    background: "#F7F9FC", borderRadius: 14, padding: "16px", marginBottom: 20,
-    border: "1px solid #ECEFF1",
+  stopCustomer: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginTop: 4,
   },
-
-  // ── Complete + Summary ──
-  completeSummaryCard: {
-    background: "#F0FDF4", borderRadius: 14, padding: "16px", marginBottom: 20,
-    border: "1px solid #BBF7D0",
+  stopMetrics: {
+    fontSize: 13,
+    color: "#475569",
   },
-  celebrationBanner: {
-    background: "linear-gradient(135deg, #E8F5E9, #F0FDF4)",
-    borderRadius: 16, padding: "24px", textAlign: "center",
-    marginBottom: 16, border: "1px solid #A5D6A7",
+  stopMetricLabel: {
+    fontWeight: 600,
+    marginRight: 8,
   },
-  summaryTile: {
-    background: "#fff", borderRadius: 12, padding: "14px",
-    border: "1px solid #ECEFF1",
+  stopMetricValue: {
+    fontWeight: 500,
+  },
+  stopNotes: {
+    marginTop: 12,
+    padding: 12,
+    background: "#f8fafc",
+    borderRadius: 6,
+    fontSize: 12,
+    color: "#475569",
+  },
+  actionButtons: {
+    marginTop: 20,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  completeBtn: {
+    width: "100%",
+    background: "#15803d",
+    color: "#fff",
+    border: "none",
+    padding: "14px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  // Summary View Styles
+  summaryHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottom: "1px solid #e2e8f0",
+  },
+  summarySection: {
+    marginBottom: 24,
+  },
+  summaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+    gap: 16,
+    marginTop: 12,
+  },
+  summaryItem: {
+    textAlign: "center",
+    padding: 16,
+    background: "#f8fafc",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: "#64748b",
+    textTransform: "uppercase",
+    fontWeight: 600,
+    letterSpacing: 0.5,
+  },
+  timelineItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 0",
+    borderBottom: "1px solid #f1f5f9",
+  },
+  timelineLabel: {
+    fontWeight: 600,
+    color: "#475569",
+  },
+  completedStopCard: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  secondaryBtn: {
+    background: "#f1f5f9",
+    color: "#475569",
+    border: "none",
+    padding: "12px 20px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
   },
 };
+
+// Detailed view styles (matching DeliveryDetail component)
+const detailStyles = {
+  headerCard: {
+    background: "#fff",
+    borderRadius: 12,
+    padding: 24,
+    marginBottom: 16,
+    border: "1px solid #e2e8f0",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+  },  
+  iconBox: {
+    background: "#f1f5f9",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    width: 56,
+    height: 56,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  icon: {
+    fontSize: 24,
+  },
+  deliveryTitle: {
+    fontSize: 24,
+    fontWeight: 800,
+    color: "#0f172a",
+    margin: "0 0 8px 0",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  backButton: {
+    background: "#f1f5f9",
+    color: "#475569",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  startButton: {
+    background: "#15803d",
+    color: "#fff",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  continueButton: {
+    background: "#0f172a",
+    color: "#fff",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  completeButton: {
+    background: "#059669",
+    color: "#fff",
+    border: "none", 
+    padding: "8px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  infoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: 16,
+    marginBottom: 24,
+  },
+  infoCard: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    padding: 16,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: "#0f172a",
+  },
+  tabsContainer: {
+    borderBottom: "1px solid #e2e8f0",
+    marginBottom: 24,
+  },
+  tabBtn: {
+    background: "none",
+    border: "none",
+    padding: "12px 24px",
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#64748b",
+    cursor: "pointer",
+    borderBottom: "2px solid transparent",
+  },
+  activeTabBtn: {
+    background: "none",
+    border: "none",
+    padding: "12px 24px", 
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#0f172a",
+    cursor: "pointer",
+    borderBottom: "2px solid #0f172a",
+  },
+  tabContentArea: {
+    background: "#fff",
+    borderRadius: 12, 
+    border: "1px solid #e2e8f0",
+    padding: 24,
+  },
+  sectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  sectionIconBox: {
+    background: "#f1f5f9",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    width: 32,
+    height: 32,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#0f172a",
+    margin: 0,
+  },
+};
+
+// Modal styles for Start Delivery
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999, // Increased z-index to ensure modal shows above everything
+    backdropFilter: "blur(2px)", // Add backdrop blur effect
+  },
+  modal: {
+    background: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    maxWidth: 500,
+    width: "90%",
+    maxHeight: "90vh",
+    overflowY: "auto",
+  },
+  header: {
+    marginBottom: 20,
+  },
+  backButton: {
+    background: "none",
+    border: "none",
+    color: "#64748b",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    padding: 0,
+  },
+  titleCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 20,
+  },
+  iconBox: {
+    background: "#f1f5f9",
+    borderRadius: 12,
+    width: 48,
+    height: 48,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#0f172a",
+    margin: "0 0 4px 0",
+  },
+  deliveryNumber: {
+    fontSize: 13,
+    color: "#64748b",
+    margin: 0,
+  },
+  infoCard: {
+    background: "#f8fafc",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: 12,
+  },
+  infoItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#0f172a",
+  },
+  locationCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+  },
+  locationHeader: {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  locationForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  input: {
+    padding: "10px 12px",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
+    background: "#fff",
+  },
+  locationInputs: {
+    display: "flex",
+    gap: 12,
+  },
+  locationButton: {
+    background: "#f1f5f9",
+    color: "#dc2626",
+    border: "1px solid #e2e8f0",
+    padding: "10px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    alignSelf: "flex-start",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: 12,
+    justifyContent: "flex-end",
+  },
+  cancelButton: {
+    background: "#f1f5f9",
+    color: "#475569",
+    border: "1px solid #e2e8f0",
+    padding: "12px 20px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  startButton: {
+    background: "#059669",
+    color: "#fff",
+    border: "none",
+    padding: "12px 20px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+};
+
+const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}`;

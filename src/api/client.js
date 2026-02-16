@@ -2,8 +2,11 @@
 import axios from "axios";
 import { notifyError, notifySuccess } from "../utils/notification";
 
+// Use centralized API endpoint from environment variables
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/";
+
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000/api/",  // Added trailing slash to properly handle endpoint concatenation
+  baseURL: apiBaseURL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -16,13 +19,15 @@ const api = axios.create({
 ========================= */
 api.interceptors.request.use(
   (config) => { 
-    const token =
-      localStorage.getItem("accessToken") ||
-      localStorage.getItem("access") ||
-      localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`✅ Token found (${token.substring(0, 20)}...) for ${config.method.toUpperCase()} ${config.url}`);
+      console.log(`✅ Authorization header set:`, config.headers.Authorization.substring(0, 30) + "...");
+    } else {
+      console.warn(`❌ NO TOKEN FOUND in localStorage for ${config.method.toUpperCase()} ${config.url}`);
+      console.warn(`Available localStorage keys:`, Object.keys(localStorage));
     }
 
     // Log request for debugging

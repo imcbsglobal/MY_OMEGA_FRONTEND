@@ -48,9 +48,7 @@ const IconDoc = () => (
 const API_BASE = "http://127.0.0.1:8000/api";
 
 async function apiFetch(path) {
-  const token = localStorage.getItem("access") || 
-                localStorage.getItem("access_token") || 
-                localStorage.getItem("token") || "";
+  const token = localStorage.getItem("accessToken") || "";
   
   try {
     const url = `${API_BASE}${path}`;
