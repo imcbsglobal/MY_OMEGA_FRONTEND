@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/client'; // Import the configured axios client
-
 const PunchInPunchOut = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
@@ -1344,10 +1343,7 @@ else if (status === 'pending') dayClass += ' pending';
           color: white; 
         }
         .summary-header { 
-          font-size: 14px; 
-          font-weight: 600; 
-          margin-bottom: 12px; 
-          opacity: 0.9; 
+          display: none;
         }
         .summary-stats { 
           display: grid; 
