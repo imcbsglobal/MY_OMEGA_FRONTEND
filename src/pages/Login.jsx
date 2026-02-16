@@ -32,13 +32,29 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
+      console.log("🔐 Login attempt...");
       const res = await api.post("/login/", { email, password });
       const data = res.data;
 
+      console.log("📦 Login response:", data);
+
+      if (!data.access) {
+        console.error("❌ No access token in response!");
+        setError("Login failed: No token received");
+        return;
+      }
+
       localStorage.setItem("accessToken", data.access);
-localStorage.setItem("refreshToken", data.refresh);
-localStorage.setItem("user", JSON.stringify(data.user));
-localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("refreshToken", data.refresh);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("isAuthenticated", "true");
+
+      console.log(`✅ Token stored successfully (${data.access.substring(0, 20)}...)`);
+      console.log("✅ LocalStorage contents:", {
+        hasAccessToken: !!localStorage.getItem("accessToken"),
+        tokenPreview: localStorage.getItem("accessToken")?.substring(0, 30) + "...",
+        isAuthenticated: localStorage.getItem("isAuthenticated")
+      });
 
       // Store employee_id if employee profile exists
       if (data.employee && data.employee.employee_id) {
@@ -60,6 +76,7 @@ localStorage.setItem("isAuthenticated", "true");
         err?.response?.data?.error ||
         err?.response?.data?.detail ||
         "Login failed";
+      console.error("❌ Login error:", err);
       setError(msg);
     } finally {
       setLoading(false);

@@ -33,11 +33,7 @@ export default function AttendanceManagement() {
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken") ||
-      localStorage.getItem("access_token") ||
-      localStorage.getItem("access") ||
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("accessToken") ||
-      sessionStorage.getItem("access_token");
+      sessionStorage.getItem("accessToken");
 
     if (!token) {
       console.error("No authentication token found. Please login first.");

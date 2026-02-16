@@ -1,11 +1,8 @@
 // src/api/axiosInstance.js
 import axios from 'axios';
 
-// Use centralized API endpoint from environment variables
-const apiBaseURL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-
 const axiosInstance = axios.create({
-  baseURL: apiBaseURL,
+  baseURL: 'http://localhost:8000', // Your Django backend URL
   headers: {
     'Content-Type': 'application/json',
   },
