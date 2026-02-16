@@ -75,7 +75,15 @@ export default function EmployeeDeliveryView() {
       
       // Handle paginated response: extract results array or use data directly
       const deliveriesData = res.data?.results || res.data || [];
-      setDeliveries(deliveriesData);
+
+      // Limit to the logged-in employee's deliveries when possible
+      const myEmpId = localStorage.getItem("employee_id");
+      const myDeliveries = deliveriesData.filter((d) => {
+        const eid = d.employee_details?.employee_id ?? d.employee_id ?? d.employee ?? null;
+        return myEmpId ? String(eid || "") === String(myEmpId) : true;
+      });
+
+      setDeliveries(myDeliveries);
     } catch (err) {
       console.error("Failed to fetch deliveries:", err);
       console.error("Error details:", err.response?.data);

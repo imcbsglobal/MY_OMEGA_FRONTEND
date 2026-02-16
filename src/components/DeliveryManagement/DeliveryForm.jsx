@@ -59,6 +59,61 @@ export default function DeliveryFormUpdated() {
 
   const handleChange = (field, val) => setForm({ ...form, [field]: val });
 
+  // ── Prefill when editing ──
+  useEffect(() => {
+    if (!isEdit) return;
+    const loadExisting = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get(`/delivery-management/deliveries/${id}/`);
+        const d = res.data || {};
+
+        // Map base form fields (robustly handling possible id keys)
+        const employeeId = d.employee ?? d.employee_id ?? d.employee_details?.id ?? "";
+        const vehicleId  = d.vehicle  ?? d.vehicle_id  ?? d.vehicle_details?.id  ?? "";
+        const routeId    = d.route    ?? d.route_id    ?? d.route_details?.id    ?? "";
+
+        setForm({
+          employee: String(employeeId || ""),
+          vehicle: String(vehicleId || ""),
+          route: String(routeId || ""),
+          scheduled_date: d.scheduled_date || new Date().toISOString().slice(0,10),
+          scheduled_time: d.scheduled_time || "08:00",
+          remarks: d.remarks || "",
+        });
+
+        // Products
+        const pRows = (d.products || []).map(p => ({
+          product: String(p.product ?? p.product_id ?? ""),
+          loaded_quantity: p.loaded_quantity != null ? String(p.loaded_quantity) : "",
+          unit_price: p.unit_price != null ? String(p.unit_price) : "",
+          notes: p.notes || "",
+        }));
+        setProductRows(pRows.length ? pRows : [{ product: "", loaded_quantity: "", unit_price: "", notes: "" }]);
+
+        // Stops
+        const sRows = (d.stops || []).map(s => ({
+          stop_sequence: s.stop_sequence != null ? s.stop_sequence : 1,
+          customer_name: s.customer_name || "",
+          customer_address: s.customer_address || "",
+          customer_phone: s.customer_phone || "",
+          planned_boxes: s.planned_boxes != null ? String(s.planned_boxes) : "",
+          planned_amount: s.planned_amount != null ? String(s.planned_amount) : "",
+          estimated_arrival: s.estimated_arrival || "",
+          notes: s.notes || "",
+        }));
+        setStopRows(sRows.length ? sRows : [{ stop_sequence: 1, customer_name: "", customer_address: "", customer_phone: "", planned_boxes: "", planned_amount: "", estimated_arrival: "" }]);
+
+        setCurrentStep(1);
+      } catch (e) {
+        setError(e.response?.data?.detail || "Could not load existing delivery.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadExisting();
+  }, [isEdit, id]);
+
   // ── Product row management ──
   const addProductRow = () => {
     setProductRows([...productRows, { product: "", loaded_quantity: "", unit_price: "", notes: "" }]);
@@ -161,6 +216,9 @@ export default function DeliveryFormUpdated() {
     try {
       const payload = {
         ...form,
+        employee: form.employee ? parseInt(form.employee) : null,
+        vehicle:  form.vehicle  ? parseInt(form.vehicle)  : null,
+        route:    form.route    ? parseInt(form.route)    : null,
         products: validProducts.map((p) => ({
           product: parseInt(p.product),
           loaded_quantity: parseFloat(p.loaded_quantity),
@@ -179,8 +237,13 @@ export default function DeliveryFormUpdated() {
         })),
       };
 
-      await api.post(`/delivery-management/deliveries/`, payload);
-      alert("✅ Delivery created successfully!");
+      if (isEdit) {
+        await api.put(`/delivery-management/deliveries/${id}/`, payload);
+        alert("✅ Delivery updated successfully!");
+      } else {
+        await api.post(`/delivery-management/deliveries/`, payload);
+        alert("✅ Delivery created successfully!");
+      }
       navigate("/delivery-management/deliveries");
     } catch (err) {
       const detail = err.response?.data;
@@ -224,7 +287,7 @@ export default function DeliveryFormUpdated() {
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>
-          Create New Delivery
+          {isEdit ? "Edit Delivery" : "Create New Delivery"}
         </h1>
         <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
           {currentStep === 1 && "Step 1: Enter basic delivery information"}
