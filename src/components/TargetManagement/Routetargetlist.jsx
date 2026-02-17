@@ -206,9 +206,9 @@ const RouteTargetList = () => {
               </div>
 
               {/* Table */}
-              <div className="table-responsive">
-                <table className="table align-items-center mb-0 tm-table">
-                  <thead>
+              <div className="table-responsive" style={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                <table className="table align-items-center mb-0 tm-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                  <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1 }}>
                     <tr>
                       <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
                         Employee
@@ -219,7 +219,7 @@ const RouteTargetList = () => {
                       <th className="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">
                         Period
                       </th>
-                      <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                      <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7" style={{ width: '100px' }}>
                         Target Boxes
                       </th>
                       <th className="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
@@ -281,7 +281,7 @@ const RouteTargetList = () => {
                               {getDaysBetween(target.start_date, target.end_date)} days
                             </p>
                           </td>
-                          <td className="align-middle text-center text-sm">
+                          <td className="align-middle text-center text-sm" style={{ width: '100px' }}>
                             <span className="text-secondary text-xs font-weight-bold">
                               {Number(target.target_boxes || 0).toFixed(2)}
                             </span>

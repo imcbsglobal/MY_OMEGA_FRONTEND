@@ -72,7 +72,7 @@ import { useState, useEffect, useRef } from "react";
 
     useEffect(() => {
       if (!isAdmin && location.pathname === "/") {
-        navigate("/delivery-management/employee-view", { replace: true });
+        navigate("/punch-in-out", { replace: true });
       }
     }, [isAdmin, location.pathname, navigate]);
 

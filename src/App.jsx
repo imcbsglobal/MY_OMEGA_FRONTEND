@@ -119,7 +119,8 @@ function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<Dashboard />} />
+          {/* Role-based landing: Admin → Dashboard, User → Punch In/Out */}
+          <Route index element={<HomeRedirect />} />
 
           {/* HR Routes */}
           <Route path="cv-management" element={<CVManagement />} />
@@ -252,3 +253,21 @@ function App() {
 }
 
 export default App;          
+
+// Role-based home landing component
+function HomeRedirect() {
+  const stored = localStorage.getItem("user") || "{}";
+  let user = {};
+  try {
+    user = JSON.parse(stored);
+  } catch {}
+
+  const userLevel = user?.user_level || "User";
+  const isAdminUser = !!(
+    (userLevel === "Admin" || userLevel === "Super Admin") ||
+    user?.is_staff || user?.is_superuser ||
+    localStorage.getItem("is_admin") === "true"
+  );
+
+  return isAdminUser ? <Dashboard /> : <Navigate to="/punch-in-out" replace />;
+}

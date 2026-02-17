@@ -12,8 +12,34 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-  if (localStorage.getItem("accessToken")) {
-    navigate("/", { replace: true });
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    // Fetch canonical user profile to ensure we have role flags
+    (async () => {
+      try {
+        const res = await api.get("/users/me/");
+        const me = res?.data || {};
+        localStorage.setItem("user", JSON.stringify(me));
+
+        const userLevel = me?.user_level || "User";
+        const isAdminUser = !!(
+          (userLevel === "Admin" || userLevel === "Super Admin") ||
+          me?.is_staff || me?.is_superuser ||
+          localStorage.getItem("is_admin") === "true"
+        );
+        navigate(isAdminUser ? "/" : "/punch-in-out", { replace: true });
+      } catch (e) {
+        // Fallback to existing localStorage user if profile fetch fails
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        const userLevel = user?.user_level || "User";
+        const isAdminUser = !!(
+          (userLevel === "Admin" || userLevel === "Super Admin") ||
+          user?.is_staff || user?.is_superuser ||
+          localStorage.getItem("is_admin") === "true"
+        );
+        navigate(isAdminUser ? "/" : "/punch-in-out", { replace: true });
+      }
+    })();
   }
 }, [navigate]);
 
@@ -70,7 +96,27 @@ export default function Login() {
       if (data.allowed_menus) {
         sessionStorage.setItem("menuTree", JSON.stringify(data.allowed_menus));
       }
-      navigate("/");
+      // Fetch full profile to get reliable admin flags before deciding redirect
+      try {
+        const resMe = await api.get("/users/me/");
+        const me = resMe?.data || data?.user || {};
+        localStorage.setItem("user", JSON.stringify(me));
+        const userLevel = me?.user_level || "User";
+        const isAdminUser = !!(
+          (userLevel === "Admin" || userLevel === "Super Admin") ||
+          me?.is_staff || me?.is_superuser ||
+          localStorage.getItem("is_admin") === "true"
+        );
+        navigate(isAdminUser ? "/" : "/punch-in-out");
+      } catch (e) {
+        const userLevel = data?.user?.user_level || "User";
+        const isAdminUser = !!(
+          (userLevel === "Admin" || userLevel === "Super Admin") ||
+          data?.user?.is_staff || data?.user?.is_superuser ||
+          localStorage.getItem("is_admin") === "true"
+        );
+        navigate(isAdminUser ? "/" : "/punch-in-out");
+      }
     } catch (err) {
       const msg =
         err?.response?.data?.error ||

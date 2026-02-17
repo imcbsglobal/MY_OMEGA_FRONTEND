@@ -30,8 +30,23 @@ export default function RouteManager() {
       setLoading(true);
       setError("");
       const res = await api.get("target-management/routes/");
-      const data = res.data?.data ?? res.data ?? res.data?.results ?? [];
-      setRoutes(Array.isArray(data) ? data : []);
+      console.log('Routes API Response:', res.data);
+      
+      // Handle different API response structures
+      let data = [];
+      if (Array.isArray(res.data)) {
+        data = res.data;
+      } else if (res.data?.results && Array.isArray(res.data.results)) {
+        data = res.data.results;
+      } else if (res.data?.data && Array.isArray(res.data.data)) {
+        data = res.data.data;
+      } else if (typeof res.data === 'object' && res.data !== null) {
+        // If it's a single object, wrap it in an array
+        data = [res.data];
+      }
+      
+      console.log('Parsed routes data:', data);
+      setRoutes(data);
     } catch (err) {
       setError(err.response?.data?.detail || err.message || "Failed to load routes");
       console.error("Fetch routes error:", err);
@@ -71,15 +86,37 @@ export default function RouteManager() {
     } finally { setSaving(false); }
   };
 
-  const startEdit = (r) => {
-    setEditingId(r.id ?? r.pk);
-    setEditingName(r.name || r.route_name || "");
-    setEditingCode(r.code || r.route_code || "");
-    setEditingOrigin(r.origin || r.from || "");
-    setEditingDestination(r.destination || r.to || "");
-    setEditingDescription(r.description || "");
-    setEditingActive(typeof r.active === 'boolean' ? r.active : true);
-    setError("");
+  const startEdit = async (r) => {
+    const routeId = r.id ?? r.pk;
+    setLoading(true);
+    try {
+      // Fetch complete route details from API
+      const res = await api.get(`target-management/routes/${routeId}/`);
+      const fullRoute = res.data?.data ?? res.data;
+      console.log('Full route details for edit:', fullRoute);
+      
+      setEditingId(routeId);
+      setEditingName(fullRoute.name || fullRoute.route_name || "");
+      setEditingCode(fullRoute.code || fullRoute.route_code || "");
+      setEditingOrigin(fullRoute.origin || fullRoute.from || "");
+      setEditingDestination(fullRoute.destination || fullRoute.to || "");
+      setEditingDescription(fullRoute.description || "");
+      setEditingActive(typeof fullRoute.active === 'boolean' ? fullRoute.active : true);
+      setError("");
+    } catch (err) {
+      console.error('Failed to fetch route details:', err);
+      // Fallback to using list data if API call fails
+      setEditingId(routeId);
+      setEditingName(r.name || r.route_name || "");
+      setEditingCode(r.code || r.route_code || "");
+      setEditingOrigin(r.origin || r.from || "");
+      setEditingDestination(r.destination || r.to || "");
+      setEditingDescription(r.description || "");
+      setEditingActive(typeof r.active === 'boolean' ? r.active : true);
+      setError("");
+    } finally {
+      setLoading(false);
+    }
   };
   const cancelEdit = () => { setEditingId(null); setEditingName(""); setEditingCode(""); setEditingOrigin(""); setEditingDestination(""); setEditingDescription(""); setEditingActive(true); setError(""); };
 
@@ -231,8 +268,6 @@ export default function RouteManager() {
           </div>
         )}
       </div>
-
-      <div style={styles.debugInfo}><details><summary style={{cursor:'pointer',fontWeight:600}}>🔍 Debug Information</summary><div style={styles.debugContent}><div style={styles.debugSection}><strong>API:</strong><div style={styles.debugItem}>target-management/routes/</div></div><div style={styles.debugSection}><strong>State:</strong><div style={styles.debugItem}>Routes: {routes.length}</div><div style={styles.debugItem}>Loading: {loading ? 'Yes' : 'No'}</div></div></div></details></div>
     </div>
   );
 }
@@ -271,11 +306,7 @@ const styles = {
   spinner: { width:40, height:40, border:'4px solid #f1f5f9', borderTop:'4px solid #2563eb', borderRadius:'50%', animation:'spin 1s linear infinite', margin:'0 auto 16px' },
   emptyState: { textAlign:'center', padding:'40px 20px' },
   emptyText: { fontSize:16, fontWeight:600, color:'#64748b', margin:'16px 0' },
-  retryButton: { padding:'8px 16px', background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', borderRadius:6, display:'inline-flex', gap:8, alignItems:'center' },
-  debugInfo: { marginTop:20, fontSize:12, color:'#64748b', background:'#f8fafc', padding:12, borderRadius:8, border:'1px solid #e2e8f0' },
-  debugContent: { marginTop:12 },
-  debugSection: { marginBottom:12, paddingBottom:12, borderBottom:'1px solid #e2e8f0' },
-  debugItem: { marginTop:4, fontSize:11, color:'#475569', paddingLeft:12 }
+  retryButton: { padding:'8px 16px', background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', borderRadius:6, display:'inline-flex', gap:8, alignItems:'center' }
 };
 
 // Add animation rule if not present
