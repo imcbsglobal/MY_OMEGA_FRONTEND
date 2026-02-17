@@ -803,18 +803,7 @@ export default function EmployeeForm() {
                 />
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Gross Salary</label>
-                <input
-                  type="number"
-                  name="gross_salary"
-                  value={formData.gross_salary}
-                  onChange={handleChange}
-                  style={styles.input}
-                  min="0"
-                  step="0.01"
-                />
-              </div>
+             8
             </div>
           </div>
 

@@ -54,6 +54,34 @@ export default function VehicleMaster() {
     }
   }, [isAdmin]);
 
+  // Populate form when selectedVehicle changes (for edit mode)
+  useEffect(() => {
+    if (selectedVehicle && view === 'edit') {
+      console.log('Setting form data with:', selectedVehicle);
+      setFormData({
+        vehicle_name: selectedVehicle.vehicle_name || '',
+        company: selectedVehicle.company || '',
+        registration_number: selectedVehicle.registration_number || '',
+        vehicle_type: selectedVehicle.vehicle_type || 'car',
+        fuel_type: selectedVehicle.fuel_type || 'petrol',
+        color: selectedVehicle.color || '',
+        manufacturing_year: selectedVehicle.manufacturing_year || '',
+        seating_capacity: selectedVehicle.seating_capacity || '',
+        photo: null,
+        owner_name: selectedVehicle.owner_name || '',
+        insurance_number: selectedVehicle.insurance_number || '',
+        insurance_expiry_date: selectedVehicle.insurance_expiry_date || '',
+        last_service_date: selectedVehicle.last_service_date || '',
+        next_service_date: selectedVehicle.next_service_date || '',
+        current_odometer: selectedVehicle.current_odometer || '0',
+        chassis_number: selectedVehicle.chassis_number || '',
+        engine_number: selectedVehicle.engine_number || '',
+        notes: selectedVehicle.notes || '',
+        is_active: selectedVehicle.is_active !== undefined ? selectedVehicle.is_active : true,
+      });
+    }
+  }, [selectedVehicle, view]);
+
   // Fetch vehicles
   const fetchVehicles = async () => {
     setLoading(true);
@@ -214,30 +242,25 @@ export default function VehicleMaster() {
   };
 
   // Open edit form
-  const openEditForm = (vehicle) => {
-    setSelectedVehicle(vehicle);
-    setFormData({
-      vehicle_name: vehicle.vehicle_name || '',
-      company: vehicle.company || '',
-      registration_number: vehicle.registration_number || '',
-      vehicle_type: vehicle.vehicle_type || 'car',
-      fuel_type: vehicle.fuel_type || 'petrol',
-      color: vehicle.color || '',
-      manufacturing_year: vehicle.manufacturing_year || '',
-      seating_capacity: vehicle.seating_capacity || '',
-      photo: null,
-      owner_name: vehicle.owner_name || '',
-      insurance_number: vehicle.insurance_number || '',
-      insurance_expiry_date: vehicle.insurance_expiry_date || '',
-      last_service_date: vehicle.last_service_date || '',
-      next_service_date: vehicle.next_service_date || '',
-      current_odometer: vehicle.current_odometer || '0',
-      chassis_number: vehicle.chassis_number || '',
-      engine_number: vehicle.engine_number || '',
-      notes: vehicle.notes || '',
-      is_active: vehicle.is_active !== undefined ? vehicle.is_active : true,
-    });
-    setView('edit');
+  const openEditForm = async (vehicle) => {
+    console.log('Vehicle data from list:', vehicle);
+    setLoading(true);
+    try {
+      // Fetch complete vehicle details
+      const response = await api.get(`/vehicle-management/vehicles/${vehicle.id}/`);
+      const fullVehicleData = response.data;
+      console.log('Full vehicle data from API:', fullVehicleData);
+      setSelectedVehicle(fullVehicleData);
+      setView('edit');
+    } catch (error) {
+      console.error('Failed to fetch vehicle details:', error);
+      setErrorMessage('Failed to load vehicle details. Please try again.');
+      // Fallback to using the list data
+      setSelectedVehicle(vehicle);
+      setView('edit');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Render vehicle form
@@ -531,7 +554,11 @@ export default function VehicleMaster() {
           <h1 style={styles.pageTitle}>Vehicle Master</h1>
           <p style={styles.pageDescription}>Manage your fleet of vehicles</p>
         </div>
-        <button onClick={() => setView('add')} style={styles.addButton}>
+        <button onClick={() => {
+          resetForm();
+          setSelectedVehicle(null);
+          setView('add');
+        }} style={styles.addButton}>
           <Plus size={18} />
           Add New Vehicle
         </button>

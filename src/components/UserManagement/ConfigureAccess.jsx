@@ -152,21 +152,33 @@ export default function ConfigureAccess() {
 
         setMenuStructure(finalTree);
 
+        // Start with empty permissions for manual configuration
+        // Comment out the lines below if you want to load existing permissions
+        /*
         const userRes = await api.get(`/user-controll/admin/user/${id}/menus/`);
         const saved = userRes.data.menu_perms || [];
+        
+        console.log("API Response for user menus:", userRes.data);
+        console.log("Saved menu permissions:", saved);
 
         const initialChecked = {};
         saved.forEach((p) => {
           const mid = Number(p.menu_id ?? p.id ?? p);
+          console.log(`Processing menu ${mid}:`, p);
           initialChecked[mid] = {
             main: true,
-            view: Boolean(p.can_view ?? true),
-            edit: Boolean(p.can_edit ?? false),
-            delete: Boolean(p.can_delete ?? false),
+            view: Boolean(p.can_view),
+            edit: Boolean(p.can_edit),
+            delete: Boolean(p.can_delete),
           };
         });
-
+        
+        console.log("Final initialChecked state:", initialChecked);
         setChecked(initialChecked);
+        */
+        
+        // Start with all permissions unchecked
+        setChecked({});
       } catch (err) {
         console.error(err);
         alert("Failed to load menu data");
@@ -177,32 +189,56 @@ export default function ConfigureAccess() {
     fetchData();
   }, [id]);
 
-  // Toggle menu (unchanged)
+  // Toggle menu (manual configuration)
   const toggleSubMenu = (menuId) => {
     setChecked((prev) => {
       const current = prev[menuId]?.main || false;
+      // If unchecking main, clear all permissions
+      if (current) {
+        return {
+          ...prev,
+          [menuId]: {
+            main: false,
+            view: false,
+            edit: false,
+            delete: false,
+          },
+        };
+      }
+      // If checking main, just enable main, keep permissions as they were
       return {
         ...prev,
         [menuId]: {
-          main: !current,
-          view: !current,
-          edit: !current,
-          delete: !current,
+          ...prev[menuId],
+          main: true,
+          view: prev[menuId]?.view || false,
+          edit: prev[menuId]?.edit || false,
+          delete: prev[menuId]?.delete || false,
         },
       };
     });
   };
 
-  // Toggle action (unchanged)
+  // Toggle action
   const toggleAction = (menuId, action) => {
-    setChecked((prev) => ({
-      ...prev,
-      [menuId]: {
+    setChecked((prev) => {
+      const newActionValue = !prev[menuId]?.[action];
+      const updatedPerms = {
         ...prev[menuId],
-        main: true,
-        [action]: !prev[menuId]?.[action],
-      },
-    }));
+        [action]: newActionValue,
+      };
+      
+      // Auto-check main if any permission is checked
+      const hasAnyPermission = updatedPerms.view || updatedPerms.edit || updatedPerms.delete;
+      
+      return {
+        ...prev,
+        [menuId]: {
+          ...updatedPerms,
+          main: hasAnyPermission,
+        },
+      };
+    });
   };
 
   // Save (unchanged)

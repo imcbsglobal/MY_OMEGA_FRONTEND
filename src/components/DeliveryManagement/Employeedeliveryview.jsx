@@ -28,6 +28,38 @@ const STOP_STATUS = {
 // Utility function
 const fmt = (n) => parseFloat(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Helper: compute totals from stops when API doesn't include aggregate fields
+function computeDeliveryTotals(delivery) {
+  const d = { ...delivery };
+  if (Array.isArray(d.stops) && d.stops.length) {
+    const toNum = (x) => parseFloat(x || 0);
+    const sum = (arr, getter) => arr.reduce((s, it) => s + toNum(getter(it)), 0);
+
+    // Boxes totals
+    const totalLoaded    = sum(d.stops, (s) => s.planned_boxes);
+    const totalDelivered = sum(d.stops, (s) => s.delivered_boxes);
+    const totalBalance   = d.stops.reduce((s, st) => {
+      const bal = (st.balance_boxes !== undefined && st.balance_boxes !== null)
+        ? toNum(st.balance_boxes)
+        : Math.max(0, toNum(st.planned_boxes) - toNum(st.delivered_boxes));
+      return s + bal;
+    }, 0);
+
+    // Amount totals
+    const totalAmount    = sum(d.stops, (s) => s.planned_amount);
+    const collected      = sum(d.stops, (s) => s.collected_amount);
+    const pending        = Math.max(0, toNum(totalAmount) - toNum(collected));
+
+    d.total_loaded_boxes    = d.total_loaded_boxes ?? totalLoaded;
+    d.total_delivered_boxes = d.total_delivered_boxes ?? totalDelivered;
+    d.total_balance_boxes   = d.total_balance_boxes ?? totalBalance;
+    d.total_amount          = d.total_amount ?? totalAmount;
+    d.collected_amount      = d.collected_amount ?? collected;
+    d.total_pending_amount  = d.total_pending_amount ?? pending;
+  }
+  return d;
+}
+
 export default function EmployeeDeliveryView() {
   const navigate = useNavigate();
   
@@ -99,7 +131,7 @@ export default function EmployeeDeliveryView() {
       console.log(`Fetching delivery details for ID: ${delivery.id}`);
       const res = await api.get(`delivery-management/deliveries/${delivery.id}/`);
       console.log("Delivery details response:", res.data);
-      setSelectedDelivery(res.data);
+      setSelectedDelivery(computeDeliveryTotals(res.data || {}));
       setView("detail"); // Show detailed view first
     } catch (err) {
       console.error("Failed to load delivery details:", err);
@@ -204,7 +236,7 @@ export default function EmployeeDeliveryView() {
       
       // Refresh selected delivery
       const res = await api.get(`delivery-management/deliveries/${selectedDelivery.id}/`);
-      setSelectedDelivery(res.data);
+      setSelectedDelivery(computeDeliveryTotals(res.data || {}));
     } catch (error) {
       console.error("Error starting delivery:", error);
       let errorMessage = "Failed to start delivery";
@@ -248,8 +280,7 @@ export default function EmployeeDeliveryView() {
       if (res.data.delivery_summary) {
         setDeliverySummary(res.data.delivery_summary);
       }
-
-      alert(`✅ Stop completed!\n\nRunning Totals:\nDelivered: ${res.data.delivery_summary?.total_delivered_boxes || 0}\nBalance: ${res.data.delivery_summary?.total_balance_boxes || 0}\nCollected: ₹${res.data.delivery_summary?.collected_amount || 0}\nPending: ₹${res.data.delivery_summary?.total_pending_amount || 0}`);
+      // Removed popup notification; proceed silently to next stop
 
       // Load next stop
       loadNextStop(selectedDelivery.id);
@@ -651,14 +682,6 @@ export default function EmployeeDeliveryView() {
             >
               ← Back to List
             </button>
-            {selectedDelivery.status === "scheduled" && (
-              <button 
-                onClick={() => startDelivery(selectedDelivery.id)} 
-                style={detailStyles.startButton}
-              >
-                ▶️ Start
-              </button>
-            )}
             {selectedDelivery.status === "in_progress" && (
               <button 
                 onClick={() => {
@@ -671,14 +694,6 @@ export default function EmployeeDeliveryView() {
                 style={detailStyles.continueButton}
               >
                 🚚 Continue Delivery
-              </button>
-            )}
-            {selectedDelivery.status === "in_progress" && (
-              <button 
-                onClick={() => startDelivery(selectedDelivery.id)} 
-                style={detailStyles.startButton}
-              >
-                🚀 Start
               </button>
             )}
           </div>

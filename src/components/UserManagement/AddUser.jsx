@@ -100,14 +100,13 @@ export default function AddUser() {
               <th style={styles.tableHeader}>Branch</th>
               <th style={styles.tableHeader}>Role</th>
               <th style={styles.tableHeader}>Phone</th>
-              <th style={styles.tableHeader}>Status</th>
               <th style={styles.tableHeader}>Action</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan="9" style={styles.noResults}>No users found</td>
+                <td colSpan="8" style={styles.noResults}>No users found</td>
               </tr>
             ) : (
               filtered.map((u, i) => (
@@ -133,11 +132,6 @@ export default function AddUser() {
                   <td style={styles.tableCell}>{u.branch}</td>
                   <td style={styles.tableCell}>{u.user_level}</td>
                   <td style={styles.tableCell}>{u.phone_number}</td>
-                  <td style={styles.tableCell}>
-                    <span style={u.is_active ? styles.statusActive : styles.statusInactive}>
-                      {u.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
                   <td style={styles.tableCell}>
                     <div style={styles.actionButtons}>
                       <button
