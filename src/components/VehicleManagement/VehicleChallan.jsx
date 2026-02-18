@@ -44,19 +44,18 @@ export default function VehicleChallan() {
 
   const [errors, setErrors] = useState({});
 
+  // Allow non-admin users to view challans without redirecting
   useEffect(() => {
-    if (!isAdmin) {
-      window.location.href = '/';
-    }
+    // No redirect here; access is read-only for non-admins
   }, [isAdmin]);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchChallans();
-      fetchVehicles();
-      fetchStats();
-    }
-  }, [filters]);
+    // Fetch challans and vehicles for all users
+    fetchChallans();
+    fetchVehicles();
+    // Stats may be admin-only; fetch conditionally
+    if (isAdmin) fetchStats();
+  }, [filters, isAdmin]);
 
   // Fetch challans from API
   const fetchChallans = async () => {
@@ -299,7 +298,7 @@ export default function VehicleChallan() {
     });
   };
 
-  if (!isAdmin) return null;
+  // Render page for all users; actions are gated by isAdmin
 
   // Render form (Add/Edit)
   const renderForm = () => (
@@ -609,7 +608,7 @@ export default function VehicleChallan() {
           </div>
 
           <div style={styles.formActionsRight}>
-            {selectedChallan.payment_status === 'unpaid' && (
+            {isAdmin && selectedChallan.payment_status === 'unpaid' && (
               <button
                 onClick={() => handleMarkPaid(selectedChallan)}
                 style={styles.submitButton}
@@ -618,12 +617,14 @@ export default function VehicleChallan() {
                 Mark as Paid
               </button>
             )}
-            <button
-              onClick={() => handleEdit(selectedChallan.id)}
-              style={styles.editButton}
-            >
-              <Edit2 size={14} /> Edit
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => handleEdit(selectedChallan.id)}
+                style={styles.editButton}
+              >
+                <Edit2 size={14} /> Edit
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -642,13 +643,15 @@ export default function VehicleChallan() {
           <h2 style={styles.title}>Vehicle Challans</h2>
           <p style={styles.subtitle}>Manage traffic violations and fines</p>
         </div>
-        <button style={styles.addButton} onClick={() => setView('add')}>
-          Add Challan
-        </button>
+        {isAdmin && (
+          <button style={styles.addButton} onClick={() => setView('add')}>
+            Add Challan
+          </button>
+        )}
       </div>
 
       {/* Statistics Cards */}
-      {stats && (
+      {isAdmin && stats && (
         <div style={styles.statsContainer}>
           <div style={styles.statCard}>
             <div style={styles.statLabel}>Total Challans</div>
@@ -789,13 +792,17 @@ export default function VehicleChallan() {
                       {challan.payment_status === 'paid' ? (
                         <span style={styles.paidBadge}>PAID</span>
                       ) : (
-                        <button
-                          onClick={() => handleMarkPaid(challan)}
-                          style={styles.unpaidButton}
-                          disabled={loading}
-                        >
-                          Mark Paid
-                        </button>
+                        isAdmin ? (
+                          <button
+                            onClick={() => handleMarkPaid(challan)}
+                            style={styles.unpaidButton}
+                            disabled={loading}
+                          >
+                            Mark Paid
+                          </button>
+                        ) : (
+                          <span style={styles.unpaidButton}>UNPAID</span>
+                        )
                       )}
                     </td>
                     <td style={styles.td}>{challan.days_since_challan}</td>
@@ -807,20 +814,24 @@ export default function VehicleChallan() {
                       >
                         <Eye size={14} />
                       </button>
-                      <button
-                        onClick={() => handleEdit(challan.id)}
-                        style={styles.editButtonSmall}
-                        title="Edit"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(challan.id)}
-                        style={styles.deleteButton}
-                        title="Delete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => handleEdit(challan.id)}
+                            style={styles.editButtonSmall}
+                            title="Edit"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(challan.id)}
+                            style={styles.deleteButton}
+                            title="Delete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))
