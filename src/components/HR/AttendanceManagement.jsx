@@ -77,7 +77,8 @@ export default function AttendanceManagement() {
     try {
       const [year, month] = selectedMonth.split("-");
 
-      const employeesResponse = await api.get("/users/");
+      // Always fetch only active users for attendance page
+      const employeesResponse = await api.get("/users/", { params: { is_active: true } });
       let employeesList = employeesResponse.data;
 
       if (!Array.isArray(employeesList)) {

@@ -8,6 +8,7 @@ export default function AddUser() {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
 
   useEffect(() => { 
     fetchUsers(); 
@@ -15,11 +16,29 @@ export default function AddUser() {
 
   async function fetchUsers() {
     try {
-      const res = await api.get("/users/");
-      // API may return paginated object { results: [...], count, ... } or an array.
-      const payload = res.data || {};
-      const list = Array.isArray(payload) ? payload : (payload.results || payload.data || []);
-      setUsers(Array.isArray(list) ? list : []);
+      // Fetch active users (default) and inactive users explicitly,
+      // then merge so this page shows both (active + inactive).
+      const [activeRes, inactiveRes] = await Promise.all([
+        api.get("/users/"),
+        api.get("/users/?is_active=false"),
+      ]);
+
+      const norm = (res) => {
+        const payload = res?.data || {};
+        return Array.isArray(payload) ? payload : (payload.results || payload.data || []);
+      };
+
+      const activeList = norm(activeRes);
+      const inactiveList = norm(inactiveRes);
+
+      // Merge by id to avoid duplicates
+      const byId = new Map();
+      [...activeList, ...inactiveList].forEach((u) => {
+        if (u && u.id != null) byId.set(u.id, u);
+      });
+
+      const merged = Array.from(byId.values());
+      setUsers(merged);
     } catch (e) {
       console.error("Error fetching users:", e.response?.data || e.message);
     }
@@ -32,17 +51,29 @@ export default function AddUser() {
   };
 
   const deleteUser = async (id, userName) => {
-    if (!window.confirm(`Deactivate user "${userName}"?`)) return;
+    if (!window.confirm(`Inactivate user "${userName}"?`)) return;
 
     try {
       setDeletingId(id);
       await api.patch(`/users/${id}/`, { is_active: false });
       await fetchUsers();
-      alert("User deactivated successfully");
+      alert("User inactivated successfully");
     } catch (error) {
-      alert("Deactivate failed");
+      alert("Inactivate failed");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const toggleUserStatus = async (user) => {
+    try {
+      setTogglingId(user.id);
+      await api.patch(`/users/${user.id}/`, { is_active: !user.is_active });
+      await fetchUsers();
+    } catch (error) {
+      alert("Status update failed");
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -140,13 +171,23 @@ export default function AddUser() {
                       >
                         Edit
                       </button>
-                      <button 
-                        onClick={() => deleteUser(u.id, u.name || u.email)}
-                        style={styles.deleteBtn}
-                        disabled={deletingId === u.id}
-                      >
-                        {deletingId === u.id ? "Deleting..." : "Delete"}
-                      </button>
+                      {u.is_active ? (
+                        <button 
+                          onClick={() => deleteUser(u.id, u.name || u.email)}
+                          style={styles.deleteBtn}
+                          disabled={deletingId === u.id}
+                        >
+                          {deletingId === u.id ? "Inactivating..." : "Inactivate"}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => toggleUserStatus(u)}
+                          style={styles.editBtn}
+                          disabled={togglingId === u.id}
+                        >
+                          {togglingId === u.id ? "Activating..." : "Activate"}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -209,11 +250,11 @@ export default function AddUser() {
                   Edit
                 </button>
                 <button 
-                  onClick={() => deleteUser(u.id, u.name || u.email)}
-                  style={styles.deleteBtnMobile}
-                  disabled={deletingId === u.id}
+                  onClick={() => (u.is_active ? deleteUser(u.id, u.name || u.email) : toggleUserStatus(u))}
+                  style={u.is_active ? styles.deleteBtnMobile : styles.editBtnMobile}
+                  disabled={u.is_active ? (deletingId === u.id) : (togglingId === u.id)}
                 >
-                  {deletingId === u.id ? "Deleting..." : "Delete"}
+                  {u.is_active ? (deletingId === u.id ? "Inactivating..." : "Inactivate") : (togglingId === u.id ? "Activating..." : "Activate")}
                 </button>
               </div>
             </div>
