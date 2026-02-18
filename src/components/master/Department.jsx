@@ -503,7 +503,7 @@ export default function Department() {
                             disabled={loading}
                             title="Edit department"
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={14} />
                             Edit
                           </button>
                           <button

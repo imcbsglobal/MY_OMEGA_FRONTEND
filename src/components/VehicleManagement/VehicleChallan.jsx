@@ -622,7 +622,7 @@ export default function VehicleChallan() {
               onClick={() => handleEdit(selectedChallan.id)}
               style={styles.editButton}
             >
-              <Edit2 size={16} /> Edit
+              <Edit2 size={14} /> Edit
             </button>
           </div>
         </div>

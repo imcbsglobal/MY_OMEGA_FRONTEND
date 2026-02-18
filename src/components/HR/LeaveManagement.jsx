@@ -336,7 +336,7 @@ export default function LeaveManagement() {
 
               <div style={styles.mobileCardFooter}>
                 {/* <button style={styles.mobileActionBtn}>
-                  <Pencil size={16} />
+                  <Pencil size={14} />
                   Edit
                 </button> */}
                 <button 

@@ -343,7 +343,7 @@ export default function Interview_List() {
                           onClick={() => navigate(`/interview-management/edit/${interview.id}`)}
                           style={styles.iconBtn}
                         >
-                          <Pencil size={16} />
+                          <Pencil size={14} />
                         </button> */}
 
                         <button

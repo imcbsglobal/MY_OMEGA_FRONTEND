@@ -829,7 +829,7 @@ export default function LeaveTypeManagement() {
                         onClick={() => handleStartEdit(leaveType)}
                         title="Edit"
                       >
-                        <Edit2 size={16} />
+                        <Edit2 size={14} />
                         Edit
                       </button>
                       <button

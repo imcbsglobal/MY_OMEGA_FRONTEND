@@ -239,7 +239,7 @@ export default function CVManagement() {
                           onClick={() => handleEditClick(cv)}
                           style={styles.iconBtn}
                         >
-                          <Pencil size={16} />
+                          <Pencil size={14} />
                         </button>
 
                         <button
