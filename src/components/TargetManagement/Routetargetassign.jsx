@@ -3,27 +3,44 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from "../../api/client";
-import "./targetManagement.css";
+
+// Add spin animation keyframes
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+if (!document.head.querySelector('style[data-spin-animation]')) {
+  styleSheet.setAttribute('data-spin-animation', 'true');
+  document.head.appendChild(styleSheet);
+}
 
 const RouteTargetAssign = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [routes, setRoutes] = useState([]);
-  const [products, setProducts] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [dataError, setDataError] = useState(null);
+  const [showParametersModal, setShowParametersModal] = useState(false);
+  
+  // Parameters state
+  const [parameters, setParameters] = useState({
+    TPA: { target: '', incentive: '' },
+    T_COLLECTION: { target: '', incentive: '' },
+    POM: { target: '', incentive: '' },
+    SALES_TARGET: { target: '', incentive: '' }
+  });
 
   const [formData, setFormData] = useState({
     employee: '',
     start_date: '',
     end_date: '',
     route: '',
-    target_boxes: '',
-    target_amount: '',
-    notes: '',
     is_active: true,
-    product_details: []
+    target_parameters: []
   });
 
   useEffect(() => {
@@ -75,24 +92,6 @@ const RouteTargetAssign = () => {
       console.log('Processed route data:', routeData);
       setRoutes(routeData);
 
-      // Fetch products
-      const productRes = await api.get('/target-management/products/');
-      console.log('Product response:', productRes);
-      
-      let productData = [];
-      if (productRes.data) {
-        if (Array.isArray(productRes.data)) {
-          productData = productRes.data;
-        } else if (productRes.data.results && Array.isArray(productRes.data.results)) {
-          productData = productRes.data.results;
-        } else if (productRes.data.data && Array.isArray(productRes.data.data)) {
-          productData = productRes.data.data;
-        }
-      }
-      
-      console.log('Processed product data:', productData);
-      setProducts(productData);
-
       // Show notifications
       if (employeeData.length === 0) {
         toast.warning('No employees found. Please add employees in Employee Management first.');
@@ -124,27 +123,41 @@ const RouteTargetAssign = () => {
     }));
   };
 
-  const addProductRow = () => {
-    setFormData(prev => ({
+  // Handle parameter changes
+  const handleParameterChange = (paramType, field, value) => {
+    setParameters(prev => ({
       ...prev,
-      product_details: [
-        ...prev.product_details,
-        { product: '', target_quantity: '', achieved_quantity: 0, unit_price: '' }
-      ]
+      [paramType]: {
+        ...prev[paramType],
+        [field]: value
+      }
     }));
   };
 
-  const updateProductRow = (index, field, value) => {
-    const updated = [...formData.product_details];
-    updated[index][field] = value;
-    setFormData(prev => ({ ...prev, product_details: updated }));
+  // Save parameters to form data
+  const saveParameters = () => {
+    const parameterArray = [];
+    
+    Object.keys(parameters).forEach(paramType => {
+      const param = parameters[paramType];
+      if (param.target > 0) {
+        parameterArray.push({
+          parameter_type: paramType,
+          target_value: parseFloat(param.target) || 0,
+          incentive_value: parseFloat(param.incentive) || 0
+        });
+      }
+    });
+    
+    setFormData(prev => ({
+      ...prev,
+      target_parameters: parameterArray
+    }));
+    
+    setShowParametersModal(false);
+    toast.success(`${parameterArray.length} parameters configured successfully!`);
   };
-
-  const removeProductRow = (index) => {
-    const updated = formData.product_details.filter((_, i) => i !== index);
-    setFormData(prev => ({ ...prev, product_details: updated }));
-  };
-
+    const targetParams = [];
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -193,7 +206,30 @@ const RouteTargetAssign = () => {
     return sunday;
   };
 
-  // Preset week selection
+  // Preset month selection
+  const selectCurrentMonth = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    setFormData(prev => ({
+      ...prev,
+      start_date: firstDay.toISOString().split('T')[0],
+      end_date: lastDay.toISOString().split('T')[0]
+    }));
+  };
+
+  const selectNextMonth = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    
+    setFormData(prev => ({
+      ...prev,
+      start_date: firstDay.toISOString().split('T')[0],
+      end_date: lastDay.toISOString().split('T')[0]
+    }));
+  };
   const selectCurrentWeek = () => {
     const monday = getMondayOfWeek(new Date());
     const sunday = getSundayOfWeek(new Date());
@@ -301,446 +337,930 @@ const RouteTargetAssign = () => {
 
   if (loadingData) {
     return (
-      <div className="container-fluid py-4">
-        <div className="row">
-          <div className="col-12">
-            <div className="card">
-              <div className="card-body text-center py-5">
-                <div className="spinner-border text-primary mb-3" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-                <h5>Loading Data...</h5>
-                <p className="text-muted">Fetching employees, routes, and products...</p>
-              </div>
-            </div>
-          </div>
+      <div style={{minHeight: '100vh', background: '#f8f9fa', padding: '24px'}}>
+        <div style={{maxWidth: '900px', margin: '0 auto', textAlign: 'center', paddingTop: '80px'}}>
+          <div style={{
+            width: '48px', 
+            height: '48px', 
+            border: '4px solid #f3f4f6', 
+            borderTop: '4px solid #dc2626', 
+            borderRadius: '50%', 
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }}></div>
+          <h5 style={{color: '#374151', marginBottom: '8px'}}>Loading Data...</h5>
+          <p style={{color: '#6b7280', margin: 0}}>Fetching employees and routes...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container-fluid py-4">
-      <div className="row">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header pb-0 assign-header">
-              <div className="d-flex align-items-center">
-                <div className="assign-header-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 2H15C16.1046 2 17 2.89543 17 4V20C17 21.1046 16.1046 22 15 22H9C7.89543 22 7 21.1046 7 20V4C7 2.89543 7.89543 2 9 2Z" fill="#fff"/>
-                    <path d="M8 7H16" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 11H16" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg> 
-                </div>
-                <h6 className="mb-0 ms-2">Assign Call Target</h6>
+    <div style={{minHeight: '100vh', background: '#f8f9fa', padding: '24px'}}>
+      <div style={{maxWidth: '900px', margin: '0 auto'}}>
+        {/* Header Section */}
+        <div style={{marginBottom: '32px'}}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px'}}>
+            <div>
+              <h1 style={{fontSize: '24px', fontWeight: '700', color: '#111827', margin: '0 0 8px 0', display: 'flex', alignItems: 'center'}}>
+                <span style={{width: '8px', height: '8px', borderRadius: '50%', background: '#dc2626', marginRight: '12px'}}></span>
+                Assign Route Target
+              </h1>
+              <p style={{fontSize: '14px', color: '#6b7280', margin: 0}}>
+                Configure targets and incentives for your team
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/target/route/list')}
+              style={{
+                background: 'white',
+                border: '1px solid #e5e7eb',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#374151',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              ← Back to List
+            </button>
+          </div>
+        </div>
+
+        {/* Error Messages */}
+        {dataError && (
+          <div style={{
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '24px'
+          }}>
+            <h6 style={{color: '#991b1b', fontSize: '14px', fontWeight: '600', marginBottom: '8px'}}>
+              Error Loading Data
+            </h6>
+            <p style={{color: '#dc2626', fontSize: '13px', margin: '0 0 12px 0'}}>{dataError}</p>
+            <button 
+              onClick={fetchInitialData}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {(employees.length === 0 || routes.length === 0) && !dataError && (
+          <div style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '24px'
+          }}>
+            <h6 style={{color: '#92400e', fontSize: '14px', fontWeight: '600', marginBottom: '8px'}}>
+              <i className="fas fa-exclamation-triangle" style={{marginRight: '8px'}}></i>
+              Missing Data
+            </h6>
+            <ul style={{color: '#b45309', fontSize: '13px', margin: '0 0 12px 0', paddingLeft: '20px'}}>
+              {employees.length === 0 && (
+                <li>No employees found. Please add employees in Employee Management first.</li>
+              )}
+              {routes.length === 0 && (
+                <li>No routes found. Please add routes in Route Master first.</li>
+              )}
+            </ul>
+            <button 
+              onClick={fetchInitialData}
+              style={{
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              <i className="fas fa-sync" style={{marginRight: '6px'}}></i>
+              Refresh Data
+            </button>
+          </div>
+        )}
+
+        {/* Form Card - Employee & Route */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '24px',
+          marginBottom: '16px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          border: '1px solid #f3f4f6'
+        }}>
+          {/* Employee and Route Selection */}
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px'}}>
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                <i className="fas fa-user" style={{marginRight: '6px', color: '#6b7280'}}></i>
+                Employee <span style={{color: '#dc2626'}}>*</span>
+              </label>
+              <select
+                name="employee"
+                value={formData.employee}
+                onChange={handleInputChange}
+                required
+                disabled={employees.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  color: '#111827',
+                  background: employees.length === 0 ? '#f9fafb' : 'white',
+                  cursor: employees.length === 0 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <option value="">Select Employee ({employees.length} available)</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {getEmployeeDisplayName(emp)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                <i className="fas fa-route" style={{marginRight: '6px', color: '#6b7280'}}></i>
+                Route <span style={{color: '#dc2626'}}>*</span>
+              </label>
+              <select
+                name="route"
+                value={formData.route}
+                onChange={handleInputChange}
+                required
+                disabled={routes.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  color: '#111827',
+                  background: routes.length === 0 ? '#f9fafb' : 'white',
+                  cursor: routes.length === 0 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <option value="">Select Route ({routes.length} available)</option>
+                {routes.map(route => (
+                  <option key={route.id} value={route.id}>
+                    {getRouteDisplayName(route)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Quick Period Selection */}
+          <div style={{marginBottom: '24px'}}>
+            <label style={{
+              display: 'block',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#374151',
+              marginBottom: '8px'
+            }}>
+              <i className="fas fa-calendar" style={{marginRight: '6px', color: '#6b7280'}}></i>
+              Quick Period Selection
+            </label>
+            <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+              <button
+                type="button"
+                onClick={selectCurrentWeek}
+                style={{
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(220, 38, 38, 0.2)'
+                }}
+              >
+                Current Week
+              </button>
+              <button
+                type="button"
+                onClick={selectNextWeek}
+                style={{
+                  background: 'white',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Next Week
+              </button>
+              <button
+                type="button"
+                onClick={selectCurrentMonth}
+                style={{
+                  background: 'white',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Current Month
+              </button>
+              <button
+                type="button"
+                onClick={selectNextMonth}
+                style={{
+                  background: 'white',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Next Month
+              </button>
+              <button
+                type="button"
+                onClick={selectCustomWeek}
+                style={{
+                  background: 'white',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Custom Period
+              </button>
+            </div>
+          </div>
+
+          {/* Date Range */}
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                Start Date <span style={{color: '#dc2626'}}>*</span>
+              </label>
+              <input
+                type="date"
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleInputChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  color: '#111827'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                End Date <span style={{color: '#dc2626'}}>*</span>
+              </label>
+              <input
+                type="date"
+                name="end_date"
+                value={formData.end_date}
+                onChange={handleInputChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  color: '#111827'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Target Parameters Card */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '24px',
+          marginBottom: '24px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          border: '1px solid #f3f4f6'
+        }}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
+            <div>
+              <h3 style={{fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 4px 0'}}>
+                <i className="fas fa-chart-line" style={{marginRight: '8px', color: '#dc2626'}}></i>
+                Target Parameters
+              </h3>
+              <p style={{fontSize: '13px', color: '#6b7280', margin: 0}}>
+                Configure target parameters for Total Parties Attended, Target Collection, Product of the Month and Sales Target
+              </p>
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+              <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}>
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  checked={formData.is_active}
+                  onChange={handleInputChange}
+                  style={{width: '18px', height: '18px', cursor: 'pointer'}}
+                />
+                <span style={{fontSize: '13px', fontWeight: '500', color: '#374151'}}>
+                  <span style={{color: '#10b981'}}>●</span> Active Target
+                </span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowParametersModal(true)}
+                style={{
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(220, 38, 38, 0.2)'
+                }}
+              >
+                Parameters
+              </button>
+            </div>
+          </div>
+
+          {/* Parameters Summary/Preview */}
+          {formData.target_parameters.length > 0 && (
+            <div style={{
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginTop: '16px'
+            }}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <i className="fas fa-check-circle" style={{color: '#16a34a'}}></i>
+                <span style={{fontSize: '13px', fontWeight: '500', color: '#166534'}}>
+                  {formData.target_parameters.length} parameter(s) configured successfully
+                </span>
               </div>
-              <button className="btn btn-sm btn-link back-link" onClick={() => navigate('/target/route/list')}>
-                ← Back to List
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <button
+            type="button"
+            onClick={() => navigate('/target/route/list')}
+            style={{
+              background: 'white',
+              color: '#374151',
+              border: '1px solid #d1d5db',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading || employees.length === 0 || routes.length === 0}
+            style={{
+              background: loading || employees.length === 0 || routes.length === 0 ? '#9ca3af' : '#dc2626',
+              color: 'white',
+              border: 'none',
+              padding: '10px 24px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: loading || employees.length === 0 || routes.length === 0 ? 'not-allowed' : 'pointer',
+              boxShadow: loading || employees.length === 0 || routes.length === 0 ? 'none' : '0 1px 2px rgba(220, 38, 38, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {loading ? (
+              <>
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid white',
+                  borderTop: '2px solid transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+                Assigning...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-check"></i>
+                Assign Target
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Parameters Modal */}
+        {showParametersModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1050
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            position: 'relative'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #f3f4f6',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <h2 style={{fontSize: '18px', fontWeight: '700', color: '#111827', margin: '0 0 4px 0'}}>
+                  <i className="fas fa-sliders-h" style={{marginRight: '8px', color: '#dc2626'}}></i>
+                  Target Parameters Configuration
+                </h2>
+                <p style={{fontSize: '13px', color: '#6b7280', margin: 0}}>
+                  Set targets and incentives for each parameter
+                </p>
+              </div>
+              <button
+                onClick={() => setShowParametersModal(false)}
+                style={{
+                  background: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  color: '#6b7280'
+                }}
+              >
+                ✕
               </button>
             </div>
 
-            <div className="card-body">
-              {/* Data Error Message */}
-              {dataError && (
-                <div className="alert alert-danger mb-4">
-                  <h6 className="alert-heading">Error Loading Data</h6>
-                  <p className="mb-0">{dataError}</p>
-                  <button 
-                    className="btn btn-sm btn-outline-danger mt-2"
-                    onClick={fetchInitialData}
-                  >
-                    Retry
-                  </button>
-                </div>
-              )}
+            {/* Body */}
+            <div style={{padding: '24px'}}>
+              <div style={{overflowX: 'auto'}}>
+                <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                  <thead>
+                    <tr>
+                      <th style={{
+                        background: '#f8f9fa',
+                        padding: '12px',
+                        textAlign: 'left',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#374151',
+                        borderBottom: '2px solid #e5e7eb',
+                        width: '30%'
+                      }}>
+                        Parameter Type
+                      </th>
+                      <th style={{
+                        background: '#f8f9fa',
+                        padding: '12px',
+                        textAlign: 'left',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#374151',
+                        borderBottom: '2px solid #e5e7eb',
+                        width: '35%'
+                      }}>
+                        Target Value
+                      </th>
+                      <th style={{
+                        background: '#f8f9fa',
+                        padding: '12px',
+                        textAlign: 'left',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#374151',
+                        borderBottom: '2px solid #e5e7eb',
+                        width: '35%'
+                      }}>
+                        Incentive Value (₹)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{
+                        padding: '12px',
+                        borderBottom: '1px solid #f3f4f6',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#111827'
+                      }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                          <i className="fas fa-users" style={{color: '#dc2626'}}></i>
+                          Total Parties Attended
+                        </div>
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.TPA.target}
+                          onChange={(e) => handleParameterChange('TPA', 'target', e.target.value)}
+                          placeholder="Enter target"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.TPA.incentive}
+                          onChange={(e) => handleParameterChange('TPA', 'incentive', e.target.value)}
+                          placeholder="Enter incentive"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{
+                        padding: '12px',
+                        borderBottom: '1px solid #f3f4f6',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#111827'
+                      }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                          <i className="fas fa-rupee-sign" style={{color: '#dc2626'}}></i>
+                          Target Collection
+                        </div>
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.T_COLLECTION.target}
+                          onChange={(e) => handleParameterChange('T_COLLECTION', 'target', e.target.value)}
+                          placeholder="Enter target"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.T_COLLECTION.incentive}
+                          onChange={(e) => handleParameterChange('T_COLLECTION', 'incentive', e.target.value)}
+                          placeholder="Enter incentive"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{
+                        padding: '12px',
+                        borderBottom: '1px solid #f3f4f6',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#111827'
+                      }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                          <i className="fas fa-star" style={{color: '#dc2626'}}></i>
+                          Product of the Month
+                        </div>
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.POM.target}
+                          onChange={(e) => handleParameterChange('POM', 'target', e.target.value)}
+                          placeholder="Enter target"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.POM.incentive}
+                          onChange={(e) => handleParameterChange('POM', 'incentive', e.target.value)}
+                          placeholder="Enter incentive"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{
+                        padding: '12px',
+                        borderBottom: '1px solid #f3f4f6',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#111827'
+                      }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                          <i className="fas fa-chart-line" style={{color: '#dc2626'}}></i>
+                          Sales Target
+                        </div>
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.SALES_TARGET.target}
+                          onChange={(e) => handleParameterChange('SALES_TARGET', 'target', e.target.value)}
+                          placeholder="Enter target"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                      <td style={{padding: '12px', borderBottom: '1px solid #f3f4f6'}}>
+                        <input
+                          type="number"
+                          value={parameters.SALES_TARGET.incentive}
+                          onChange={(e) => handleParameterChange('SALES_TARGET', 'incentive', e.target.value)}
+                          placeholder="Enter incentive"
+                          step="0.01"
+                          min="0"
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#111827'
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-              {/* Missing Data Warning */}
-              {(employees.length === 0 || routes.length === 0) && !dataError && (
-                <div className="alert alert-warning mb-4">
-                  <h6 className="alert-heading">
-                    <i className="fas fa-exclamation-triangle me-2"></i>
-                    Missing Data
-                  </h6>
-                  <ul className="mb-2">
-                    {employees.length === 0 && (
-                      <li>
-                        <strong>No employees found.</strong> Please add employees in Employee Management first.
-                        <br />
-                        <small className="text-muted">
-                          Check if the API endpoint <code>/employee-management/employees/</code> is working correctly.
-                        </small>
-                      </li>
-                    )}
-                    {routes.length === 0 && (
-                      <li>
-                        <strong>No routes found.</strong> Please add routes in Route Master first.
-                        <br />
-                        <small className="text-muted">
-                          Check if the API endpoint <code>/target-management/routes/</code> is working correctly.
-                        </small>
-                      </li>
-                    )}
-                  </ul>
-                  <button 
-                    className="btn btn-sm btn-outline-warning"
-                    onClick={fetchInitialData}
-                  >
-                    <i className="fas fa-sync me-1"></i>
-                    Refresh Data
-                  </button>
-                </div>
-              )}
-
-              <div className="tm-form-left">
-              <form onSubmit={handleSubmit}>
-                {/* Employee Selection */}
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">
-                      Employee *
-                    </label>
-                    <select
-                      name="employee"
-                      className="form-select"
-                      value={formData.employee}
-                      onChange={handleInputChange}
-                      required
-                      disabled={employees.length === 0}
-                    >
-                      <option value="">
-                        {employees.length === 0 ? 'No employees available' : `Select Employee (${employees.length} available)`}
-                      </option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>
-                          {getEmployeeDisplayName(emp)}
-                        </option>
-                      ))}
-                    </select>
-                    {formData.employee && employees.length > 0 && (
-                      <small className="text-success d-block mt-1">
-                        <i className="fas fa-check-circle me-1"></i>
-                        Selected: {getEmployeeDisplayName(
-                          employees.find(e => e.id === parseInt(formData.employee))
-                        )}
-                      </small>
-                    )}
+              {/* Summary Cards */}
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '24px'}}>
+                <div style={{
+                  background: '#fef2f2',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{fontSize: '12px', color: '#6b7280', marginBottom: '4px'}}>Total Targets</div>
+                  <div style={{fontSize: '18px', fontWeight: '700', color: '#dc2626'}}>
+                    ₹{(
+                      (parseFloat(parameters.TPA.target) || 0) +
+                      (parseFloat(parameters.T_COLLECTION.target) || 0) +
+                      (parseFloat(parameters.POM.target) || 0) +
+                      (parseFloat(parameters.SALES_TARGET.target) || 0)
+                    ).toLocaleString()}
                   </div>
-
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">
-                      Route *
-                    </label>
-                    <select
-                      name="route"
-                      className="form-select"
-                      value={formData.route}
-                      onChange={handleInputChange}
-                      required
-                      disabled={routes.length === 0}
-                    >
-                      <option value="">
-                        {routes.length === 0 ? 'No routes available' : `Select Route (${routes.length} available)`}
-                      </option>
-                      {routes.map(route => (
-                        <option key={route.id} value={route.id}>
-                          {getRouteDisplayName(route)}
-                        </option>
-                      ))}
-                    </select>
-                    {formData.route && routes.length > 0 && (
-                      <small className="text-success d-block mt-1">
-                        <i className="fas fa-check-circle me-1"></i>
-                        Selected: {getRouteDisplayName(
-                          routes.find(r => r.id === parseInt(formData.route))
-                        )}
-                      </small>
-                    )}
+                </div>
+                <div style={{
+                  background: '#f0fdf4',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{fontSize: '12px', color: '#6b7280', marginBottom: '4px'}}>Total Incentives</div>
+                  <div style={{fontSize: '18px', fontWeight: '700', color: '#16a34a'}}>
+                    ₹{(
+                      (parseFloat(parameters.TPA.incentive) || 0) +
+                      (parseFloat(parameters.T_COLLECTION.incentive) || 0) +
+                      (parseFloat(parameters.POM.incentive) || 0) +
+                      (parseFloat(parameters.SALES_TARGET.incentive) || 0)
+                    ).toLocaleString()}
                   </div>
                 </div>
-
-                {/* Period Selection */}
-                  <div className="mb-3">
-                  <label className="form-label d-block">Quick Period Selection</label>
-                  <div className="btn-group justify-content-start" role="group">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={selectCurrentWeek}
-                    >
-                      Current Week
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={selectNextWeek}
-                    >
-                      Next Week
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={selectCustomWeek}
-                    >
-                      Custom Period
-                    </button>
+                <div style={{
+                  background: '#eff6ff',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{fontSize: '12px', color: '#6b7280', marginBottom: '4px'}}>Parameters Set</div>
+                  <div style={{fontSize: '18px', fontWeight: '700', color: '#2563eb'}}>
+                    {[
+                      parameters.TPA.target > 0,
+                      parameters.T_COLLECTION.target > 0,
+                      parameters.POM.target > 0,
+                      parameters.SALES_TARGET.target > 0
+                    ].filter(Boolean).length} / 4
                   </div>
                 </div>
+              </div>
+            </div>
 
-                {/* Date Range */}
-                <div className="mb-4">
-                  <div className="row">
-                    <div className="col-md-6 mb-3">
-                      <label className="form-label">Start Date *</label>
-                      <input
-                        type="date"
-                        name="start_date"
-                        className="form-control"
-                        value={formData.start_date}
-                        onChange={handleInputChange}
-                        required
-                      />
-                      {formData.start_date && (
-                        <small className="text-muted">
-                          {new Date(formData.start_date).toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </small>
-                      )}
-                    </div>
-
-                    <div className="col-md-6 mb-3">
-                      <label className="form-label">End Date *</label>
-                      <input
-                        type="date"
-                        name="end_date"
-                        className="form-control"
-                        value={formData.end_date}
-                        onChange={handleInputChange}
-                        required
-                      />
-                      {formData.end_date && (
-                        <small className="text-muted">
-                          {new Date(formData.end_date).toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </small>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Period Summary */}
-                  {formData.start_date && formData.end_date && (
-                    <div className="alert alert-info">
-                      <strong>Period Summary:</strong> {' '}
-                      {new Date(formData.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      {' - '}
-                      {new Date(formData.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      {' ('}
-                      {Math.ceil((new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24)) + 1} days
-                      {')'}
-                    </div>
-                  )}
-                </div>
-
-                {/* Target Boxes & Amount */}
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">Target Boxes *</label>
-                    <input
-                      type="number"
-                      name="target_boxes"
-                      className="form-control"
-                      value={formData.target_boxes}
-                      onChange={handleInputChange}
-                      step="0.01"
-                      min="0"
-                      required
-                      placeholder="Enter target boxes"
-                    />
-                  </div>
-
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">Target Amount (₹) *</label>
-                    <input
-                      type="number"
-                      name="target_amount"
-                      className="form-control"
-                      value={formData.target_amount}
-                      onChange={handleInputChange}
-                      step="0.01"
-                      min="0"
-                      required
-                      placeholder="Enter target amount"
-                    />
-                  </div>
-                </div>
-
-                {/* Product Details */}
-                <div className="mb-3">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <label className="form-label mb-0">
-                      Product Details (Optional)
-                    </label>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-primary"
-                      onClick={addProductRow}
-                      disabled={products.length === 0}
-                    >
-                      + Add Product
-                    </button>
-                  </div>
-
-                  {formData.product_details.length > 0 && (
-                    <div className="table-responsive">
-                      <table className="table table-bordered table-sm">
-                        <thead className="table-light">
-                          <tr>
-                            <th width="40%">Product</th>
-                            <th width="20%">Target Quantity</th>
-                            <th width="20%">Unit Price (₹)</th>
-                            <th width="20%">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {formData.product_details.map((row, index) => (
-                            <tr key={index}>
-                              <td>
-                                <select
-                                  className="form-select form-select-sm"
-                                  value={row.product}
-                                  onChange={(e) => updateProductRow(index, 'product', e.target.value)}
-                                  required
-                                >
-                                  <option value="">Select Product</option>
-                                  {products.map(product => (
-                                    <option key={product.id} value={product.id}>
-                                      {product.product_name} ({product.product_code || 'N/A'})
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="form-control form-control-sm"
-                                  value={row.target_quantity}
-                                  onChange={(e) => updateProductRow(index, 'target_quantity', e.target.value)}
-                                  step="0.01"
-                                  min="0"
-                                  required
-                                  placeholder="Qty"
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="form-control form-control-sm"
-                                  value={row.unit_price}
-                                  onChange={(e) => updateProductRow(index, 'unit_price', e.target.value)}
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="Price"
-                                />
-                              </td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-danger"
-                                  onClick={() => removeProductRow(index)}
-                                >
-                                  Remove
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {formData.product_details.length === 0 && (
-                    <div className="text-center text-muted py-3 border rounded bg-light">
-                      <i className="fas fa-box-open fa-2x mb-2 opacity-50"></i>
-                      <p className="mb-0">
-                        {products.length === 0 
-                          ? 'No products available. Add products in Product Master first.'
-                          : 'No products added. Click "Add Product" to add product-wise targets.'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Notes */}
-                <div className="mb-3">
-                  <label className="form-label">Notes</label>
-                  <textarea
-                    name="notes"
-                    className="form-control"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows="3"
-                    placeholder="Optional notes about this target assignment..."
-                  />
-                </div>
-
-                {/* Active Status */}
-                <div className="form-check mb-4">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    className="form-check-input"
-                    checked={formData.is_active}
-                    onChange={handleInputChange}
-                    id="isActiveCheck"
-                  />
-                  <label className="form-check-label" htmlFor="isActiveCheck">
-                    <strong>Active Target</strong>
-                    <small className="d-block text-muted">
-                      Active targets are included in reports and dashboards
-                    </small>
-                  </label>
-                </div>
-
-                {/* Submit Button */}
-                <div className="d-flex gap-2 align-items-center form-actions-left">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => navigate('/target/route/list')}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={loading || employees.length === 0 || routes.length === 0}
-                  >
-                    {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        Assigning...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-check me-2"></i>
-                        Assign Target
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
+            {/* Footer */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #f3f4f6',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <button
+                onClick={() => setShowParametersModal(false)}
+                style={{
+                  background: 'white',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <div style={{display: 'flex', gap: '8px'}}>
+                <button
+                  onClick={() => {
+                    setParameters({
+                      TPA: { target: '', incentive: '' },
+                      T_COLLECTION: { target: '', incentive: '' },
+                      POM: { target: '', incentive: '' },
+                      SALES_TARGET: { target: '', incentive: '' }
+                    });
+                  }}
+                  style={{
+                    background: 'white',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={saveParameters}
+                  style={{
+                    background: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(220, 38, 38, 0.2)'
+                  }}
+                >
+                  Save Parameters
+                </button>
               </div>
             </div>
           </div>
         </div>
+      )}
       </div>
     </div>
   );

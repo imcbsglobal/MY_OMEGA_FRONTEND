@@ -120,6 +120,7 @@ export default function ConfigureAccess() {
           </div>
         </div>
 
+        {/* Render submenu children if present */}
         {child.children?.length > 0 && (
           <div>{renderChildren(child.children, level + 1)}</div>
         )}

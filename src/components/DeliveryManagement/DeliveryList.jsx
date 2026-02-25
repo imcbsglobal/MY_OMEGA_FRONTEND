@@ -156,6 +156,114 @@ function StatsPanel() {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+// ─── Product summary table (compact) ──────────────────────────────────────────
+function ProductSummaryTable({ products = null }) {
+  const rows = products && products.length ? products : [
+    { id: 1, product: "dree", code: "111", unit: "Pcs", loaded: 1111, delivered: 0, unit_price: 1111, notes: "" }
+  ];
+
+  const totals = rows.reduce((acc, r) => {
+    const loaded = Number(r.loaded || 0);
+    const delivered = Number(r.delivered || 0);
+    const balance = Math.max(0, loaded - delivered);
+    const total_amount = Number(r.total_amount ?? (r.unit_price ? (r.unit_price * delivered) : 0));
+    acc.loaded += loaded;
+    acc.delivered += delivered;
+    acc.balance += balance;
+    acc.amount += total_amount;
+    return acc;
+  }, { loaded: 0, delivered: 0, balance: 0, amount: 0 });
+
+  const headerStyle = { padding: "6px 10px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: .6, borderBottom: "1px solid #eef2f6", background: "#f3f6f9" };
+  const cellStyle = { padding: "6px 10px", fontSize: 12, color: "#0f172a", verticalAlign: "middle" };
+  const tableStyle = { width: "100%", borderCollapse: "separate", tableLayout: "fixed", minWidth: 760, fontSize: 12 };
+
+  const cols = [
+    { key: "product", width: "22%", align: "left", isNumeric: false },
+    { key: "code", width: "6%", align: "left", isNumeric: false },
+    { key: "unit", width: "6%", align: "left", isNumeric: false },
+    { key: "loaded", width: "8%", align: "right", isNumeric: true },
+    { key: "delivered", width: "8%", align: "right", isNumeric: true },
+    { key: "balance", width: "8%", align: "right", isNumeric: true },
+    { key: "pct", width: "12%", align: "right", isNumeric: true },
+    { key: "unit_price", width: "8%", align: "right", isNumeric: true },
+    { key: "total_amount", width: "10%", align: "right", isNumeric: true },
+    { key: "notes", width: "10%", align: "left", isNumeric: false },
+  ];
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e6edf3", padding: 6, boxShadow: "0 1px 2px rgba(10,15,25,.04)", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px 8px" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>Product Delivery Summary</div>
+        <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700 }}>{rows.length} products</div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={tableStyle}>
+          <colgroup>
+            {cols.map(c => (<col key={c.key} style={{ width: c.width }} />))}
+          </colgroup>
+          <thead>
+            <tr>
+              {[
+                "Product", "Code", "Unit", "Loaded", "Delivered", "Balance", "Delivery %", "Unit Price", "Total Amount", "Notes"
+              ].map((h, idx) => (
+                <th key={h} style={{ ...headerStyle, textAlign: cols[idx].align, borderRight: idx < cols.length - 1 ? "1px solid #eef2f6" : "none" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => {
+              const balance = Math.max(0, (Number(r.loaded || 0) - Number(r.delivered || 0)));
+              const pct = Number(r.loaded || 0) === 0 ? 0 : Math.round((Number(r.delivered || 0) / Number(r.loaded || 0)) * 100);
+              const totalAmount = Number(r.total_amount ?? (r.unit_price ? (r.unit_price * Number(r.delivered || 0)) : 0));
+              return (
+                <tr key={r.id} style={{ borderBottom: "1px solid #f7fafc", transition: "background-color .12s ease" }} onMouseEnter={e => e.currentTarget.style.background = "#fbfdff"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <td style={{ ...cellStyle, textAlign: cols[0].align, borderRight: "1px solid #eef2f6" }}>{r.product}</td>
+                  <td style={{ ...cellStyle, textAlign: cols[1].align, borderRight: "1px solid #eef2f6" }}>{r.code}</td>
+                  <td style={{ ...cellStyle, textAlign: cols[2].align, borderRight: "1px solid #eef2f6" }}>{r.unit}</td>
+                  <td style={{ ...cellStyle, textAlign: cols[3].align, fontFamily: "monospace", borderRight: "1px solid #eef2f6" }}>{Number(r.loaded || 0).toLocaleString("en-IN")}</td>
+                  <td style={{ ...cellStyle, textAlign: cols[4].align, fontFamily: "monospace", borderRight: "1px solid #eef2f6" }}>{Number(r.delivered || 0).toLocaleString("en-IN")}</td>
+                  <td style={{ ...cellStyle, textAlign: cols[5].align, color: "#b45309", fontWeight: 700, borderRight: "1px solid #eef2f6" }}>{balance.toLocaleString("en-IN")}</td>
+
+                  <td style={{ ...cellStyle, textAlign: cols[6].align, borderRight: "1px solid #eef2f6" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 8, background: "#f8fafc", borderRadius: 99, overflow: "hidden", border: "1px solid #eef2f6" }}>
+                        <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, height: "100%", background: pct >= 80 ? "linear-gradient(90deg,#22c55e,#16a34a)" : pct >= 50 ? "linear-gradient(90deg,#fbbf24,#d97706)" : "linear-gradient(90deg,#f87171,#dc2626)", borderRadius: 99 }} />
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", minWidth: 36, textAlign: "right" }}>{pct}%</div>
+                    </div>
+                  </td>
+
+                  <td style={{ ...cellStyle, textAlign: cols[7].align, fontFamily: "monospace", borderRight: "1px solid #eef2f6" }}>₹{fmt(r.unit_price)}</td>
+                  <td style={{ ...cellStyle, textAlign: cols[8].align, fontFamily: "monospace", fontWeight: 800, borderRight: "1px solid #eef2f6" }}>₹{fmt(totalAmount)}</td>
+                  <td style={{ ...cellStyle, textAlign: cols[9].align, color: "#94a3b8" }}>{r.notes || "—"}</td>
+                </tr>
+              );
+            })}
+
+            {/* Totals row */}
+            <tr style={{ background: "#f3f6f9", fontWeight: 800 }}>
+              <td style={{ ...cellStyle, textAlign: cols[0].align }}>TOTALS</td>
+              <td style={{ borderRight: "1px solid #eef2f6" }} />
+              <td style={{ borderRight: "1px solid #eef2f6" }} />
+              <td style={{ ...cellStyle, textAlign: cols[3].align, fontFamily: "monospace", borderRight: "1px solid #eef2f6" }}>{totals.loaded.toLocaleString("en-IN")}</td>
+              <td style={{ ...cellStyle, textAlign: cols[4].align, fontFamily: "monospace", borderRight: "1px solid #eef2f6" }}>{totals.delivered.toLocaleString("en-IN")}</td>
+              <td style={{ ...cellStyle, textAlign: cols[5].align, fontFamily: "monospace", color: "#b45309", borderRight: "1px solid #eef2f6" }}>{totals.balance.toLocaleString("en-IN")}</td>
+              <td style={{ borderRight: "1px solid #eef2f6" }} />
+              <td style={{ borderRight: "1px solid #eef2f6" }} />
+              <td style={{ ...cellStyle, textAlign: cols[8].align, fontFamily: "monospace", color: "#15803d" }}>₹{fmt(totals.amount)}</td>
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function DeliveryList() {
   const [deliveries, setDeliveries] = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -220,6 +328,9 @@ export default function DeliveryList() {
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: "18px 20px", marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
         <StatsPanel />
       </div>
+
+      {/* Product summary (compact) */}
+      <ProductSummaryTable />
 
       {/* Filter + Search bar */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>

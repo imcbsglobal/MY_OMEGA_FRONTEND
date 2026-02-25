@@ -74,6 +74,7 @@ import DeliveryStops from "./components/DeliveryManagement/DeliveryStops";
 import DeliveryProducts from "./components/DeliveryManagement/DeliveryProducts";
 import DeliveryWorkflow from "./components/DeliveryManagement/Deliveryworkflow";  // ✅ Correct path
 import Employeedeliveryview from "./components/DeliveryManagement/Employeedeliveryview";
+import MarketingList from "./components/TargetManagement/MarketingList";
 
 // Target Management - Existing Components
 import RouteTargetAssign from "./components/TargetManagement/Routetargetassign";
@@ -88,6 +89,9 @@ import CallSummary from "./components/TargetManagement/CallSummary";
 
 // Target Management - NEW Components
 import EmployeeTargetView from "./components/TargetManagement/Employeetargetview";
+import Marketing from "./components/TargetManagement/Marketing";
+import MarketingAssign from "./components/TargetManagement/MarketingAssign";
+import MarketingView from "./components/TargetManagement/MarketingView";
 import ManagerDashboard from "./components/TargetManagement/Managerdashboard";
 import ComparativePerformance from "./components/TargetManagement/ComparativePerformance";
 // import EmployeeDetailedReport from "./components/TargetManagement/EmployeeDetailedReport";
@@ -104,7 +108,7 @@ function App() {
     <Router>
 
       {/* 🔔 GLOBAL NOTIFICATIONS */}
-      <ToastContainer />
+      <ToastContainer limit={1} />
 
       <Routes>
         {/* Public */}
@@ -213,6 +217,13 @@ function App() {
           <Route path="target/call/list" element={<CallTargetList />} />
           {/* CallDaily route removed */}
           <Route path="target/call/performance" element={<CallSummary />} />
+          <Route path="target/call/marketing" element={<Marketing />} />
+          <Route path="target/call/marketing/assign" element={<MarketingAssign />} />
+          <Route path="target/call/marketing/view/:id" element={<MarketingView />} />
+          
+          <Route path="target/call/marketing/view" element={<MarketingList />} />
+          
+          <Route path="target/marketing/view" element={<MarketingView />} />
           
           {/* Target Master Data */}
           <Route path="target/master/routes" element={<RouteManager />} />

@@ -161,17 +161,27 @@ export default function DeliveryProducts({
       </div>
 
       <div style={{ background: "#ffffff", borderRadius: 10, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "separate", tableLayout: "fixed", minWidth: 720 }}>
+          <colgroup>
+            <col style={{ width: "28%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+          </colgroup>
           <thead>
-            <tr style={{ background: "#f8fafc" }}>
-              <th style={thStyle}>Product</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Loaded</th>
+            <tr style={{ background: "#f6f9fb" }}>
+              <th style={{ ...thStyle, width: '28%', borderRight: '1px solid #eef2f6' }}>Product</th>
+              <th style={{ ...thStyle, textAlign: 'right', borderRight: '1px solid #eef2f6' }}>Loaded</th>
               {(isActive || isCompleted) && (
                 <>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Delivered</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Balance</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Unit Price</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Amount</th>
+                  <th style={{ ...thStyle, textAlign: 'right', borderRight: '1px solid #eef2f6' }}>Delivered</th>
+                  <th style={{ ...thStyle, textAlign: 'right', borderRight: '1px solid #eef2f6' }}>Balance</th>
+                  <th style={{ ...thStyle, textAlign: 'right', borderRight: '1px solid #eef2f6' }}>Delivery %</th>
+                  <th style={{ ...thStyle, textAlign: 'right', borderRight: '1px solid #eef2f6' }}>Unit Price</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Amount</th>
                 </>
               )}
               {isActive && <th style={thStyle}></th>}
@@ -183,40 +193,37 @@ export default function DeliveryProducts({
             ) : (
               rows.map((p) => (
                 <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "9px 12px", fontSize: 13, color: "#0f172a", fontWeight: 500 }}>
-                    {p.product_name || p.product}
-                  </td>
-                  <td style={{ padding: "9px 12px", fontSize: 13, color: "#475569", textAlign: "right", fontFamily: "monospace" }}>
-                    {p.loaded_quantity}
-                  </td>
+                  <td style={{ padding: "6px 10px", fontSize: 12, color: "#0f172a", fontWeight: 600 }}>{p.product_name || p.product}</td>
+                  <td style={{ padding: "6px 10px", fontSize: 12, color: "#475569", textAlign: "right", fontFamily: "monospace" }}>{fmt(p.loaded_quantity)}</td>
                   {(isActive || isCompleted) && (
                     <>
-                      <td style={{ padding: "9px 12px", textAlign: "right" }}>
+                      <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", borderRight: '1px solid #eef2f6' }}>
                         {isActive ? (
                           <input type="number" min="0" max={p.loaded_quantity}
                             value={p.delivered_quantity || ""}
                             onChange={e => handleQtyChange(p.id, e.target.value)}
-                            style={{ width: 70, padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", textAlign: "right", fontFamily: "monospace", fontSize: 13 }} />
+                            style={{ width: 72, padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", textAlign: "right", fontFamily: "monospace", fontSize: 12 }} />
                         ) : (
-                          <span style={{ fontSize: 13, color: "#15803d", fontFamily: "monospace", fontWeight: 600 }}>
-                            {fmt(p.delivered_quantity)}
-                          </span>
+                          <span style={{ fontSize: 12, color: "#15803d", fontFamily: "monospace", fontWeight: 700 }}>{fmt(p.delivered_quantity)}</span>
                         )}
                       </td>
-                      <td style={{ padding: "9px 12px", fontSize: 13, textAlign: "right", fontFamily: "monospace",
-                        color: parseFloat(p.balance_quantity) > 0 ? "#a16207" : "#15803d" }}>
-                        {fmt(p.balance_quantity)}
+                      <td style={{ padding: "6px 10px", fontSize: 12, textAlign: "right", fontFamily: "monospace", color: parseFloat(p.balance_quantity) > 0 ? "#a16207" : "#15803d", borderRight: '1px solid #eef2f6' }}>{fmt(p.balance_quantity)}</td>
+
+                      <td style={{ padding: "6px 10px", width: 140, borderRight: '1px solid #eef2f6' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden', border: '1px solid #eef2f6' }}>
+                            <div style={{ width: `${Math.min(100, Math.max(0, (parseFloat(p.delivered_quantity||0)/parseFloat(p.loaded_quantity||1))*100))}%`, height: '100%', background: parseFloat(p.loaded_quantity||0) === 0 ? '#e6edf3' : (parseFloat(p.delivered_quantity||0)/parseFloat(p.loaded_quantity||0) >= 0.8 ? 'linear-gradient(90deg,#22c55e,#16a34a)' : (parseFloat(p.delivered_quantity||0)/parseFloat(p.loaded_quantity||0) >= 0.5 ? 'linear-gradient(90deg,#fbbf24,#d97706)' : 'linear-gradient(90deg,#f87171,#dc2626)')), borderRadius: 99 }} />
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', minWidth: 36, textAlign: 'right' }}>{Math.round((parseFloat(p.delivered_quantity||0)/Math.max(1,parseFloat(p.loaded_quantity||0)))*100)}%</div>
+                        </div>
                       </td>
-                      <td style={{ padding: "9px 12px", fontSize: 13, color: "#64748b", textAlign: "right", fontFamily: "monospace" }}>
-                        {p.unit_price ? `₹${fmt(p.unit_price)}` : "—"}
-                      </td>
-                      <td style={{ padding: "9px 12px", fontSize: 13, color: "#0f172a", fontWeight: 600, textAlign: "right", fontFamily: "monospace" }}>
-                        {p.total_amount ? `₹${fmt(p.total_amount)}` : "—"}
-                      </td>
+
+                      <td style={{ padding: "6px 10px", fontSize: 12, color: "#64748b", textAlign: "right", fontFamily: "monospace", borderRight: '1px solid #eef2f6' }}>{p.unit_price ? `₹${fmt(p.unit_price)}` : "—"}</td>
+                      <td style={{ padding: "6px 10px", fontSize: 12, color: "#0f172a", fontWeight: 700, textAlign: "right", fontFamily: "monospace" }}>{p.total_amount ? `₹${fmt(p.total_amount)}` : "—"}</td>
                     </>
                   )}
                   {isActive && (
-                    <td style={{ padding: "9px 12px", textAlign: "right" }}>
+                    <td style={{ padding: "6px 10px", textAlign: "right" }}>
                       <button
                         onClick={() => handleUpdateSingle(p.id, p.delivered_quantity)}
                         style={{ ...updateBtn, background: saved === p.id ? "#dcfce7" : "#f0fdf4", color: saved === p.id ? "#15803d" : "#16a34a" }}>
@@ -230,22 +237,14 @@ export default function DeliveryProducts({
           </tbody>
           {(isActive || isCompleted) && rows.length > 0 && (
             <tfoot>
-              <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0" }}>
-                <td style={{ padding: "8px 12px", fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>TOTAL</td>
-                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>
-                  {fmt(rows.reduce((a, p) => a + parseFloat(p.loaded_quantity || 0), 0))}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: "#15803d" }}>
-                  {fmt(rows.reduce((a, p) => a + parseFloat(p.delivered_quantity || 0), 0))}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>
-                  {fmt(rows.reduce((a, p) => a + parseFloat(p.balance_quantity || 0), 0))}
-                </td>
-                <td></td>
-                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: "#15803d" }}>
-                  ₹{fmt(rows.reduce((a, p) => a + parseFloat(p.total_amount || 0), 0))}
-                </td>
-                {isActive && <td></td>}
+              <tr style={{ background: "#f6f9fb", borderTop: "1px solid #e6eef5" }}>
+                <td style={{ padding: "6px 10px", fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>TOTAL</td>
+                <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>{fmt(rows.reduce((a, p) => a + parseFloat(p.loaded_quantity || 0), 0))}</td>
+                <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: "#15803d" }}>{fmt(rows.reduce((a, p) => a + parseFloat(p.delivered_quantity || 0), 0))}</td>
+                <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>{fmt(rows.reduce((a, p) => a + parseFloat(p.balance_quantity || 0), 0))}</td>
+                <td />
+                <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: "#15803d" }}>₹{fmt(rows.reduce((a, p) => a + parseFloat(p.total_amount || 0), 0))}</td>
+                {isActive && <td />}
               </tr>
             </tfoot>
           )}

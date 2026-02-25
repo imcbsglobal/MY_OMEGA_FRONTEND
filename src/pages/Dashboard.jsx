@@ -1,4 +1,4 @@
-// src/components/Base_Template/Dashboard.jsx - UPDATED WITH REAL API INTEGRATION
+// src/components/Base_Template/Dashboard.jsx - UPDATED WITH CENTRALIZED API SERVICE
 
 import React, { useState, useEffect } from "react";
 import {
@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import * as dashboardAPI from "../api/dashboardAPI";
 
 // ─── Icons (inline SVG helpers) ─────────────────────────────────────────────
 const IconEmployees = () => (
@@ -45,72 +46,12 @@ const IconDoc = () => (
 );
 
 // ─── API Configuration ──────────────────────────────────────────────────────
-const API_BASE = "http://127.0.0.1:8000/api";
-
-async function apiFetch(path) {
-  const token = localStorage.getItem("accessToken") || "";
-  
-  try {
-    const url = `${API_BASE}${path}`;
-    console.log(`📡 Fetching: ${url}`);
-    
-    const res = await fetch(url, {
-      headers: { 
-        Authorization: token ? `Bearer ${token}` : "",
-        "Content-Type": "application/json"
-      },
-    });
-    
-    console.log(`📡 API ${path} → Status: ${res.status}`);
-    
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`❌ API Error ${path}:`, res.status, errorText);
-      return null;
-    }
-    
-    const data = await res.json();
-    console.log(`✅ API ${path} returned data`);
-    return data;
-  } catch (err) {
-    console.error(`❌ Fetch error for ${path}:`, err);
-    return null;
-  }
-}
+// Dashboard data fetching is now centralized in dashboardAPI service
+// This ensures consistency with other components and enables easy data reuse
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-function todayISO() {
-  return new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-}
-
-function buildMonthlyHiringData(employees) {
-  // Group employees by joining month for the chart
-  const counts = {};
-  
-  employees.forEach((emp) => {
-    // Try multiple field paths for joining date
-    const doj = emp.date_of_joining || 
-                emp.joining_date ||
-                (emp.job_info && emp.job_info.date_of_joining);
-    
-    if (!doj) return;
-    const d = new Date(doj);
-    if (isNaN(d.getTime())) return;
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    counts[key] = (counts[key] || 0) + 1;
-  });
-
-  // Generate last 12 months
-  const now = new Date();
-  const months = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    months.push({ month: labels[d.getMonth()], value: counts[key] || 0 });
-  }
-  return months;
-}
+// Helper data normalization (backup fallback)
+const normalizeResponse = dashboardAPI.normalizeResponse;
 
 // ─── Custom Tooltip for chart ───────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
@@ -150,83 +91,25 @@ export default function Dashboard() {
   useEffect(() => {
     (async () => {
       try {
-        console.log("🚀 Starting dashboard data fetch...");
+        // Use centralized dashboard API service for data fetching
+        const dashboardData = await dashboardAPI.fetchDashboardStats();
 
-        // 1. Fetch Users from User API
-        console.log("📊 Fetching users...");
-        const usersData = await apiFetch("/user-controll/admin/users/");
-        const allUsers = Array.isArray(usersData) ? usersData : (usersData?.results || []);
-        const totalUsers = allUsers.length;
-        console.log(`✅ Found ${totalUsers} users`);
+        // Update stats from centralized service
+        setStats(dashboardData.stats);
+        setChartData(dashboardData.chartData);
 
-        // 2. Fetch Employees from Employee Management API
-        console.log("📊 Fetching employees...");
-        const employeesData = await apiFetch("/employee-management/employees/");
-        const allEmployees = Array.isArray(employeesData) ? employeesData : (employeesData?.results || []);
-        const totalEmployees = allEmployees.length;
-        console.log(`✅ Found ${totalEmployees} employees`);
-
-        // Build chart data from employees
-        const monthlyData = buildMonthlyHiringData(allEmployees);
-        setChartData(monthlyData);
-
-        // 3. Fetch Attendance Summary from HR API
-        console.log("📊 Fetching attendance summary...");
-        const attendanceSummary = await apiFetch("/hr/attendance/summary-all/");
-        console.log("📊 Attendance Summary Response:", attendanceSummary);
-
-        let presentToday = 0;
-        let onLeaveToday = 0;
-        let absentToday = 0;
-
-        if (attendanceSummary && Array.isArray(attendanceSummary)) {
-          // Process the summary data
-          attendanceSummary.forEach((summary) => {
-            const status = (summary.status || "").toLowerCase();
-            const count = summary.count || 0;
-
-            if (status === "present" || status === "half_day") {
-              presentToday += count;
-            } else if (status.includes("leave") || status === "on_leave") {
-              onLeaveToday += count;
-            } else if (status === "absent") {
-              absentToday += count;
-            }
-          });
-        } else if (attendanceSummary) {
-          // If it's an object with direct counts
-          presentToday = attendanceSummary.present || attendanceSummary.present_count || 0;
-          onLeaveToday = attendanceSummary.on_leave || attendanceSummary.leave_count || 0;
-          absentToday = attendanceSummary.absent || attendanceSummary.absent_count || 0;
-        }
-
-        // Calculate absent if not provided (total employees - present - on leave)
-        if (absentToday === 0 && totalEmployees > 0) {
-          absentToday = Math.max(0, totalEmployees - presentToday - onLeaveToday);
-        }
-
-        console.log(`✅ Attendance - Present: ${presentToday}, Leave: ${onLeaveToday}, Absent: ${absentToday}`);
-
-        // 4. Fetch Leave Requests (pending count)
-        console.log("📊 Fetching leave requests...");
-        const leaveData = await apiFetch("/hr/leave/?status=pending");
-        const allLeaves = Array.isArray(leaveData) ? leaveData : (leaveData?.results || []);
-        const pendingLeaves = allLeaves.length;
-        console.log(`✅ Found ${pendingLeaves} pending leave requests`);
-
-        // Update state
-        setStats({
-          totalUsers,
-          totalEmployees,
-          presentToday,
-          onLeaveToday,
-          absentToday,
-          pendingLeaves,
-        });
-
-        console.log("✅ Dashboard data loaded successfully!");
+        console.log("✅ Dashboard data loaded successfully from API service!");
       } catch (error) {
         console.error("❌ Error loading dashboard data:", error);
+        // Fallback: set empty stats
+        setStats({
+          totalUsers: 0,
+          totalEmployees: 0,
+          presentToday: 0,
+          onLeaveToday: 0,
+          absentToday: 0,
+          pendingLeaves: 0,
+        });
       } finally {
         setLoading(false);
       }

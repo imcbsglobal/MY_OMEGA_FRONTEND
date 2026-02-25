@@ -72,7 +72,9 @@ api.interceptors.response.use(
     const silentEndpoints = [
       'hr/attendance/my_summary',
       'hr/leave/my_requests',
-      'hr/reverse-geocode-bigdata'
+      'hr/reverse-geocode-bigdata',
+      // Marketing targets list/detail handled by components; avoid duplicate global toasts
+      'target-management/marketing-targets'
     ];
     const shouldSilence = silentEndpoints.some(endpoint => 
       error.config?.url?.includes(endpoint)

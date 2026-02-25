@@ -83,9 +83,26 @@ export default function Login() {
       });
 
       // Store employee_id if employee profile exists
-      if (data.employee && data.employee.employee_id) {
-        localStorage.setItem("employee_id", data.employee.employee_id.toString());
-        console.log('✅ Stored employee_id:', data.employee.employee_id);
+      if (data.employee) {
+        // Backend may return employee with keys: { employee_id: <pk>, employee_code: <employee_id_string> }
+        // Ensure we store both the PK and the legacy employee_id string when available.
+        if (data.employee.employee_id) {
+          // treat as PK
+          localStorage.setItem("employee_pk", String(data.employee.employee_id));
+          console.log('✅ Stored employee_pk:', data.employee.employee_id);
+        }
+        if (data.employee.id) {
+          localStorage.setItem("employee_pk", String(data.employee.id));
+          console.log('✅ Stored employee_pk:', data.employee.id);
+        }
+        if (data.employee.employee_code) {
+          localStorage.setItem("employee_id", String(data.employee.employee_code));
+          console.log('✅ Stored employee_id (code):', data.employee.employee_code);
+        }
+        // Backwards compatibility: if only employee_pk present, also store it in employee_id
+        if (!localStorage.getItem('employee_id') && localStorage.getItem('employee_pk')) {
+          localStorage.setItem('employee_id', localStorage.getItem('employee_pk'));
+        }
       } else {
         console.warn('⚠️ No employee profile found for this user');
       }
