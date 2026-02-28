@@ -21,6 +21,7 @@ export default function ConfigureAccess() {
   const [menuStructure, setMenuStructure] = useState([]);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState({});
+  const [selectedMenus, setSelectedMenus] = useState([]);
   const [openMenu, setOpenMenu] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -89,7 +90,7 @@ export default function ConfigureAccess() {
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <input
               type="checkbox"
-              checked={checked[child.id]?.main || false}
+              checked={selectedMenus.includes(child.id) || checked[child.id]?.main || false}
               onChange={() => toggleSubMenu(child.id)}
             />
             <span style={{ fontWeight: checked[child.id]?.main ? "500" : "normal" }}>
@@ -120,6 +121,7 @@ export default function ConfigureAccess() {
           </div>
         </div>
 
+        {/* Render submenu children if present */}
         {child.children?.length > 0 && (
           <div>{renderChildren(child.children, level + 1)}</div>
         )}
@@ -152,33 +154,30 @@ export default function ConfigureAccess() {
 
         setMenuStructure(finalTree);
 
-        // Start with empty permissions for manual configuration
-        // Comment out the lines below if you want to load existing permissions
-        /*
-        const userRes = await api.get(`/user-controll/admin/user/${id}/menus/`);
-        const saved = userRes.data.menu_perms || [];
-        
-        console.log("API Response for user menus:", userRes.data);
-        console.log("Saved menu permissions:", saved);
+        // Load existing permissions for this user and initialize checked state
+        try {
+          const userRes = await api.get(`/user-controll/admin/user/${id}/menus/`);
+          const saved = userRes.data.menu_perms || [];
+          const menuIds = userRes.data.menu_ids || [];
 
-        const initialChecked = {};
-        saved.forEach((p) => {
-          const mid = Number(p.menu_id ?? p.id ?? p);
-          console.log(`Processing menu ${mid}:`, p);
-          initialChecked[mid] = {
-            main: true,
-            view: Boolean(p.can_view),
-            edit: Boolean(p.can_edit),
-            delete: Boolean(p.can_delete),
-          };
-        });
-        
-        console.log("Final initialChecked state:", initialChecked);
-        setChecked(initialChecked);
-        */
-        
-        // Start with all permissions unchecked
-        setChecked({});
+          setSelectedMenus(menuIds);
+
+          const initialChecked = {};
+          saved.forEach((p) => {
+            const mid = Number(p.menu_id ?? p.id ?? p);
+            initialChecked[mid] = {
+              main: true,
+              view: Boolean(p.can_view),
+              edit: Boolean(p.can_edit),
+              delete: Boolean(p.can_delete),
+            };
+          });
+
+          setChecked(initialChecked);
+        } catch (e) {
+          // If user-permissions fetch fails, keep defaults (all unchecked)
+          console.warn("Failed to load user menu permissions", e);
+        }
       } catch (err) {
         console.error(err);
         alert("Failed to load menu data");
@@ -217,6 +216,14 @@ export default function ConfigureAccess() {
         },
       };
     });
+    // update selectedMenus in tandem
+    setSelectedMenus((prev) => {
+      const exists = prev.includes(menuId);
+      if (exists) {
+        return prev.filter((m) => m !== menuId);
+      }
+      return [...prev, menuId];
+    });
   };
 
   // Toggle action
@@ -227,10 +234,18 @@ export default function ConfigureAccess() {
         ...prev[menuId],
         [action]: newActionValue,
       };
-      
+
       // Auto-check main if any permission is checked
       const hasAnyPermission = updatedPerms.view || updatedPerms.edit || updatedPerms.delete;
-      
+
+      // keep selectedMenus in sync based on whether any permission remains
+      setSelectedMenus((smPrev) => {
+        const contains = smPrev.includes(menuId);
+        if (hasAnyPermission && !contains) return [...smPrev, menuId];
+        if (!hasAnyPermission && contains) return smPrev.filter((m) => m !== menuId);
+        return smPrev;
+      });
+
       return {
         ...prev,
         [menuId]: {
@@ -243,9 +258,13 @@ export default function ConfigureAccess() {
 
   // Save (unchanged)
   const handleSave = async () => {
-    const selectedIds = Object.keys(checked)
+    // Prefer selectedMenus (tracks checkbox state), but also include any checked entries
+    const fromChecked = Object.keys(checked)
       .filter((id) => checked[id].main)
       .map(Number);
+
+    const merged = Array.from(new Set([...(selectedMenus || []), ...fromChecked]));
+    const selectedIds = merged;
 
     try {
       await api.post(`/user-controll/admin/user/${id}/menus/`, {
@@ -258,6 +277,14 @@ export default function ConfigureAccess() {
   };
 
   // Render (unchanged)
+  if (loading) {
+    return (
+      <div style={{ padding: 30, textAlign: "center" }}>
+        Loading menu structure...
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: "25px", background: "#f3f4f6", minHeight: "100vh" }}>
       <div

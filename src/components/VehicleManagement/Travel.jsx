@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Edit, Trash2, X, Camera } from 'lucide-react';
 import api from '../../api/client';
 
 export default function Travel() {
@@ -25,17 +25,83 @@ export default function Travel() {
     time_period: 'AM',
     client_name: '',
     purpose: '',
-    fuel_cost: '0',
-    odometer_start: '',
     odometer_start_image: null,
+    odometer_start_preview: null,
   });
+
+  const [compressingStart, setCompressingStart] = useState(false);
+  const [compressingEnd, setCompressingEnd] = useState(false);
+  const [showStartOptions, setShowStartOptions] = useState(false);
+  const [showEndOptions, setShowEndOptions] = useState(false);
 
   // Form states for End Trip
   const [endFormData, setEndFormData] = useState({
     odometer_end: '',
     end_time: '',
     odometer_end_image: null,
+    fuel_cost: '0',
+    odometer_start: '',
+    odometer_end_preview: null,
   });
+
+  // cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
+      if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+    };
+  }, [formData.odometer_start_preview, endFormData.odometer_end_preview]);
+
+  // Client-side image resize + compress
+  const compressImage = (file, maxWidth = 1280, maxHeight = 960, quality = 0.75, preferWebP = true) => {
+    return new Promise((resolve, reject) => {
+      if (!file) return resolve(null);
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        let { width, height } = img;
+        const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(width * ratio);
+        canvas.height = Math.round(height * ratio);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const tryFormat = (type) => new Promise((res, rej) => {
+          canvas.toBlob((blob) => {
+            if (!blob) return rej(new Error('Blob conversion failed'));
+            const ext = type === 'image/webp' ? '.webp' : '.jpg';
+            const newName = file.name.replace(/\.[^/.]+$/, '') + ext;
+            const compressedFile = new File([blob], newName, { type });
+            res(compressedFile);
+          }, type, quality);
+        });
+
+        const webpPreferred = preferWebP && (typeof navigator !== 'undefined');
+        const tryWebP = webpPreferred ? tryFormat('image/webp') : Promise.reject();
+        tryWebP
+          .catch(() => tryFormat('image/jpeg'))
+          .then((compressedFile) => {
+            URL.revokeObjectURL(url);
+            resolve(compressedFile);
+          })
+          .catch((err) => {
+            URL.revokeObjectURL(url);
+            reject(err);
+          });
+      };
+      img.onerror = (e) => {
+        URL.revokeObjectURL(url);
+        reject(e);
+      };
+      img.src = url;
+    });
+  };
+
+  // refs for hidden file inputs (camera/gallery)
+  const startCameraRef = useRef(null);
+  const startGalleryRef = useRef(null);
+  const endCameraRef = useRef(null);
+  const endGalleryRef = useRef(null);
 
   useEffect(() => {
     fetchTrips();
@@ -114,13 +180,11 @@ export default function Travel() {
     return `${hour.toString().padStart(2, '0')}:${minutes} ${ampm}`;
   };
 
-  // Handle vehicle selection and auto-fill odometer
+  // Handle vehicle selection
   const handleVehicleChange = (vehicleId) => {
-    const selectedVehicle = vehicles.find(v => v.id === parseInt(vehicleId));
     setFormData({
       ...formData,
       vehicle: vehicleId,
-      odometer_start: selectedVehicle ? selectedVehicle.current_odometer.toString() : ''
     });
   };
 
@@ -140,8 +204,6 @@ export default function Travel() {
       submitData.append('time_period', formData.time_period);
       submitData.append('client_name', formData.client_name || '');
       submitData.append('purpose', formData.purpose || '');
-      submitData.append('fuel_cost', formData.fuel_cost || '0');
-      submitData.append('odometer_start', formData.odometer_start);
       
       if (formData.odometer_start_image) {
         submitData.append('odometer_start_image', formData.odometer_start_image);
@@ -165,8 +227,6 @@ export default function Travel() {
         time_period: 'AM',
         client_name: '',
         purpose: '',
-        fuel_cost: '0',
-        odometer_start: '',
         odometer_start_image: null,
       });
       
@@ -195,6 +255,8 @@ export default function Travel() {
       const submitData = new FormData();
       submitData.append('end_time', endFormData.end_time);
       submitData.append('odometer_end', endFormData.odometer_end);
+      submitData.append('fuel_cost', endFormData.fuel_cost || '0');
+      submitData.append('odometer_start', endFormData.odometer_start);
       
       if (endFormData.odometer_end_image) {
         submitData.append('odometer_end_image', endFormData.odometer_end_image);
@@ -219,6 +281,8 @@ export default function Travel() {
         odometer_end: '',
         end_time: '',
         odometer_end_image: null,
+        fuel_cost: '0',
+        odometer_start: '',
       });
       fetchTrips();
     } catch (error) {
@@ -238,6 +302,8 @@ export default function Travel() {
     setEndFormData({
       odometer_end: '',
       end_time: '',
+      fuel_cost: '0',
+      odometer_start: trip.raw_data?.odometer_start || '',
       odometer_end_image: null,
     });
     setView('end');
@@ -322,70 +388,104 @@ export default function Travel() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Client Name</label>
-              <input
-                type="text"
-                value={formData.client_name}
-                onChange={(e) => setFormData({...formData, client_name: e.target.value})}
-                placeholder="Enter client name (optional)"
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
               <label style={styles.label}>Purpose of Trip</label>
-              <textarea
+              <select
                 value={formData.purpose}
                 onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-                placeholder="Enter the purpose of this trip..."
-                style={styles.textarea}
-                rows="4"
-              />
+                style={styles.select}
+              >
+                <option value="">Select purpose</option>
+                <option value="Collection&deliver">Collection&deliver</option>
+                <option value="Sales7/collection">Sales&collection</option>
+                <option value="Product delivery&collection">Product delivery&collection</option>
+              </select>
               {errors.purpose && <span style={styles.errorText}>{errors.purpose}</span>}
             </div>
           </div>
 
-          {/* FUEL & ODOMETER */}
+          {/* ODOMETER IMAGE */}
           <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>FUEL & ODOMETER</h3>
-            <div style={styles.formGrid}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Fuel Cost (₹)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.fuel_cost}
-                  onChange={(e) => setFormData({...formData, fuel_cost: e.target.value})}
-                  placeholder="0.00"
-                  style={styles.input}
-                />
-                {errors.fuel_cost && <span style={styles.errorText}>{errors.fuel_cost}</span>}
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Odometer Start (KM) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.odometer_start}
-                  onChange={(e) => setFormData({...formData, odometer_start: e.target.value})}
-                  style={styles.input}
-                  required
-                />
-                {errors.odometer_start && <span style={styles.errorText}>{errors.odometer_start}</span>}
-              </div>
-            </div>
-
+            <h3 style={styles.sectionTitle}>ODOMETER IMAGE</h3>
             <div style={styles.formGroup}>
               <label style={styles.label}>Odometer Start Image</label>
+              {/* Hidden inputs: camera and gallery. Trigger via the visible buttons so mobile shows proper picker */}
               <input
+                ref={startCameraRef}
                 type="file"
-                onChange={(e) => setFormData({...formData, odometer_start_image: e.target.files[0]})}
-                style={styles.fileInput}
                 accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  setCompressingStart(true);
+                  try {
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
+                    const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
+                    setFormData({...formData, odometer_start_image: compressed || file, odometer_start_preview: preview});
+                  } catch (err) {
+                    const preview = URL.createObjectURL(file);
+                    if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
+                    setFormData({...formData, odometer_start_image: file, odometer_start_preview: preview});
+                  } finally {
+                    setCompressingStart(false);
+                  }
+                }}
               />
+
+              <input
+                ref={startGalleryRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  setCompressingStart(true);
+                  try {
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
+                    const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
+                    setFormData({...formData, odometer_start_image: compressed || file, odometer_start_preview: preview});
+                  } catch (err) {
+                    const preview = URL.createObjectURL(file);
+                    if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
+                    setFormData({...formData, odometer_start_image: file, odometer_start_preview: preview});
+                  } finally {
+                    setCompressingStart(false);
+                  }
+                }}
+              />
+
+              <div style={{position: 'relative', display: 'inline-block'}}>
+                <button
+                  type="button"
+                  onClick={() => setShowStartOptions(!showStartOptions)}
+                  aria-expanded={showStartOptions}
+                  aria-label="Open image options"
+                  style={{...styles.fileInput, cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}
+                >
+                  <Camera size={16} />
+                </button>
+                {showStartOptions && (
+                  <div style={{position: 'absolute', top: '110%', left: 0, display: 'flex', gap: 8, background: '#fff', padding: 8, borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.08)'}}>
+                    <button type="button" onClick={() => { startCameraRef.current && startCameraRef.current.click(); setShowStartOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>📷</button>
+                    <button type="button" onClick={() => { startGalleryRef.current && startGalleryRef.current.click(); setShowStartOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>🖼️</button>
+                  </div>
+                )}
+              </div>
               {formData.odometer_start_image && (
-                <span style={styles.fileName}>{formData.odometer_start_image.name}</span>
+                <div>
+                  <span style={styles.fileName}>{formData.odometer_start_image.name}</span>
+                  {compressingStart ? (
+                    <div style={{fontSize: 12, color: '#6b7280', marginTop: 6}}>Compressing image...</div>
+                  ) : (
+                    formData.odometer_start_preview && (
+                      <img src={formData.odometer_start_preview} alt="start preview" style={{maxWidth: '200px', marginTop: 8, borderRadius: 6}} />
+                    )
+                  )}
+                </div>
               )}
             </div>
 
@@ -469,26 +569,6 @@ export default function Travel() {
                   disabled
                 />
               </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Odometer Start</label>
-                <input
-                  type="text"
-                  value={selectedTrip?.odometer_start || '0'}
-                  style={styles.inputDisabled}
-                  disabled
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Fuel Cost</label>
-                <input
-                  type="text"
-                  value={`₹${parseFloat(selectedTrip?.fuel_cost || 0).toFixed(2)}`}
-                  style={styles.inputDisabled}
-                  disabled
-                />
-              </div>
             </div>
 
             <div style={styles.formGroup}>
@@ -505,6 +585,35 @@ export default function Travel() {
           {/* Trip End Details */}
           <div style={styles.section}>
             <h3 style={styles.sectionTitle}>TRIP END DETAILS</h3>
+            <div style={styles.formGrid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fuel Cost (₹) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={endFormData.fuel_cost}
+                  onChange={(e) => setEndFormData({...endFormData, fuel_cost: e.target.value})}
+                  placeholder="0.00"
+                  style={styles.input}
+                  required
+                />
+                {errors.fuel_cost && <span style={styles.errorText}>{errors.fuel_cost}</span>}
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Odometer Start (KM) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={endFormData.odometer_start}
+                  onChange={(e) => setEndFormData({...endFormData, odometer_start: e.target.value})}
+                  style={styles.input}
+                  required
+                />
+                {errors.odometer_start && <span style={styles.errorText}>{errors.odometer_start}</span>}
+              </div>
+            </div>
+
             <div style={styles.formGrid}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>End Time *</label>
@@ -526,7 +635,7 @@ export default function Travel() {
                   value={endFormData.odometer_end}
                   onChange={(e) => setEndFormData({...endFormData, odometer_end: e.target.value})}
                   style={styles.input}
-                  placeholder={`Must be ≥ ${selectedTrip?.odometer_start || 0}`}
+                  placeholder={`Must be ≥ ${endFormData.odometer_start || 0}`}
                   required
                 />
                 {errors.odometer_end && <span style={styles.errorText}>{errors.odometer_end}</span>}
@@ -536,13 +645,82 @@ export default function Travel() {
             <div style={styles.formGroup}>
               <label style={styles.label}>Odometer End Image</label>
               <input
+                ref={endCameraRef}
                 type="file"
-                onChange={(e) => setEndFormData({...endFormData, odometer_end_image: e.target.files[0]})}
-                style={styles.fileInput}
                 accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  setCompressingEnd(true);
+                  try {
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
+                    const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: compressed || file, odometer_end_preview: preview});
+                  } catch (err) {
+                    const preview = URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: file, odometer_end_preview: preview});
+                  } finally {
+                    setCompressingEnd(false);
+                  }
+                }}
               />
+
+              <input
+                ref={endGalleryRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  setCompressingEnd(true);
+                  try {
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
+                    const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: compressed || file, odometer_end_preview: preview});
+                  } catch (err) {
+                    const preview = URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: file, odometer_end_preview: preview});
+                  } finally {
+                    setCompressingEnd(false);
+                  }
+                }}
+              />
+
+              <div style={{position: 'relative', display: 'inline-block'}}>
+                <button
+                  type="button"
+                  onClick={() => setShowEndOptions(!showEndOptions)}
+                  aria-expanded={showEndOptions}
+                  aria-label="Open image options"
+                  style={{...styles.fileInput, cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}
+                >
+                  <Camera size={16} />
+                </button>
+                {showEndOptions && (
+                  <div style={{position: 'absolute', top: '110%', left: 0, display: 'flex', gap: 8, background: '#fff', padding: 8, borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.08)'}}>
+                    <button type="button" onClick={() => { endCameraRef.current && endCameraRef.current.click(); setShowEndOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>📷</button>
+                    <button type="button" onClick={() => { endGalleryRef.current && endGalleryRef.current.click(); setShowEndOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>🖼️</button>
+                  </div>
+                )}
+              </div>
               {endFormData.odometer_end_image && (
-                <span style={styles.fileName}>{endFormData.odometer_end_image.name}</span>
+                <div>
+                  <span style={styles.fileName}>{endFormData.odometer_end_image.name}</span>
+                  {compressingEnd ? (
+                    <div style={{fontSize: 12, color: '#6b7280', marginTop: 6}}>Compressing image...</div>
+                  ) : (
+                    endFormData.odometer_end_preview && (
+                      <img src={endFormData.odometer_end_preview} alt="end preview" style={{maxWidth: '200px', marginTop: 8, borderRadius: 6}} />
+                    )
+                  )}
+                </div>
               )}
             </div>
 

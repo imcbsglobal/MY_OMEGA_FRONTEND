@@ -122,6 +122,7 @@ import { useState, useEffect, useRef } from "react";
   'my targets': Target,
   'view my targets': Target,
   'route targets': MapPin,
+  'sales': MapPin,
   'call targets': Phone,
   'master data': Settings,
   'routes': MapPin,
@@ -186,7 +187,9 @@ import { useState, useEffect, useRef } from "react";
           console.error("⚠️ Failed to load user menu:", error);
           const cached = JSON.parse(localStorage.getItem("menuTree") || "[]");
           if (cached.length > 0) {
-            setMenuTree(cached);
+            // Re-apply icons after parsing from localStorage since React components can't be serialized
+            const restored = cached.map((item) => formatMenuItem(item));
+            setMenuTree(restored);
           }
         } finally {
           setLoading(false);
@@ -288,7 +291,7 @@ import { useState, useEffect, useRef } from "react";
             ]
           },
           {
-            name: "Route Targets",
+            name: "Sales",
             icon: MapPin,
             children: [
               { name: "Assign Route Target", path: "/target/route/assign", icon: MapPin },
@@ -305,6 +308,14 @@ import { useState, useEffect, useRef } from "react";
               { name: "Call Performance", path: "/target/call/performance", icon: TrendingUp },
             ]
           },
+            {
+              name: "Marketing",
+              icon: Megaphone,
+                children: [
+                  { name: "Marketing Assign", path: "/target/call/marketing/assign", icon: Megaphone },
+                  { name: "Marketing View", path: "/target/call/marketing/view/1", icon: Megaphone },
+                ]
+            },
           {
             name: "Master Data",
             icon: Settings,

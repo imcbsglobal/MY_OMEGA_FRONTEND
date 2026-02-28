@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
+import { notifySuccess, notifyError } from "../../utils/notification";
 import DeliveryProducts from "./DeliveryProducts";
 
 // Status configuration
@@ -76,9 +77,14 @@ export default function EmployeeDeliveryView() {
     delivered_boxes: "",
     collected_amount: "",
     status: "delivered",
+    shop_name: "",
     notes: "",
   });
   const [deliverySummary, setDeliverySummary] = useState(null);
+  const [summaryForm, setSummaryForm] = useState({
+    total_delivered_boxes: "",
+    collected_amount: "",
+  });
   
   // Start delivery modal state
   const [showStartModal, setShowStartModal] = useState(false);
@@ -96,26 +102,28 @@ export default function EmployeeDeliveryView() {
     fetchMyDeliveries();
   }, [filter]);
 
+  // Prefill summary form when entering summary view
+  useEffect(() => {
+    if (view === "summary" && selectedDelivery) {
+      setSummaryForm({
+        total_delivered_boxes: selectedDelivery.total_delivered_boxes ?? "",
+        collected_amount: selectedDelivery.collected_amount ?? "",
+      });
+    }
+  }, [view, selectedDelivery]);
+
   // API Functions
   const fetchMyDeliveries = async () => {
     setLoading(true);
     try {
       const params = filter !== "all" ? `?status=${filter}` : "";
-      console.log(`Fetching deliveries from: delivery-management/deliveries/${params}`);
-      const res = await api.get(`delivery-management/deliveries/${params}`);
+      console.log(`Fetching deliveries from: delivery/my-deliveries/${params}`);
+      // Use server-side endpoint that filters by request.user (do NOT send user_id)
+      const res = await api.get(`delivery/my-deliveries/${params}`);
       console.log("Deliveries response:", res.data);
-      
-      // Handle paginated response: extract results array or use data directly
-      const deliveriesData = res.data?.results || res.data || [];
 
-      // Limit to the logged-in employee's deliveries when possible
-      const myEmpId = localStorage.getItem("employee_id");
-      const myDeliveries = deliveriesData.filter((d) => {
-        const eid = d.employee_details?.employee_id ?? d.employee_id ?? d.employee ?? null;
-        return myEmpId ? String(eid || "") === String(myEmpId) : true;
-      });
-
-      setDeliveries(myDeliveries);
+      const deliveriesData = Array.isArray(res.data) ? res.data : res.data?.results || [];
+      setDeliveries(deliveriesData);
     } catch (err) {
       console.error("Failed to fetch deliveries:", err);
       console.error("Error details:", err.response?.data);
@@ -136,7 +144,7 @@ export default function EmployeeDeliveryView() {
     } catch (err) {
       console.error("Failed to load delivery details:", err);
       console.error("Error details:", err.response?.data);
-      alert("Failed to load delivery details: " + (err.response?.data?.error || err.message || "Unknown error"));
+      notifyError("Failed to load delivery details: " + (err.response?.data?.error || err.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -151,13 +159,17 @@ export default function EmployeeDeliveryView() {
         setStopForm({
           delivered_boxes: res.data.planned_boxes || "",
           collected_amount: res.data.planned_amount || "",
+          shop_name: res.data.shop_name || res.data.customer_name || "",
           status: "delivered",
           notes: "",
         });
         setView("stop_detail");
       } else {
-        // No more stops - show summary
-        alert(res.data.message || "No pending stops remaining");
+        // No more stops - fetch delivery summary and show summary
+        const summaryRes = await api.get(`delivery-management/deliveries/${deliveryId}/summary/`);
+        setDeliverySummary(summaryRes.data.totals || null);
+        // Merge summary data onto existing selectedDelivery to preserve id and other fields
+        setSelectedDelivery((prev) => ({ ...(prev || {}), ...(summaryRes.data || {}) }));
         setView("summary");
       }
     } catch (err) {
@@ -194,12 +206,12 @@ export default function EmployeeDeliveryView() {
         },
         (error) => {
           console.error("Error getting location:", error);
-          alert("Failed to get current location. Please enter manually.");
+          notifyError("Failed to get current location. Please enter manually.");
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
       );
     } else {
-      alert("Geolocation is not supported by this browser.");
+      notifyError("Geolocation is not supported by this browser.");
     }
   };
 
@@ -229,7 +241,7 @@ export default function EmployeeDeliveryView() {
       // Use the start endpoint - backend now handles both scheduled and in_progress
       const response = await api.post(`delivery-management/deliveries/${selectedDelivery.id}/start/`, payload);
       
-      alert(response.data.message || "✅ Delivery updated successfully!");
+      notifySuccess(response.data.message || "✅ Delivery updated successfully!");
       
       setShowStartModal(false);
       fetchMyDeliveries(); // Refresh list
@@ -249,7 +261,7 @@ export default function EmployeeDeliveryView() {
             .join('\n');
         }
       }
-      alert(errorMessage);
+      notifyError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -260,7 +272,7 @@ export default function EmployeeDeliveryView() {
     if (!currentStop || !selectedDelivery) return;
 
     if (!stopForm.delivered_boxes || !stopForm.collected_amount) {
-      alert("Please enter delivered boxes and collected amount");
+      notifyError("Please enter delivered boxes and collected amount");
       return;
     }
 
@@ -269,6 +281,7 @@ export default function EmployeeDeliveryView() {
       const res = await api.patch(`delivery-management/delivery-stops/${currentStop.id}/`, {
         delivered_boxes: parseFloat(stopForm.delivered_boxes),
         collected_amount: parseFloat(stopForm.collected_amount),
+        shop_name: stopForm.shop_name,
         status: stopForm.status,
         notes: stopForm.notes,
         // Add GPS if available
@@ -285,7 +298,7 @@ export default function EmployeeDeliveryView() {
       // Load next stop
       loadNextStop(selectedDelivery.id);
     } catch (err) {
-      alert("Failed to update stop: " + (err.response?.data?.error || "Unknown error"));
+      notifyError("Failed to update stop: " + (err.response?.data?.error || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -336,7 +349,7 @@ export default function EmployeeDeliveryView() {
         ...completionLocation
       });
 
-      alert("🎉 Delivery completed successfully!");
+      notifySuccess("🎉 Delivery completed successfully!");
       
       // Refresh delivery data and show summary
       const res = await api.get(`delivery-management/deliveries/${selectedDelivery.id}/`);
@@ -345,7 +358,51 @@ export default function EmployeeDeliveryView() {
       fetchMyDeliveries(); // Refresh main list too
       
     } catch (err) {
-      alert("Failed to complete delivery: " + (err.response?.data?.error || "Unknown error"));
+      notifyError("Failed to complete delivery: " + (err.response?.data?.error || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSummary = async () => {
+    if (!selectedDelivery) return;
+    // Basic validation
+    const delivered = parseFloat(summaryForm.total_delivered_boxes || 0);
+    const collected = parseFloat(summaryForm.collected_amount || 0);
+    setLoading(true);
+    try {
+      // Client-side safety checks: do not allow delivered > loaded or collected > total
+      const totalLoaded = (selectedDelivery.total_loaded_boxes ?? selectedDelivery.totals?.total_loaded_boxes) || 0;
+      const totalAmount = (selectedDelivery.total_amount ?? selectedDelivery.totals?.total_amount) || 0;
+      if (delivered > parseFloat(totalLoaded || 0)) {
+        notifyError(`Total delivered boxes (${delivered}) cannot exceed loaded boxes (${totalLoaded}).`);
+        setLoading(false);
+        return;
+      }
+      if (collected > parseFloat(totalAmount || 0)) {
+        notifyError(`Collected amount (₹${collected}) cannot exceed total amount (₹${totalAmount}).`);
+        setLoading(false);
+        return;
+      }
+      // Use the dedicated update-totals endpoint
+      await api.patch(`delivery-management/deliveries/${selectedDelivery.id}/update-totals/`, {
+        total_delivered_boxes: delivered,
+        collected_amount: collected,
+      });
+
+      // Refresh delivery details and summary
+      const res = await api.get(`delivery-management/deliveries/${selectedDelivery.id}/`);
+      setSelectedDelivery(computeDeliveryTotals(res.data || {}));
+      // Also refresh delivery summary block data
+      const summ = await api.get(`delivery-management/deliveries/${selectedDelivery.id}/summary/`);
+      setDeliverySummary(summ.data.totals || null);
+
+      // Show success toast
+      notifySuccess('Delivery totals updated successfully');
+    } catch (err) {
+      console.error('Failed to update delivery summary', err);
+      const serverMsg = err.response?.data?.error || err.response?.data || err.message || 'Unknown error';
+      notifyError('Failed to update summary: ' + (typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg)));
     } finally {
       setLoading(false);
     }
@@ -930,15 +987,19 @@ export default function EmployeeDeliveryView() {
 
         <div style={styles.card}>
           <div style={styles.stopHeader}>
-            <h2 style={styles.customerName}>🏪 {currentStop.customer_name}</h2>
-            <div style={{ ...styles.statusBadge, background: stopMeta.bg, color: stopMeta.color }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 12, color: '#64748b' }}>Shop Name *</label>
+              <input
+                type="text"
+                value={stopForm.shop_name}
+                onChange={(e) => setStopForm({ ...stopForm, shop_name: e.target.value })}
+                style={{ ...styles.input, fontSize: 18, fontWeight: 700 }}
+                placeholder="Enter shop name"
+              />
+            </div>
+            <div style={{ marginLeft: 12, ...styles.statusBadge, background: stopMeta.bg, color: stopMeta.color }}>
               {stopMeta.label}
             </div>
-          </div>
-
-          <div style={styles.customerInfo}>
-            <p>📍 {currentStop.customer_address}</p>
-            {currentStop.customer_phone && <p>📞 {currentStop.customer_phone}</p>}
           </div>
 
           <div style={styles.plannedInfo}>
@@ -1153,7 +1214,15 @@ export default function EmployeeDeliveryView() {
                 <div style={styles.summaryLabel}>Total Loaded</div>
               </div>
               <div style={styles.summaryItem}>
-                <div style={{ ...styles.summaryValue, color: "#15803d" }}>{fmt(selectedDelivery.total_delivered_boxes)}</div>
+                <div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={summaryForm.total_delivered_boxes}
+                    onChange={(e) => setSummaryForm({ ...summaryForm, total_delivered_boxes: e.target.value })}
+                    style={{ ...styles.input, textAlign: 'center', fontSize: 20, fontWeight: 700 }}
+                  />
+                </div>
                 <div style={styles.summaryLabel}>Total Delivered</div>
               </div>
               <div style={styles.summaryItem}>
@@ -1171,7 +1240,15 @@ export default function EmployeeDeliveryView() {
                 <div style={styles.summaryLabel}>Total Amount</div>
               </div>
               <div style={styles.summaryItem}>
-                <div style={{ ...styles.summaryValue, color: "#15803d" }}>₹{fmt(selectedDelivery.collected_amount)}</div>
+                <div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={summaryForm.collected_amount}
+                    onChange={(e) => setSummaryForm({ ...summaryForm, collected_amount: e.target.value })}
+                    style={{ ...styles.input, textAlign: 'center', fontSize: 20, fontWeight: 700 }}
+                  />
+                </div>
                 <div style={styles.summaryLabel}>Collected</div>
               </div>
               <div style={styles.summaryItem}>
@@ -1232,12 +1309,17 @@ export default function EmployeeDeliveryView() {
             <button onClick={() => setView("list")} style={styles.primaryBtn}>
               🏠 Back to Deliveries
             </button>
-            <button 
-              onClick={() => window.print()} 
-              style={{...styles.secondaryBtn, marginLeft: "12px"}}
-            >
-              🖨️ Print Summary
-            </button>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button onClick={updateSummary} style={styles.primaryBtn} disabled={loading}>
+                      {loading ? 'Updating...' : 'Update Totals'}
+                    </button>
+                    <button 
+                      onClick={() => window.print()} 
+                      style={{...styles.secondaryBtn}}
+                    >
+                      🖨️ Print Summary
+                    </button>
+                  </div>
           </div>
         </div>
       </div>

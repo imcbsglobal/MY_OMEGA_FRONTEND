@@ -64,19 +64,25 @@ const bestDefaultDay = (startStr, endStr) => {
 };
 
 // ─── component ──────────────────────────────────────────────────────────────
+
 const EmployeeTargetView = () => {
   const [callTargets, setCallTargets]   = useState([]);
   const [routeTargets, setRouteTargets] = useState([]);
+  const [marketingTargets, setMarketingTargets] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [activeTab, setActiveTab]       = useState('call');
   const [modal, setModal]               = useState(null);
   const [selectedDay, setSelectedDay]   = useState(null);
   const [saving, setSaving]             = useState(false);
   const [reportTarget, setReportTarget] = useState(null); // day-report modal
+  const [expandedRouteId, setExpandedRouteId] = useState(null); // for showing parameters
+  const [expandedMarketingId, setExpandedMarketingId] = useState(null);
+  const [savingParam, setSavingParam] = useState(null); // track which parameter is being saved
   const [form, setForm] = useState({
     achieved_calls: '', productive_calls: '', order_received: '',
-    order_amount: '', remarks: '', achieved_boxes: '', achieved_amount: '',
+    order_amount: '', remarks: '',
   });
+
 
   useEffect(() => { fetchMyTargets(); }, []);
 
@@ -87,14 +93,23 @@ const EmployeeTargetView = () => {
   const fetchMyTargets = async () => {
     setLoading(true);
     try {
-      const [cRes, rRes] = await Promise.all([
+      const [cRes, rRes, mRes] = await Promise.all([
         api.get('/target-management/my-call-targets/'),
         api.get('/target-management/my-route-targets/'),
+        api.get('/target-management/marketing-targets/?self=1'),
       ]);
       setCallTargets(cRes.data.results ?? (Array.isArray(cRes.data) ? cRes.data : []));
-      setRouteTargets(rRes.data.results ?? (Array.isArray(rRes.data) ? rRes.data : []));
-    } catch (err) { toast.error('Failed to load your targets'); console.error(err); }
-    finally { setLoading(false); }
+      const routeData = rRes.data.results ?? (Array.isArray(rRes.data) ? rRes.data : []);
+      setRouteTargets(routeData);
+      // Marketing targets: filter to only those assigned to the current user (API should do this, but fallback)
+      let marketingData = mRes.data.results ?? (Array.isArray(mRes.data) ? mRes.data : []);
+      setMarketingTargets(marketingData);
+    } catch (err) {
+      console.error('❌ API Error:', err);
+      toast.error('Failed to load your targets');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openModal = (target, type) => {
@@ -109,7 +124,11 @@ const EmployeeTargetView = () => {
       : null;
     setSelectedDay(defaultDay);
 
-    const emptyForm = { achieved_calls: '', productive_calls: '', order_received: '', order_amount: '', remarks: '', achieved_boxes: '', achieved_amount: '' };
+    const emptyForm = { 
+      achieved_calls: '', productive_calls: '', order_received: '', 
+      order_amount: '', remarks: ''
+    };
+    
     // Pre-fill with existing data for the default day (if any)
     if (type === 'call' && defaultDay) {
       const existing = (target.daily_targets || []).find(dt => dt.target_date === defaultDay);
@@ -120,8 +139,6 @@ const EmployeeTargetView = () => {
           order_received:   existing.order_received   ?? '',
           order_amount:     existing.order_amount     ?? '',
           remarks:          existing.remarks          ?? '',
-          achieved_boxes:   '',
-          achieved_amount:  '',
         });
         return;
       }
@@ -129,21 +146,45 @@ const EmployeeTargetView = () => {
     setForm(emptyForm);
   };
 
-  const closeModal = () => { setModal(null); setSelectedDay(null); setSaving(false); };
+  const closeModal = () => { 
+    setModal(null); 
+    setSelectedDay(null); 
+    setSaving(false); 
+  };
+
+  // Auto-save parameter achievement
+  const handleParameterUpdate = async (parameterId, field, value) => {
+    setSavingParam(parameterId);
+    const payload = {
+      achieved_value: parseFloat(value) || 0
+    };
+    
+    try {
+      await api.patch(`/target-management/employee/target-parameters/${parameterId}/`, payload);
+      toast.success('✓ Saved successfully!');
+    } catch (err) {
+      console.error('Parameter update error:', err);
+      toast.error(err?.response?.data?.detail || 'Update failed');
+    } finally {
+      setSavingParam(null);
+    }
+  };
 
   const handleDaySelect = (dateStr) => {
     setSelectedDay(dateStr);
     if (!modal) return;
     const existing = (modal.target.daily_targets || []).find(dt => dt.target_date === dateStr);
     if (existing) {
-      setForm({ achieved_calls: existing.achieved_calls ?? '', productive_calls: existing.productive_calls ?? '', order_received: existing.order_received ?? '', order_amount: existing.order_amount ?? '', remarks: existing.remarks ?? '', achieved_boxes: '', achieved_amount: '' });
+      setForm({ achieved_calls: existing.achieved_calls ?? '', productive_calls: existing.productive_calls ?? '', order_received: existing.order_received ?? '', order_amount: existing.order_amount ?? '', remarks: existing.remarks ?? '' });
     } else {
-      setForm({ achieved_calls: '', productive_calls: '', order_received: '', order_amount: '', remarks: '', achieved_boxes: '', achieved_amount: '' });
+      setForm({ achieved_calls: '', productive_calls: '', order_received: '', order_amount: '', remarks: '' });
     }
   };
 
   const handleSave = async () => {
     if (!modal) return;
+    
+    // Only handle call targets (route targets use inline editing)
     if (modal.type === 'call') {
       if (!selectedDay) { toast.error('Please select a day first'); return; }
       const dt = (modal.target.daily_targets || []).find(d => d.target_date === selectedDay);
@@ -165,17 +206,6 @@ const EmployeeTargetView = () => {
         await api.post(`/target-management/employee/call-daily-targets/${dt.id}/update-achievement/`, payload);
         toast.success(`✓ Saved: ${dayLabel(selectedDay)} ${dayNum(selectedDay)} ${monthLbl(selectedDay)}`);
         closeModal(); fetchMyTargets();
-      } catch (err) { toast.error(err?.response?.data?.detail || 'Update failed'); }
-      finally { setSaving(false); }
-    } else {
-      const payload = {};
-      if (form.achieved_boxes !== '')  payload.achieved_boxes  = parseFloat(form.achieved_boxes);
-      if (form.achieved_amount !== '') payload.achieved_amount = parseFloat(form.achieved_amount);
-      if (form.remarks !== '')         payload.remarks         = form.remarks;
-      setSaving(true);
-      try {
-        await api.post(`/target-management/employee/route-targets/${modal.target.id}/update-achievement/`, payload);
-        toast.success('Route achievement updated!'); closeModal(); fetchMyTargets();
       } catch (err) { toast.error(err?.response?.data?.detail || 'Update failed'); }
       finally { setSaving(false); }
     }
@@ -207,6 +237,7 @@ const EmployeeTargetView = () => {
           { label: 'Achieved Calls',     value: totalAchievedCalls },
           { label: 'Achievement Rate',   value: pct(overallPct), color: pctColor(overallPct) },
           { label: 'Route Targets',      value: routeTargets.length },
+          { label: 'Marketing Targets',  value: marketingTargets.length },
         ].map(c => (
           <div key={c.label} className="tm-card" style={{ padding: '14px 18px' }}>
             <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{c.label}</div>
@@ -221,7 +252,11 @@ const EmployeeTargetView = () => {
         {/* Tabs */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid #f3f4f6', marginBottom: 16 }}>
           <div style={{ display: 'flex' }}>
-            {[{ key: 'call', label: `Call Targets (${callTargets.length})` }, { key: 'route', label: `Route Targets (${routeTargets.length})` }].map(tab => (
+            {[
+              { key: 'call', label: `Call Targets (${callTargets.length})` },
+              { key: 'route', label: `Route Targets (${routeTargets.length})` },
+              { key: 'marketing', label: `Marketing Targets (${marketingTargets.length})` },
+            ].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
                 padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer',
                 fontWeight: activeTab === tab.key ? 700 : 500, fontSize: 14,
@@ -235,6 +270,95 @@ const EmployeeTargetView = () => {
             ↻ Refresh
           </button>
         </div>
+        {/* Marketing targets */}
+        {activeTab === 'marketing' && (
+          marketingTargets.length === 0
+            ? <div style={{ padding: '32px 0', textAlign: 'center', color: '#9ca3af' }}>No marketing targets assigned to you yet.</div>
+            : (
+              <div className="table-responsive">
+                <table className="table tm-table" style={{ minWidth: 700 }}>
+                  <thead>
+                    <tr>
+                      <th>Period</th>
+                      <th className="text-center">Status</th>
+                      <th className="text-center">Parameters</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketingTargets.map(target => {
+                      const hasParams = Array.isArray(target.target_parameters) && target.target_parameters.length > 0;
+                      return (
+                        <React.Fragment key={target.id}>
+                          <tr>
+                            <td>
+                              <div style={{ fontWeight: 700, fontSize: 14 }}>{fmtShort(target.start_date)} – {fmtShort(target.end_date)}</div>
+                              <div style={{ fontSize: 12, color: '#9ca3af' }}>{getDaysInRange(target.start_date, target.end_date).length} days</div>
+                            </td>
+                            <td className="text-center">
+                              <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: target.is_active ? '#dcfce7' : '#f3f4f6', color: target.is_active ? '#15803d' : '#6b7280' }}>
+                                {target.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <button onClick={() => setExpandedMarketingId(expandedMarketingId === target.id ? null : target.id)} style={{ marginTop: 4, background: 'none', border: '1px solid #dc2626', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}>
+                                {expandedMarketingId === target.id ? '▼ Hide' : '▶ View'} Parameters
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedMarketingId === target.id && hasParams && (
+                          <tr>
+                            <td colSpan="3" style={{ background: '#fef2f2', padding: 16 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: '#991b1b' }}>📊 Assigned Target Parameters</div>
+                              <div style={{ overflowX: 'auto' }}>
+                                <table className="table table-bordered bg-white" style={{ fontSize: 12, marginBottom: 0, tableLayout: 'fixed', width: '100%' }}>
+                                  <thead>
+                                    <tr style={{ background: '#f9fafb' }}>
+                                      <th style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '20%' }}>Parameter Type</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '15%' }}>Target Value</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '15%' }}>Achieved</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '15%' }}>Achievement %</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '15%' }}>Incentive</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {target.target_parameters.map((param, idx) => {
+                                      const achievementPct = param.target_value > 0 ? ((param.achieved_value / param.target_value) * 100).toFixed(2) : '0.00';
+                                      return (
+                                        <tr key={idx}>
+                                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#dc2626', verticalAlign: 'middle' }}>
+                                            {param.parameter_label || param.parameter_type}
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                            {Number(param.target_value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                            {Number(param.achieved_value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
+                                            <span style={{ fontWeight: 700, color: pctColor(achievementPct) }}>
+                                              {achievementPct}%
+                                            </span>
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                            ₹{Number(param.incentive_value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+        )}
 
         {/* Call targets */}
         {activeTab === 'call' && (
@@ -298,33 +422,133 @@ const EmployeeTargetView = () => {
             ? <div style={{ padding: '32px 0', textAlign: 'center', color: '#9ca3af' }}>No route targets assigned to you yet.</div>
             : (
               <div className="table-responsive">
-                <table className="table tm-table" style={{ minWidth: 800 }}>
+                <table className="table tm-table" style={{ minWidth: 600 }}>
                   <thead>
                     <tr>
-                      <th>Route</th><th>Period</th>
-                      <th className="text-center">Target Boxes</th><th className="text-center">Achieved Boxes</th>
-                      <th className="text-center">Boxes %</th><th className="text-center">Target ₹</th>
-                      <th className="text-center">Achieved ₹</th><th className="text-center">Actions</th>
+                      <th>Route</th>
+                      <th>Period</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {routeTargets.map(target => (
-                      <tr key={target.id}>
-                        <td>
-                          <div style={{ fontWeight: 700, fontSize: 14 }}>{target.route_name || `${target.route_origin} → ${target.route_destination}`}</div>
-                          {target.route_code && <div style={{ fontSize: 12, color: '#9ca3af' }}>{target.route_code}</div>}
-                        </td>
-                        <td><div style={{ fontSize: 13 }}>{fmtShort(target.start_date)} – {fmtShort(target.end_date)}</div><div style={{ fontSize: 12, color: '#9ca3af' }}>{target.duration_days} days</div></td>
-                        <td className="text-center">{Number(target.target_boxes ?? 0).toFixed(2)}</td>
-                        <td className="text-center">{Number(target.achieved_boxes ?? 0).toFixed(2)}</td>
-                        <td className="text-center"><span style={{ color: pctColor(target.achievement_percentage_boxes), fontWeight: 700 }}>{pct(target.achievement_percentage_boxes)}</span></td>
-                        <td className="text-center">₹{Number(target.target_amount ?? 0).toLocaleString('en-IN')}</td>
-                        <td className="text-center">₹{Number(target.achieved_amount ?? 0).toLocaleString('en-IN')}</td>
-                        <td className="text-center">
-                          <button onClick={() => openModal(target, 'route')} disabled={!target.is_active} style={{ background: target.is_active ? '#dc2626' : '#e5e7eb', color: target.is_active ? '#fff' : '#9ca3af', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 600, fontSize: 13, cursor: target.is_active ? 'pointer' : 'default' }}>Update</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {routeTargets.map(target => {
+                      const hasParams = Array.isArray(target.target_parameters) && target.target_parameters.length > 0;
+                      console.log(`Route ${target.route_name}:`, { 
+                        hasParams, 
+                        target_parameters: target.target_parameters,
+                        count: target.target_parameters?.length 
+                      });
+                      return (
+                        <React.Fragment key={target.id}>
+                          <tr>
+                            <td>
+                              <div style={{ fontWeight: 700, fontSize: 14 }}>{target.route_name || `${target.route_origin} → ${target.route_destination}`}</div>
+                              {target.route_code && <div style={{ fontSize: 12, color: '#9ca3af' }}>{target.route_code}</div>}
+                              {hasParams ? (
+                                <button onClick={() => setExpandedRouteId(expandedRouteId === target.id ? null : target.id)} style={{ marginTop: 4, background: 'none', border: '1px solid #dc2626', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}>
+                                  {expandedRouteId === target.id ? '▼ Hide' : '▶ View'} Parameters ({target.target_parameters.length})
+                                </button>
+                              ) : (
+                                <div style={{ marginTop: 4, fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>No parameters assigned</div>
+                              )}
+                            </td>
+                            <td><div style={{ fontSize: 13 }}>{fmtShort(target.start_date)} – {fmtShort(target.end_date)}</div><div style={{ fontSize: 12, color: '#9ca3af' }}>{target.duration_days} days</div></td>
+                          </tr>
+                          {expandedRouteId === target.id && hasParams && (
+                          <tr>
+                            <td colSpan="2" style={{ background: '#fef2f2', padding: 16 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: '#991b1b' }}>📊 Assigned Target Parameters</div>
+                              <div style={{ overflowX: 'auto' }}>
+                                <table className="table table-bordered bg-white" style={{ fontSize: 12, marginBottom: 0, tableLayout: 'fixed', width: '100%' }}>
+                                  <thead>
+                                    <tr style={{ background: '#f9fafb' }}>
+                                      <th style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '16%' }}>Parameter Type</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '12%' }}>Target Value</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '18%' }}>Achieved Target</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '14%' }}>Achievement %</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '13%' }}>Target ₹</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '15%' }}>Achieved ₹</th>
+                                      <th className="text-end" style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', width: '12%' }}>Incentive</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {target.target_parameters.map((param, idx) => {
+                                      const paramTypeLabels = {
+                                        'TPA': 'Total Parties Attended',
+                                        'T_COLLECTION': 'Target Collection',
+                                        'POM': 'Product of the Month',
+                                        'SALES_TARGET': 'Sales Target'
+                                      };
+                                      const achievementPct = param.target_value > 0 ? ((param.achieved_value / param.target_value) * 100).toFixed(2) : '0.00';
+                                      const isSaving = savingParam === param.id;
+                                      return (
+                                        <tr key={idx} style={{ opacity: isSaving ? 0.6 : 1 }}>
+                                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#dc2626', verticalAlign: 'middle' }}>
+                                            {paramTypeLabels[param.parameter_type] || param.parameter_type}
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                            {Number(param.target_value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </td>
+                                          <td className="text-end" style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
+                                            <input
+                                              type="number"
+                                              className="form-control text-end"
+                                              style={{ fontSize: 12, height: 34, padding: '4px 8px', borderColor: isSaving ? '#fbbf24' : '#e5e7eb' }}
+                                              defaultValue={param.achieved_value ?? ''}
+                                              key={`achieved-target-${param.id}`}
+                                              placeholder="0.00"
+                                              disabled={!target.is_active || isSaving}
+                                              min="0"
+                                              step="0.01"
+                                              onBlur={(e) => {
+                                                const newValue = e.target.value;
+                                                if (newValue !== '' && parseFloat(newValue) !== param.achieved_value) {
+                                                  handleParameterUpdate(param.id, 'achieved_value', newValue);
+                                                }
+                                              }}
+                                            />
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
+                                            <span style={{ fontWeight: 700, color: pctColor(achievementPct) }}>
+                                              {achievementPct}%
+                                            </span>
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                            ₹{Number(param.target_value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </td>
+                                          <td className="text-end" style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
+                                            <input
+                                              type="number"
+                                              className="form-control text-end"
+                                              style={{ fontSize: 12, height: 34, padding: '4px 8px', borderColor: isSaving ? '#fbbf24' : '#e5e7eb' }}
+                                              defaultValue={param.achieved_value ?? ''}
+                                              key={`achieved-rupees-${param.id}`}
+                                              placeholder="₹0.00"
+                                              disabled={!target.is_active || isSaving}
+                                              min="0"
+                                              step="0.01"
+                                              onBlur={(e) => {
+                                                const newValue = e.target.value;
+                                                if (newValue !== '' && parseFloat(newValue) !== param.achieved_value) {
+                                                  handleParameterUpdate(param.id, 'achieved_value', newValue);
+                                                }
+                                              }}
+                                            />
+                                          </td>
+                                          <td className="text-end" style={{ padding: '8px 12px', fontWeight: 600, verticalAlign: 'middle' }}>
+                                            ₹{Number(param.incentive_value ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -632,33 +856,6 @@ const EmployeeTargetView = () => {
                 );
               })()}
 
-              {/* ── ROUTE: Simple fields ── */}
-              {modal.type === 'route' && (
-                <div style={{ display: 'grid', gap: 14 }}>
-                  {[
-                    { key: 'achieved_boxes',  label: 'Achieved Boxes',       step: '0.01' },
-                    { key: 'achieved_amount', label: 'Achieved Amount (₹)',   step: '0.01' },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <label style={labelStyle}>{f.label}</label>
-                      <input type="number" min="0" step={f.step} placeholder="0.00" value={form[f.key]}
-                        onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                        style={inputStyle}
-                        onFocus={e => (e.target.style.borderColor = '#dc2626')}
-                        onBlur={e => (e.target.style.borderColor = '#e5e7eb')} />
-                    </div>
-                  ))}
-                  <div>
-                    <label style={labelStyle}>Remarks</label>
-                    <textarea rows={2} placeholder="Optional notes…" value={form.remarks}
-                      onChange={e => setForm(prev => ({ ...prev, remarks: e.target.value }))}
-                      style={{ ...inputStyle, resize: 'vertical' }}
-                      onFocus={e => (e.target.style.borderColor = '#dc2626')}
-                      onBlur={e => (e.target.style.borderColor = '#e5e7eb')} />
-                  </div>
-                </div>
-              )}
-
             </div>
 
             {/* Footer */}
@@ -680,4 +877,5 @@ const EmployeeTargetView = () => {
   );
 };
 
+export { EmployeeTargetView };
 export default EmployeeTargetView;

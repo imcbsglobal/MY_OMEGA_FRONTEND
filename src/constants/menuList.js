@@ -28,15 +28,7 @@ const menuList = [
     ],
   },
 
-  {
-    id: 16,
-    title: "Marketing",
-    children: [
-      { id: 17, title: "Campaigns", path: "/marketing-campaigns" },
-      { id: 18, title: "Promotions", path: "/marketing-promotions" },
-      { id: 19, title: "Leads", path: "/marketing-leads" },
-    ],
-  },
+  // ...existing code...
 
   {
     id: 20,
@@ -51,7 +43,20 @@ const menuList = [
     id: 23,
     title: "Target Management",
     children: [
-      { id: 24, title: "Target Setup", path: "/target-setup" },
+      { id: 24, title: "My Targets", path: "/target/my-targets" },
+      { id: 25, title: "Sales", path: "/target/route/list" },
+      { id: 26, title: "Call Targets", path: "/target/call/list" },
+        {
+          id: 27,
+          title: "Marketing",
+            children: [
+              { id: 271, title: "Marketing Assign", path: "/target/call/marketing/assign" },
+              { id: 272, title: "Marketing View", path: "/target/call/marketing/view/1" },
+            ],
+        },
+      { id: 28, title: "Master Data", path: "/target/master-data" },
+      { id: 29, title: "Manager Dashboard", path: "/target/dashboard" },
+      { id: 30, title: "Comparative Performance", path: "/target/performance/comparative" },
     ],
   },
 

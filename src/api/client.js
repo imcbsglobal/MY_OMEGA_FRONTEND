@@ -3,7 +3,9 @@ import axios from "axios";
 import { notifyError, notifySuccess } from "../utils/notification";
 
 // Use centralized API endpoint from environment variables
-const apiBaseURL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/";
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/";
+// Ensure trailing slash so relative paths concatenate correctly regardless of env value
+const apiBaseURL = rawApiBase.endsWith("/") ? rawApiBase : `${rawApiBase}/`;
 
 const api = axios.create({
   baseURL: apiBaseURL,
@@ -72,7 +74,9 @@ api.interceptors.response.use(
     const silentEndpoints = [
       'hr/attendance/my_summary',
       'hr/leave/my_requests',
-      'hr/reverse-geocode-bigdata'
+      'hr/reverse-geocode-bigdata',
+      // Marketing targets list/detail handled by components; avoid duplicate global toasts
+      'target-management/marketing-targets'
     ];
     const shouldSilence = silentEndpoints.some(endpoint => 
       error.config?.url?.includes(endpoint)

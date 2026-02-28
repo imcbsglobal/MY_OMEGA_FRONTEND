@@ -165,27 +165,65 @@ export default function MyMenu() {
             </div>
 
             {/* Submenu items */}
+            {/* Render direct children (with path) and submenu children */}
             {section.children && section.children.length > 0 && (
               <ul style={{ listStyle: "none", padding: "10px 20px" }}>
                 {section.children.map((child, idx) => {
+                  // If child has its own children, render as a group
+                  if (child.children && child.children.length > 0) {
+                    return (
+                      <li key={idx} style={{ marginBottom: "8px" }}>
+                        <div style={{ fontWeight: 600, marginBottom: "4px" }}>{child.title}</div>
+                        <ul style={{ listStyle: "none", paddingLeft: "16px" }}>
+                          {child.children.map((sub, subIdx) => {
+                            const isActive = location.pathname === sub.path;
+                            return (
+                              <li key={subIdx} style={{ marginBottom: "4px" }}>
+                                <Link
+                                  to={sub.path}
+                                  style={{
+                                    display: "block",
+                                    padding: "8px 10px",
+                                    borderRadius: "6px",
+                                    textDecoration: "none",
+                                    color: isActive ? "#2563eb" : "#1f2937",
+                                    backgroundColor: isActive ? "#e0e7ff" : "transparent",
+                                    fontSize: "14px",
+                                    transition: "all 0.2s ease",
+                                  }}
+                                >
+                                  {sub.title}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    );
+                  }
+                  // Otherwise, render as a direct menu item
                   const isActive = location.pathname === child.path;
                   return (
                     <li key={idx} style={{ marginBottom: "4px" }}>
-                      <Link
-                        to={child.path}
-                        style={{
-                          display: "block",
-                          padding: "8px 10px",
-                          borderRadius: "6px",
-                          textDecoration: "none",
-                          color: isActive ? "#2563eb" : "#1f2937",
-                          backgroundColor: isActive ? "#e0e7ff" : "transparent",
-                          fontSize: "14px",
-                          transition: "all 0.2s ease",
-                        }}
-                      >
-                        {child.title}
-                      </Link>
+                      {child.path ? (
+                        <Link
+                          to={child.path}
+                          style={{
+                            display: "block",
+                            padding: "8px 10px",
+                            borderRadius: "6px",
+                            textDecoration: "none",
+                            color: isActive ? "#2563eb" : "#1f2937",
+                            backgroundColor: isActive ? "#e0e7ff" : "transparent",
+                            fontSize: "14px",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          {child.title}
+                        </Link>
+                      ) : (
+                        <span style={{ padding: "8px 10px", color: "#6b7280" }}>{child.title}</span>
+                      )}
                     </li>
                   );
                 })}
