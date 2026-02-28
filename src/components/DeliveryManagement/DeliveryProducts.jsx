@@ -8,6 +8,7 @@
  */
 import React, { useEffect, useState } from "react";
 import api from "../../api/client";
+import { notifyError, notifySuccess } from "../../utils/notification";
 
 export default function DeliveryProducts({
   // ── View/active mode ──
@@ -60,7 +61,7 @@ export default function DeliveryProducts({
       setSaved(productId);
       setTimeout(() => setSaved(null), 2000);
       fetchProducts();
-    } catch { alert("Failed to update product."); }
+    } catch { notifyError("Failed to update product."); }
     finally { setLoading(false); }
   };
 
@@ -80,7 +81,7 @@ export default function DeliveryProducts({
       setSaved("bulk");
       setTimeout(() => setSaved(null), 2000);
       fetchProducts();
-    } catch { alert("Bulk update failed."); }
+    } catch { notifyError("Bulk update failed."); }
     finally { setLoading(false); }
   };
 

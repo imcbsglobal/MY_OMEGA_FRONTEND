@@ -3,7 +3,9 @@ import axios from "axios";
 import { notifyError, notifySuccess } from "../utils/notification";
 
 // Use centralized API endpoint from environment variables
-const apiBaseURL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/";
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/";
+// Ensure trailing slash so relative paths concatenate correctly regardless of env value
+const apiBaseURL = rawApiBase.endsWith("/") ? rawApiBase : `${rawApiBase}/`;
 
 const api = axios.create({
   baseURL: apiBaseURL,

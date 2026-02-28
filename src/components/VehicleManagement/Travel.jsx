@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Edit, Trash2, X, Camera } from 'lucide-react';
 import api from '../../api/client';
 
 export default function Travel() {
@@ -31,6 +31,8 @@ export default function Travel() {
 
   const [compressingStart, setCompressingStart] = useState(false);
   const [compressingEnd, setCompressingEnd] = useState(false);
+  const [showStartOptions, setShowStartOptions] = useState(false);
+  const [showEndOptions, setShowEndOptions] = useState(false);
 
   // Form states for End Trip
   const [endFormData, setEndFormData] = useState({
@@ -51,7 +53,7 @@ export default function Travel() {
   }, [formData.odometer_start_preview, endFormData.odometer_end_preview]);
 
   // Client-side image resize + compress
-  const compressImage = (file, maxWidth = 1280, maxHeight = 960, quality = 0.75) => {
+  const compressImage = (file, maxWidth = 1280, maxHeight = 960, quality = 0.75, preferWebP = true) => {
     return new Promise((resolve, reject) => {
       if (!file) return resolve(null);
       const img = new Image();
@@ -64,20 +66,28 @@ export default function Travel() {
         canvas.height = Math.round(height * ratio);
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              URL.revokeObjectURL(url);
-              return reject(new Error('Image compression failed'));
-            }
-            const newName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
-            const compressedFile = new File([blob], newName, { type: 'image/jpeg' });
+        const tryFormat = (type) => new Promise((res, rej) => {
+          canvas.toBlob((blob) => {
+            if (!blob) return rej(new Error('Blob conversion failed'));
+            const ext = type === 'image/webp' ? '.webp' : '.jpg';
+            const newName = file.name.replace(/\.[^/.]+$/, '') + ext;
+            const compressedFile = new File([blob], newName, { type });
+            res(compressedFile);
+          }, type, quality);
+        });
+
+        const webpPreferred = preferWebP && (typeof navigator !== 'undefined');
+        const tryWebP = webpPreferred ? tryFormat('image/webp') : Promise.reject();
+        tryWebP
+          .catch(() => tryFormat('image/jpeg'))
+          .then((compressedFile) => {
             URL.revokeObjectURL(url);
             resolve(compressedFile);
-          },
-          'image/jpeg',
-          quality
-        );
+          })
+          .catch((err) => {
+            URL.revokeObjectURL(url);
+            reject(err);
+          });
       };
       img.onerror = (e) => {
         URL.revokeObjectURL(url);
@@ -86,6 +96,12 @@ export default function Travel() {
       img.src = url;
     });
   };
+
+  // refs for hidden file inputs (camera/gallery)
+  const startCameraRef = useRef(null);
+  const startGalleryRef = useRef(null);
+  const endCameraRef = useRef(null);
+  const endGalleryRef = useRef(null);
 
   useEffect(() => {
     fetchTrips();
@@ -392,21 +408,23 @@ export default function Travel() {
             <h3 style={styles.sectionTitle}>ODOMETER IMAGE</h3>
             <div style={styles.formGroup}>
               <label style={styles.label}>Odometer Start Image</label>
+              {/* Hidden inputs: camera and gallery. Trigger via the visible buttons so mobile shows proper picker */}
               <input
+                ref={startCameraRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
+                style={{ display: 'none' }}
                 onChange={async (e) => {
-                  const file = e.target.files[0];
+                  const file = e.target.files && e.target.files[0];
                   if (!file) return;
                   setCompressingStart(true);
                   try {
-                    const compressed = await compressImage(file, 1280, 960, 0.75);
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
                     const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
                     if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
                     setFormData({...formData, odometer_start_image: compressed || file, odometer_start_preview: preview});
                   } catch (err) {
-                    // fallback to original file on error
                     const preview = URL.createObjectURL(file);
                     if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
                     setFormData({...formData, odometer_start_image: file, odometer_start_preview: preview});
@@ -414,8 +432,49 @@ export default function Travel() {
                     setCompressingStart(false);
                   }
                 }}
-                style={styles.fileInput}
               />
+
+              <input
+                ref={startGalleryRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  setCompressingStart(true);
+                  try {
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
+                    const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
+                    setFormData({...formData, odometer_start_image: compressed || file, odometer_start_preview: preview});
+                  } catch (err) {
+                    const preview = URL.createObjectURL(file);
+                    if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
+                    setFormData({...formData, odometer_start_image: file, odometer_start_preview: preview});
+                  } finally {
+                    setCompressingStart(false);
+                  }
+                }}
+              />
+
+              <div style={{position: 'relative', display: 'inline-block'}}>
+                <button
+                  type="button"
+                  onClick={() => setShowStartOptions(!showStartOptions)}
+                  aria-expanded={showStartOptions}
+                  aria-label="Open image options"
+                  style={{...styles.fileInput, cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}
+                >
+                  <Camera size={16} />
+                </button>
+                {showStartOptions && (
+                  <div style={{position: 'absolute', top: '110%', left: 0, display: 'flex', gap: 8, background: '#fff', padding: 8, borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.08)'}}>
+                    <button type="button" onClick={() => { startCameraRef.current && startCameraRef.current.click(); setShowStartOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>📷</button>
+                    <button type="button" onClick={() => { startGalleryRef.current && startGalleryRef.current.click(); setShowStartOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>🖼️</button>
+                  </div>
+                )}
+              </div>
               {formData.odometer_start_image && (
                 <div>
                   <span style={styles.fileName}>{formData.odometer_start_image.name}</span>
@@ -586,19 +645,71 @@ export default function Travel() {
             <div style={styles.formGroup}>
               <label style={styles.label}>Odometer End Image</label>
               <input
+                ref={endCameraRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  let preview = null;
-                  if (file) preview = URL.createObjectURL(file);
-                  if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
-                  setEndFormData({...endFormData, odometer_end_image: file, odometer_end_preview: preview});
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  setCompressingEnd(true);
+                  try {
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
+                    const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: compressed || file, odometer_end_preview: preview});
+                  } catch (err) {
+                    const preview = URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: file, odometer_end_preview: preview});
+                  } finally {
+                    setCompressingEnd(false);
+                  }
                 }}
-                style={styles.fileInput}
-                
               />
+
+              <input
+                ref={endGalleryRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  setCompressingEnd(true);
+                  try {
+                    const compressed = await compressImage(file, 1280, 960, 0.75, true);
+                    const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: compressed || file, odometer_end_preview: preview});
+                  } catch (err) {
+                    const preview = URL.createObjectURL(file);
+                    if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
+                    setEndFormData({...endFormData, odometer_end_image: file, odometer_end_preview: preview});
+                  } finally {
+                    setCompressingEnd(false);
+                  }
+                }}
+              />
+
+              <div style={{position: 'relative', display: 'inline-block'}}>
+                <button
+                  type="button"
+                  onClick={() => setShowEndOptions(!showEndOptions)}
+                  aria-expanded={showEndOptions}
+                  aria-label="Open image options"
+                  style={{...styles.fileInput, cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}
+                >
+                  <Camera size={16} />
+                </button>
+                {showEndOptions && (
+                  <div style={{position: 'absolute', top: '110%', left: 0, display: 'flex', gap: 8, background: '#fff', padding: 8, borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.08)'}}>
+                    <button type="button" onClick={() => { endCameraRef.current && endCameraRef.current.click(); setShowEndOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>📷</button>
+                    <button type="button" onClick={() => { endGalleryRef.current && endGalleryRef.current.click(); setShowEndOptions(false); }} style={{...styles.fileInput, cursor: 'pointer'}}>🖼️</button>
+                  </div>
+                )}
+              </div>
               {endFormData.odometer_end_image && (
                 <div>
                   <span style={styles.fileName}>{endFormData.odometer_end_image.name}</span>

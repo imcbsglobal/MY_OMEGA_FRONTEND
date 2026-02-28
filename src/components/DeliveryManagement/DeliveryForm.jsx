@@ -23,15 +23,14 @@ export default function DeliveryFormUpdated() {
     scheduled_date: new Date().toISOString().slice(0, 10),
     scheduled_time: "08:00",
     remarks: "",
+    // total_delivered and collected_amount removed per UI request
   });
 
   const [productRows, setProductRows] = useState([
     { product: "", loaded_quantity: "", unit_price: "", notes: "" },
   ]);
 
-  const [stopRows, setStopRows] = useState([
-    { stop_sequence: 1, customer_name: "", customer_address: "", customer_phone: "", planned_boxes: "", planned_amount: "", estimated_arrival: "" },
-  ]);
+  // Stops removed from this form — individual delivery stops are not collected here
 
   const [employees, setEmployees] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -90,19 +89,7 @@ export default function DeliveryFormUpdated() {
           notes: p.notes || "",
         }));
         setProductRows(pRows.length ? pRows : [{ product: "", loaded_quantity: "", unit_price: "", notes: "" }]);
-
-        // Stops
-        const sRows = (d.stops || []).map(s => ({
-          stop_sequence: s.stop_sequence != null ? s.stop_sequence : 1,
-          customer_name: s.customer_name || "",
-          customer_address: s.customer_address || "",
-          customer_phone: s.customer_phone || "",
-          planned_boxes: s.planned_boxes != null ? String(s.planned_boxes) : "",
-          planned_amount: s.planned_amount != null ? String(s.planned_amount) : "",
-          estimated_arrival: s.estimated_arrival || "",
-          notes: s.notes || "",
-        }));
-        setStopRows(sRows.length ? sRows : [{ stop_sequence: 1, customer_name: "", customer_address: "", customer_phone: "", planned_boxes: "", planned_amount: "", estimated_arrival: "" }]);
+        // Stops removed — not loaded into this form
 
         setCurrentStep(1);
       } catch (e) {
@@ -131,33 +118,7 @@ export default function DeliveryFormUpdated() {
     );
   };
 
-  // ── Stop row management ──
-  const addStopRow = () => {
-    const nextSeq = Math.max(...stopRows.map(s => s.stop_sequence || 0)) + 1;
-    setStopRows([...stopRows, { 
-      stop_sequence: nextSeq, 
-      customer_name: "", 
-      customer_address: "", 
-      customer_phone: "", 
-      planned_boxes: "", 
-      planned_amount: "", 
-      estimated_arrival: "" 
-    }]);
-  };
-
-  const removeStopRow = (index) => {
-    if (stopRows.length > 1) {
-      const newRows = stopRows.filter((_, i) => i !== index);
-      // Renumber sequences
-      setStopRows(newRows.map((row, i) => ({ ...row, stop_sequence: i + 1 })));
-    }
-  };
-
-  const updateStopRow = (index, field, value) => {
-    setStopRows(
-      stopRows.map((row, i) => (i === index ? { ...row, [field]: value } : row))
-    );
-  };
+  // Stop row management removed
 
   // ── Navigation ──
   const goToNextStep = () => {
@@ -167,15 +128,6 @@ export default function DeliveryFormUpdated() {
         return;
       }
       setCurrentStep(2);
-      setError("");
-    } else if (currentStep === 2) {
-      // Validate at least one product
-      const validProducts = productRows.filter(p => p.product && p.loaded_quantity);
-      if (validProducts.length === 0) {
-        setError("Please add at least one product with quantity.");
-        return;
-      }
-      setCurrentStep(3);
       setError("");
     }
   };
@@ -192,7 +144,7 @@ export default function DeliveryFormUpdated() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (currentStep < 3) {
+    if (currentStep < 2) {
       goToNextStep();
       return;
     }
@@ -204,11 +156,7 @@ export default function DeliveryFormUpdated() {
       return;
     }
 
-    const validStops = stopRows.filter(s => s.customer_name && s.customer_address);
-    if (validStops.length === 0) {
-      setError("Please add at least one delivery stop.");
-      return;
-    }
+    // Stops removed — no stops validation required here
 
     setLoading(true);
     setError("");
@@ -225,16 +173,7 @@ export default function DeliveryFormUpdated() {
           unit_price: p.unit_price ? parseFloat(p.unit_price) : null,
           notes: p.notes || "",
         })),
-        stops: validStops.map((s) => ({
-          stop_sequence: s.stop_sequence,
-          customer_name: s.customer_name,
-          customer_address: s.customer_address,
-          customer_phone: s.customer_phone || "",
-          planned_boxes: s.planned_boxes ? parseFloat(s.planned_boxes) : 0,
-          planned_amount: s.planned_amount ? parseFloat(s.planned_amount) : 0,
-          estimated_arrival: s.estimated_arrival || null,
-          notes: s.notes || "",
-        })),
+        // stops omitted — backend will handle stops separately if needed
       };
 
       if (isEdit) {
@@ -265,12 +204,6 @@ export default function DeliveryFormUpdated() {
       .reduce((sum, p) => sum + parseFloat(p.loaded_quantity || 0), 0);
   };
 
-  const calculateTotalPlannedAmount = () => {
-    return stopRows
-      .filter((s) => s.planned_amount)
-      .reduce((sum, s) => sum + parseFloat(s.planned_amount || 0), 0);
-  };
-
   const field = (label, children, required = false) => (
     <div style={{ marginBottom: 14 }}>
       <label style={labelStyle}>
@@ -292,7 +225,6 @@ export default function DeliveryFormUpdated() {
         <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
           {currentStep === 1 && "Step 1: Enter basic delivery information"}
           {currentStep === 2 && "Step 2: Add products to load on the vehicle"}
-          {currentStep === 3 && "Step 3: Add delivery stops (shops/customers)"}
         </p>
       </div>
 
@@ -303,14 +235,9 @@ export default function DeliveryFormUpdated() {
           <span style={stepLabel}>Delivery Info</span>
         </div>
         <div style={stepDivider} />
-        <div style={{ ...step, ...(currentStep === 2 ? activeStep : currentStep > 2 ? completedStep : {}) }}>
-          <div style={stepNumber}>{currentStep > 2 ? "✓" : "2"}</div>
+        <div style={{ ...step, ...(currentStep === 2 ? activeStep : {}) }}>
+          <div style={stepNumber}>{currentStep === 2 ? "2" : "2"}</div>
           <span style={stepLabel}>Products</span>
-        </div>
-        <div style={stepDivider} />
-        <div style={{ ...step, ...(currentStep === 3 ? activeStep : {}) }}>
-          <div style={stepNumber}>3</div>
-          <span style={stepLabel}>Stops</span>
         </div>
       </div>
 
@@ -523,137 +450,12 @@ export default function DeliveryFormUpdated() {
               <button type="button" onClick={addProductRow} style={ghostBtn}>
                 + Add Product Row
               </button>
+
+              {/* Total Delivered and Collected inputs removed */}
             </>
           )}
 
-          {/* ──────── STEP 3: Stops ──────── */}
-          {currentStep === 3 && (
-            <>
-              <div style={{ marginBottom: 16, padding: 12, background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#15803d", marginBottom: 4 }}>
-                  📦 Total Boxes to Deliver: {calculateTotalBoxes().toFixed(2)}
-                </div>
-                <div style={{ fontSize: 12, color: "#166534" }}>
-                  Add delivery stops in the order the driver should visit them
-                </div>
-              </div>
-
-              {stopRows.map((row, i) => (
-                <div key={i} style={{ 
-                  marginBottom: 16, 
-                  padding: 16, 
-                  background: "#f8fafc", 
-                  borderRadius: 8,
-                  border: "1px solid #e2e8f0" 
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
-                      Stop #{row.stop_sequence}
-                    </h4>
-                    {stopRows.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeStopRow(i)}
-                        style={removeBtn}
-                        title="Remove stop"
-                      >
-                        ✕ Remove
-                      </button>
-                    )}
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    {field(
-                      "Customer/Shop Name",
-                      <input
-                        value={row.customer_name}
-                        onChange={(e) => updateStopRow(i, "customer_name", e.target.value)}
-                        placeholder="ABC Store"
-                        style={cellInput}
-                        required
-                      />,
-                      true
-                    )}
-
-                    {field(
-                      "Phone Number",
-                      <input
-                        value={row.customer_phone}
-                        onChange={(e) => updateStopRow(i, "customer_phone", e.target.value)}
-                        placeholder="9876543210"
-                        style={cellInput}
-                      />
-                    )}
-                  </div>
-
-                  {field(
-                    "Address",
-                    <textarea
-                      value={row.customer_address}
-                      onChange={(e) => updateStopRow(i, "customer_address", e.target.value)}
-                      placeholder="123 Main Street, Area, City"
-                      style={{ ...cellInput, minHeight: 60 }}
-                      required
-                    />,
-                    true
-                  )}
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                    {field(
-                      "Planned Boxes",
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={row.planned_boxes}
-                        onChange={(e) => updateStopRow(i, "planned_boxes", e.target.value)}
-                        placeholder="0"
-                        style={cellInput}
-                      />
-                    )}
-
-                    {field(
-                      "Planned Amount (₹)",
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={row.planned_amount}
-                        onChange={(e) => updateStopRow(i, "planned_amount", e.target.value)}
-                        placeholder="0.00"
-                        style={cellInput}
-                      />
-                    )}
-
-                    {field(
-                      "Est. Arrival Time",
-                      <input
-                        type="time"
-                        value={row.estimated_arrival}
-                        onChange={(e) => updateStopRow(i, "estimated_arrival", e.target.value)}
-                        style={cellInput}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              <button type="button" onClick={addStopRow} style={ghostBtn}>
-                + Add Another Stop
-              </button>
-
-              {/* Summary */}
-              <div style={{ marginTop: 20, padding: 16, background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#15803d", marginBottom: 8 }}>
-                  Delivery Summary:
-                </div>
-                <div style={{ fontSize: 12, color: "#166534" }}>
-                  📍 {stopRows.filter(s => s.customer_name).length} stops planned
-                </div>
-                <div style={{ fontSize: 12, color: "#166534" }}>
-                  💰 Total Planned Amount: ₹{calculateTotalPlannedAmount().toFixed(2)}
-                </div>
-              </div>
-            </>
-          )}
+          {/* Step 3 (Stops) removed from this form */}
         </div>
 
         {/* Action Buttons */}
@@ -663,7 +465,7 @@ export default function DeliveryFormUpdated() {
           </button>
 
           <button type="submit" disabled={loading} style={primaryBtn}>
-            {loading ? "Saving…" : currentStep === 3 ? "Create Delivery" : "Next →"}
+            {loading ? "Saving…" : currentStep === 2 ? "Create Delivery" : "Next →"}
           </button>
         </div>
       </form>
