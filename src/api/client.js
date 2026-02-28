@@ -35,6 +35,14 @@ api.interceptors.request.use(
     // Log request for debugging
     console.log(`[API Request] ${config.method.toUpperCase()} ${config.baseURL}${config.url}`, config.data);
 
+    // If sending FormData, allow the browser to set Content-Type (with boundary)
+    if (config.data instanceof FormData) {
+      // Remove JSON content-type so browser can set multipart/form-data; boundary
+      if (config.headers && config.headers['Content-Type']) delete config.headers['Content-Type'];
+      if (config.headers && config.headers['content-type']) delete config.headers['content-type'];
+      console.log('[API Request] Detected FormData - removed Content-Type header to let browser set boundary');
+    }
+
     return config;
   },
   (error) => {
