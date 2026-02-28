@@ -33,6 +33,8 @@ export default function Travel() {
   const [compressingEnd, setCompressingEnd] = useState(false);
   const [showStartOptions, setShowStartOptions] = useState(false);
   const [showEndOptions, setShowEndOptions] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
   // Form states for End Trip
   const [endFormData, setEndFormData] = useState({
@@ -76,10 +78,8 @@ export default function Travel() {
           }, type, quality);
         });
 
-        const webpPreferred = preferWebP && (typeof navigator !== 'undefined');
-        const tryWebP = webpPreferred ? tryFormat('image/webp') : Promise.reject();
-        tryWebP
-          .catch(() => tryFormat('image/jpeg'))
+        // Always produce JPEG for widest compatibility (avoid WebP issues on iOS)
+        tryFormat('image/jpeg')
           .then((compressedFile) => {
             URL.revokeObjectURL(url);
             resolve(compressedFile);
@@ -95,6 +95,12 @@ export default function Travel() {
       };
       img.src = url;
     });
+  };
+
+  const showToast = (message, ms = 3000) => {
+    setToast(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), ms);
   };
 
   // refs for hidden file inputs (camera/gallery)
@@ -209,11 +215,14 @@ export default function Travel() {
         submitData.append('odometer_start_image', formData.odometer_start_image);
       }
 
-      const response = await api.post('/vehicle-management/trips/start/', submitData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // debug: log FormData entries to console (files included)
+      try {
+        for (const pair of submitData.entries()) console.log('Start submitFormData:', pair[0], pair[1]);
+      } catch (err) {
+        console.warn('Could not iterate FormData for debug', err);
+      }
+
+      const response = await api.post('/vehicle-management/trips/start/', submitData);
 
       setSuccessMessage('Trip started successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -234,8 +243,10 @@ export default function Travel() {
       fetchTrips();
     } catch (error) {
       console.error('Failed to start trip:', error);
-      if (error.response?.data) {
-        setErrors(error.response.data);
+      console.error('StartTrip response error:', error.response || error);
+      const serverData = error.response?.data;
+      if (serverData) {
+        setErrors(typeof serverData === 'string' ? { general: serverData } : serverData);
       } else {
         setErrors({ general: 'Failed to start trip. Please try again.' });
       }
@@ -262,14 +273,15 @@ export default function Travel() {
         submitData.append('odometer_end_image', endFormData.odometer_end_image);
       }
 
+      try {
+        for (const pair of submitData.entries()) console.log('End submitFormData:', pair[0], pair[1]);
+      } catch (err) {
+        console.warn('Could not iterate FormData for debug', err);
+      }
+
       const response = await api.patch(
         `/vehicle-management/trips/${selectedTrip.id}/end/`,
-        submitData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        submitData
       );
 
       setSuccessMessage('Trip completed successfully!');
@@ -287,8 +299,10 @@ export default function Travel() {
       fetchTrips();
     } catch (error) {
       console.error('Failed to end trip:', error);
-      if (error.response?.data) {
-        setErrors(error.response.data);
+      console.error('EndTrip response error:', error.response || error);
+      const serverData = error.response?.data;
+      if (serverData) {
+        setErrors(typeof serverData === 'string' ? { general: serverData } : serverData);
       } else {
         setErrors({ general: 'Failed to complete trip. Please try again.' });
       }
@@ -414,20 +428,33 @@ export default function Travel() {
                 type="file"
                 accept="image/*"
                 capture="environment"
-                style={{ display: 'none' }}
+                style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
                   const file = e.target.files && e.target.files[0];
                   if (!file) return;
+                  console.log('Start camera file selected:', file.name, file.size, file.type);
                   setCompressingStart(true);
                   try {
                     const compressed = await compressImage(file, 1280, 960, 0.75, true);
                     const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    // show toast with sizes
+                    try {
+                      const originalKB = (file.size / 1024).toFixed(1);
+                      const newKB = ((compressed || file).size / 1024).toFixed(1);
+                      showToast(`Image ready: ${originalKB}KB → ${newKB}KB`);
+                    } catch (err) {
+                      /* ignore */
+                    }
                     if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
                     setFormData({...formData, odometer_start_image: compressed || file, odometer_start_preview: preview});
                   } catch (err) {
                     const preview = URL.createObjectURL(file);
                     if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
                     setFormData({...formData, odometer_start_image: file, odometer_start_preview: preview});
+                    try {
+                      const originalKB = (file.size / 1024).toFixed(1);
+                      showToast(`Image ready: ${originalKB}KB`);
+                    } catch (err2) {}
                   } finally {
                     setCompressingStart(false);
                   }
@@ -438,14 +465,20 @@ export default function Travel() {
                 ref={startGalleryRef}
                 type="file"
                 accept="image/*"
-                style={{ display: 'none' }}
+                style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
                   const file = e.target.files && e.target.files[0];
                   if (!file) return;
+                  console.log('Start gallery file selected:', file.name, file.size, file.type);
                   setCompressingStart(true);
                   try {
                     const compressed = await compressImage(file, 1280, 960, 0.75, true);
                     const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    try {
+                      const originalKB = (file.size / 1024).toFixed(1);
+                      const newKB = ((compressed || file).size / 1024).toFixed(1);
+                      showToast(`Image ready: ${originalKB}KB → ${newKB}KB`);
+                    } catch (err) {}
                     if (formData.odometer_start_preview) URL.revokeObjectURL(formData.odometer_start_preview);
                     setFormData({...formData, odometer_start_image: compressed || file, odometer_start_preview: preview});
                   } catch (err) {
@@ -519,6 +552,7 @@ export default function Travel() {
           </div>
         </form>
       </div>
+      {toast && <div style={styles.toast}>{toast}</div>}
     </div>
   );
 
@@ -649,14 +683,20 @@ export default function Travel() {
                 type="file"
                 accept="image/*"
                 capture="environment"
-                style={{ display: 'none' }}
+                style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
                   const file = e.target.files && e.target.files[0];
                   if (!file) return;
+                  console.log('End camera file selected:', file.name, file.size, file.type);
                   setCompressingEnd(true);
                   try {
                     const compressed = await compressImage(file, 1280, 960, 0.75, true);
                     const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    try {
+                      const originalKB = (file.size / 1024).toFixed(1);
+                      const newKB = ((compressed || file).size / 1024).toFixed(1);
+                      showToast(`Image ready: ${originalKB}KB → ${newKB}KB`);
+                    } catch (err) {}
                     if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
                     setEndFormData({...endFormData, odometer_end_image: compressed || file, odometer_end_preview: preview});
                   } catch (err) {
@@ -673,14 +713,20 @@ export default function Travel() {
                 ref={endGalleryRef}
                 type="file"
                 accept="image/*"
-                style={{ display: 'none' }}
+                style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
                   const file = e.target.files && e.target.files[0];
                   if (!file) return;
+                  console.log('End gallery file selected:', file.name, file.size, file.type);
                   setCompressingEnd(true);
                   try {
                     const compressed = await compressImage(file, 1280, 960, 0.75, true);
                     const preview = compressed ? URL.createObjectURL(compressed) : URL.createObjectURL(file);
+                    try {
+                      const originalKB = (file.size / 1024).toFixed(1);
+                      const newKB = ((compressed || file).size / 1024).toFixed(1);
+                      showToast(`Image ready: ${originalKB}KB → ${newKB}KB`);
+                    } catch (err) {}
                     if (endFormData.odometer_end_preview) URL.revokeObjectURL(endFormData.odometer_end_preview);
                     setEndFormData({...endFormData, odometer_end_image: compressed || file, odometer_end_preview: preview});
                   } catch (err) {
@@ -755,6 +801,7 @@ export default function Travel() {
           </div>
         </form>
       </div>
+      {toast && <div style={styles.toast}>{toast}</div>}
     </div>
   );
 
@@ -921,6 +968,7 @@ export default function Travel() {
           </table>
         </div>
       </div>
+      {toast && <div style={styles.toast}>{toast}</div>}
     </div>
   );
 
@@ -1244,5 +1292,17 @@ const styles = {
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     borderRadius: '8px',
     margin: '0 auto',
+  },
+  toast: {
+    position: 'fixed',
+    right: '20px',
+    bottom: '20px',
+    backgroundColor: '#111827',
+    color: '#ffffff',
+    padding: '10px 14px',
+    borderRadius: '8px',
+    boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+    zIndex: 9999,
+    fontSize: '13px',
   },
 };
