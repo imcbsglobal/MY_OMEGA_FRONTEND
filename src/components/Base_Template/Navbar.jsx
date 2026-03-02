@@ -326,7 +326,15 @@ import { useState, useEffect, useRef } from "react";
           },
         ]
       },
-      { name: "Warehouse Management", path: "/under-construction", icon: Warehouse },
+      {
+        name: "Warehouse Management",
+        icon: Warehouse,
+        children: [
+          { name: "Assign Work", path: "/warehouse/assign", icon: ClipboardList },
+          { name: "Task Monitor", path: "/warehouse/admin", icon: BarChart2 },
+          { name: "My Warehouse Tasks", path: "/warehouse/mytasks", icon: Package },
+        ]
+      },
       {
         name: "Delivery Management",
         icon: Truck,

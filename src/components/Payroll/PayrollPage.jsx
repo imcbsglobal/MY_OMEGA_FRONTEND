@@ -33,9 +33,7 @@ export default function PayrollPage() {
     unpaidLeaveDays: 0,
     absentDays: 0,
   });
-  const [allSummaries, setAllSummaries] = useState([]);
-  const [allFetchLoading, setAllFetchLoading] = useState(false);
-  const [allFetchError, setAllFetchError] = useState("");
+  // Removed bulk attendance fetch state (not used)
 
   const months = [
     { value: 1, label: "January" },
@@ -367,51 +365,7 @@ export default function PayrollPage() {
     }
   };
 
-  const fetchAllAttendanceSummaries = async () => {
-    try {
-      setAllFetchLoading(true);
-      setAllFetchError("");
-
-      const monthName = months.find((m) => m.value === selectedMonth)?.label;
-      let response;
-
-      // Try known URL variants (new urls.py exposes attendance-summaries/all/)
-      const pathsToTry = [
-        `payroll/attendance-summaries/all/?month=${monthName}&year=${selectedYear}`,
-        `payroll/attendance-summaries/all/?month=${selectedMonth}&year=${selectedYear}`,
-        `payroll/all_attendance_summaries/?month=${monthName}&year=${selectedYear}`,
-        `payroll/all_attendance_summaries/?month=${selectedMonth}&year=${selectedYear}`,
-      ];
-
-      let lastErr = null;
-      for (const p of pathsToTry) {
-        try {
-          response = await api.get(p);
-          if (response && response.status === 200) break;
-        } catch (err) {
-          lastErr = err;
-          console.warn(`Attempt failed for ${p}:`, err?.message || err);
-        }
-      }
-      if (!response) throw lastErr || new Error('No response from attendance summaries endpoints');
-
-      console.log('✓ All Attendance Summaries Response:', response.data);
-
-      if (response.data && Array.isArray(response.data.summaries)) {
-        setAllSummaries(response.data.summaries);
-      } else if (response.data && response.data.summaries) {
-        setAllSummaries(Array.isArray(response.data.summaries) ? response.data.summaries : []);
-      } else {
-        setAllSummaries([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch all attendance summaries:', err);
-      const serverMsg = err.response?.data?.error || err.response?.data || err.message;
-      setAllFetchError(typeof serverMsg === 'string' ? serverMsg : 'Failed to fetch summaries');
-    } finally {
-      setAllFetchLoading(false);
-    }
-  };
+  // Bulk attendance fetch removed as requested
 
   const fetchEmployeeAllowancesAndDeductions = async (emp) => {
     try {
@@ -653,21 +607,7 @@ export default function PayrollPage() {
               </select>
             </div>
           </div>
-          <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
-            <button
-              onClick={fetchAllAttendanceSummaries}
-              disabled={allFetchLoading}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #d1d5db', background: '#ffffff', cursor: 'pointer' }}
-            >
-              {allFetchLoading ? 'Fetching...' : 'Fetch All Attendance'}
-            </button>
-            {allFetchError && (
-              <div style={{ color: '#991b1b', fontSize: 13 }}>{allFetchError}</div>
-            )}
-            {allSummaries && allSummaries.length > 0 && (
-              <div style={{ fontSize: 13, color: '#374151' }}>{`Summaries: ${allSummaries.length}`}</div>
-            )}
-          </div>
+          <div style={{ marginTop: 12 }} />
         </div>
 
         {error && (
@@ -938,19 +878,6 @@ export default function PayrollPage() {
             </div>
 
             {/* Allowances & Deductions Section */}
-            {allSummaries && allSummaries.length > 0 && (
-              <div style={{ marginTop: 18, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-                <h3 style={{ margin: 0, marginBottom: 8, fontSize: 14, fontWeight: 700 }}>All Employees Attendance Summaries</h3>
-                <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-                  {allSummaries.map((s, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      <div style={{ fontSize: 13, color: '#111827' }}>{s.employee_name || `Employee ${s.employee_id}`}</div>
-                      <div style={{ fontSize: 13, color: '#6b7280' }}>{s.attendance_percentage ? `${s.attendance_percentage}%` : `${s.attendance_summary?.effective_paid_days || 0} days`}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <div style={styles.detailsWrapper}>
               {/* Allowances Details */}
               <div style={styles.detailsSection}>
