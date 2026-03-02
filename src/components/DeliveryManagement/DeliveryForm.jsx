@@ -352,9 +352,9 @@ export default function DeliveryFormUpdated() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>Product</th>
-                    <th style={thStyle}>Loaded Qty</th>
-                    <th style={thStyle}>Unit Price</th>
+                    <th style={thStyle}>No. of Bills</th>
+                      <th style={thStyle}>No. of Boxes</th>
+                      <th style={thStyle}>Avg Box Value</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Amount</th>
                     <th style={thStyle}>Notes</th>
                     <th style={thStyle}></th>
@@ -374,7 +374,7 @@ export default function DeliveryFormUpdated() {
                             onChange={(e) => updateProductRow(i, "product", e.target.value)}
                             style={cellInput}
                           >
-                            <option value="">Select product</option>
+                            <option value="">Select bill</option>
                             {products.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.product_name}
