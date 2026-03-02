@@ -542,22 +542,31 @@ export default function AttendanceManagement() {
     const [showTooltip, setShowTooltip] = useState(false);
     const record = employee.records[date];
     const menuRef = React.useRef(null);
-    
+    const buttonRef = React.useRef(null);
+    const containerRef = React.useRef(null);
+    const [dropdownStyle, setDropdownStyle] = useState({ left: 0, top: 0, visibility: 'hidden' });
     const config = ATTENDANCE_TYPES[status] || ATTENDANCE_TYPES.NOT_MARKED;
 
     useEffect(() => {
       const handleClickOutside = (event) => {
-        if (menuRef.current && !menuRef.current.contains(event.target)) {
+        if (menuRef.current && !menuRef.current.contains(event.target) && buttonRef.current && !buttonRef.current.contains(event.target)) {
           setShowMenu(false);
         }
       };
 
+      const handleScroll = () => {
+        // close menu on scroll to avoid mispositioning
+        if (showMenu) setShowMenu(false);
+      };
+
       if (showMenu) {
         document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
       }
 
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', handleScroll, true);
       };
     }, [showMenu]);
 
@@ -573,6 +582,30 @@ export default function AttendanceManagement() {
     const toggleMenu = () => {
       // Only allow menu to open for past/current dates
       if (isDateTodayOrPast(date)) {
+        const willOpen = !showMenu;
+        if (willOpen && buttonRef.current) {
+          try {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const dropdownApproxWidth = 260; // conservative width
+            const margin = 8;
+
+            let left = rect.left + rect.width / 2 - dropdownApproxWidth / 2;
+            left = Math.max(margin, Math.min(left, window.innerWidth - dropdownApproxWidth - margin));
+
+            let top = rect.bottom + margin;
+            const approxHeight = 200; // initial estimate
+            if (rect.bottom + approxHeight + margin > window.innerHeight) {
+              // place above if not enough space below
+              top = rect.top - approxHeight - margin;
+              if (top < margin) top = margin;
+            }
+
+            setDropdownStyle({ left: `${Math.round(left)}px`, top: `${Math.round(top)}px`, visibility: 'visible' });
+          } catch (e) {
+            // ignore measurement errors
+            setDropdownStyle(prev => ({ ...prev, visibility: 'visible' }));
+          }
+        }
         setShowMenu(prev => !prev);
       } else {
         // Ensure menu is closed for future dates
@@ -623,8 +656,9 @@ export default function AttendanceManagement() {
     };
 
     return (
-      <div ref={menuRef} style={{ position: "relative", display: "inline-block" }}>
+      <div ref={containerRef} style={{ position: "relative", display: "inline-block" }}>
         <button
+          ref={buttonRef}
           onClick={toggleMenu}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
@@ -646,7 +680,18 @@ export default function AttendanceManagement() {
         )}
 
         {showMenu && isDateTodayOrPast(date) && (
-          <div style={styles.dropdown}>
+          <div
+            ref={menuRef}
+            style={{
+              ...styles.dropdown,
+              position: 'fixed',
+              left: dropdownStyle.left,
+              top: dropdownStyle.top,
+              transform: 'none',
+              visibility: dropdownStyle.visibility || 'visible',
+              maxWidth: 340,
+            }}
+          >
             <button
               onClick={() => handleClick('VERIFIED')}
               style={styles.dropdownItem}

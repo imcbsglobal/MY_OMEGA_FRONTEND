@@ -68,6 +68,11 @@ import VehicleChallan from "./components/VehicleManagement/VehicleChallan";
 
 // Delivery Management
 import DeliveryList from "./components/DeliveryManagement/DeliveryList";
+
+// Warehouse Management
+import WarehouseAssign from "./components/WarehouseManagement/WarehouseAssign";
+import WarehouseAdminView from "./components/WarehouseManagement/WarehouseAdminView";
+import EmployeeWarehouseView from "./components/WarehouseManagement/EmployeeWarehouseView";
 import DeliveryForm from "./components/DeliveryManagement/DeliveryForm";
 import DeliveryDetail from "./components/DeliveryManagement/DeliveryDetail";
 import DeliveryStops from "./components/DeliveryManagement/DeliveryStops";
@@ -244,6 +249,11 @@ function App() {
 
           {/* Delivery Management */}
           <Route path="delivery-management/deliveries" element={<DeliveryList />} />
+
+          {/* Warehouse Management */}
+          <Route path="warehouse/assign" element={<WarehouseAssign />} />
+          <Route path="warehouse/admin" element={<WarehouseAdminView />} />
+          <Route path="warehouse/mytasks" element={<EmployeeWarehouseView />} />
           <Route path="delivery-management/deliveries/new" element={<DeliveryForm />} />
           <Route path="delivery-management/deliveries/:id" element={<DeliveryDetail />} />
           <Route path="delivery-management/deliveries/:id/edit" element={<DeliveryForm />} />

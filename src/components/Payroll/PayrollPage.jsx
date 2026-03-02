@@ -33,6 +33,7 @@ export default function PayrollPage() {
     unpaidLeaveDays: 0,
     absentDays: 0,
   });
+  // Removed bulk attendance fetch state (not used)
 
   const months = [
     { value: 1, label: "January" },
@@ -244,12 +245,22 @@ export default function PayrollPage() {
       const monthName = months.find((m) => m.value === selectedMonth)?.label;
       
       // Use the attendance-summary API endpoint
-      const response = await api.get(
-        `payroll/attendance-summary/?employee_id=${selectedEmployee.id}&month=${monthName}&year=${selectedYear}`
-      );
-      
+      // Try with month name first, fall back to month number if server errors
+      let response;
+      try {
+        response = await api.get(`payroll/attendance-summary/?employee_id=${selectedEmployee.id}&month=${monthName}&year=${selectedYear}`);
+      } catch (err) {
+        console.warn('Attendance summary with month name failed, retrying with month number', err);
+        try {
+          response = await api.get(`payroll/attendance-summary/?employee_id=${selectedEmployee.id}&month=${selectedMonth}&year=${selectedYear}`);
+        } catch (err2) {
+          // throw original error to be handled below
+          throw err2 || err;
+        }
+      }
+
       console.log("✓ Attendance Summary API Response:", response.data);
-      
+
       const data = response.data;
       
       // Extract attendance stats from the comprehensive response matching backend structure
@@ -320,9 +331,15 @@ export default function PayrollPage() {
       
       setAttendanceStats(statsObj);
     } catch (err) {
-      console.error("❌ Failed to fetch attendance stats:", err);
-      console.error("Error details:", err.response?.data || err.message);
-      setAttendanceStats({
+        console.error("❌ Failed to fetch attendance stats:", err);
+        console.error("Error details:", err.response?.data || err.message);
+
+        // Show user-friendly error if server provided details
+        const serverMsg = err.response?.data?.detail || err.response?.data?.message || err.response?.data || err.message;
+        const friendly = typeof serverMsg === 'string' ? serverMsg : 'Failed to calculate attendance summary';
+        setError(`Attendance: ${friendly}`);
+
+        setAttendanceStats({
         totalDaysInMonth: 0,
         totalWorkingDays: 0,
         sundays: 0,
@@ -347,6 +364,8 @@ export default function PayrollPage() {
       });
     }
   };
+
+  // Bulk attendance fetch removed as requested
 
   const fetchEmployeeAllowancesAndDeductions = async (emp) => {
     try {
@@ -588,6 +607,7 @@ export default function PayrollPage() {
               </select>
             </div>
           </div>
+          <div style={{ marginTop: 12 }} />
         </div>
 
         {error && (
