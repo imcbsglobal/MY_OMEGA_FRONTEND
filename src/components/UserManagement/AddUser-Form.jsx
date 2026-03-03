@@ -152,7 +152,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
                 <input
                   type="file"
                   id="userProfilePicture"
-                  accept="image/*"
+                  accept=".heic,.heif,image/*,image/heic,image/heif"
                   onChange={handlePictureChange}
                   style={styles.fileInput}
                 />
@@ -169,7 +169,7 @@ export default function AddUserForm({ onCancel, onSave, editData }) {
                   </button>
                 )}
                 <div style={styles.helperText}>
-                  Max 5MB (JPG, PNG)
+                  Max 5MB (JPG, PNG, HEIC/HEIF)
                 </div>
               </div>
             </div>

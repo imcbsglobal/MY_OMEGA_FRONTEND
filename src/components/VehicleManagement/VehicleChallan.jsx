@@ -460,9 +460,9 @@ export default function VehicleChallan() {
                 name="challan_document"
                 onChange={handleInputChange}
                 style={styles.input}
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,image/heic,image/heif"
               />
-              <div style={styles.muted}>Upload challan receipt/document (PDF, JPG, PNG)</div>
+              <div style={styles.muted}>Upload challan receipt/document (PDF, JPG, PNG, HEIC)</div>
             </div>
 
             {/* Payment Receipt */}
@@ -473,9 +473,9 @@ export default function VehicleChallan() {
                 name="payment_receipt"
                 onChange={handleInputChange}
                 style={styles.input}
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,image/heic,image/heif"
               />
-              <div style={styles.muted}>Upload payment receipt if paid</div>
+              <div style={styles.muted}>Upload payment receipt if paid (PDF, JPG, PNG, HEIC)</div>
             </div>
 
             {/* Remarks */}
