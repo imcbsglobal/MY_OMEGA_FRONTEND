@@ -419,7 +419,7 @@ export default function EmployeeForm() {
                 </label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept=".heic,.heif,image/*,image/heic,image/heif"
                   required={!isEdit}
                   style={{
                     padding: "10px 0",

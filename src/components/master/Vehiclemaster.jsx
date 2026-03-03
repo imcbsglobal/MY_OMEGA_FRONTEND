@@ -387,7 +387,7 @@ export default function VehicleMaster() {
                 type="file"
                 onChange={(e) => setFormData({...formData, photo: e.target.files[0]})}
                 style={styles.fileInput}
-                accept="image/*"
+                accept=".heic,.heif,image/*,image/heic,image/heif"
               />
               {formData.photo && <span style={styles.fileName}>{formData.photo.name}</span>}
             </div>

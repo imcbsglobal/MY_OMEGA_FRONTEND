@@ -426,7 +426,7 @@ export default function Travel() {
               <input
                 ref={startCameraRef}
                 type="file"
-                accept="image/*"
+                accept=".heic,.heif,image/*,image/heic,image/heif"
                 capture="environment"
                 style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
@@ -464,7 +464,7 @@ export default function Travel() {
               <input
                 ref={startGalleryRef}
                 type="file"
-                accept="image/*"
+                accept=".heic,.heif,image/*,image/heic,image/heif"
                 style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
                   const file = e.target.files && e.target.files[0];
@@ -681,7 +681,7 @@ export default function Travel() {
               <input
                 ref={endCameraRef}
                 type="file"
-                accept="image/*"
+                accept=".heic,.heif,image/*,image/heic,image/heif"
                 capture="environment"
                 style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
@@ -712,7 +712,7 @@ export default function Travel() {
               <input
                 ref={endGalleryRef}
                 type="file"
-                accept="image/*"
+                accept=".heic,.heif,image/*,image/heic,image/heif"
                 style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
                 onChange={async (e) => {
                   const file = e.target.files && e.target.files[0];
