@@ -63,8 +63,17 @@ export default function PayrollPage() {
   // Fetch payroll data when month/year changes (only after employee is selected)
   useEffect(() => {
     if (hasEmployeeSelected && selectedEmployee?.id) {
-      fetchPayrollData();
-      fetchAttendanceStats();
+      // Refresh employee profile allowances/basic salary first so UI reflects employee defaults
+      // then fetch month-specific payroll and attendance
+      (async () => {
+        try {
+          await fetchEmployeeAllowancesAndDeductions(selectedEmployee);
+        } catch (e) {
+          console.warn('Failed to refresh employee allowances before payroll fetch', e);
+        }
+        await fetchPayrollData();
+        await fetchAttendanceStats();
+      })();
     }
   }, [selectedMonth, selectedYear, hasEmployeeSelected, selectedEmployee?.id]);
 
@@ -94,40 +103,25 @@ export default function PayrollPage() {
       }
 
       // Fetch payroll data from backend
-      // Try with month name first, then with month number
+      // Always send both month name and month number for compatibility
       const monthName = months.find((m) => m.value === selectedMonth)?.label;
+      const params = `employee_id=${encodeURIComponent(
+        selectedEmployee.id
+      )}&month=${encodeURIComponent(monthName || '')}&month_number=${encodeURIComponent(
+        String(selectedMonth)
+      )}&year=${encodeURIComponent(String(selectedYear))}`;
 
-      console.log("Fetching payroll for:", {
-        employee_id: selectedEmployee.id,
-        month: monthName,
-        monthNumber: selectedMonth,
-        year: selectedYear,
-      });
+      console.log("Fetching payroll for:", { employee_id: selectedEmployee.id, month: monthName, monthNumber: selectedMonth, year: selectedYear });
 
       let response;
       let payrollList = [];
-
-      // Try fetching with month name
       try {
-        response = await api.get(
-          `/payroll/payroll/?employee_id=${selectedEmployee.id}&month=${monthName}&year=${selectedYear}`
-        );
+        response = await api.get(`/payroll/payroll/?${params}`);
         payrollList = Array.isArray(response.data)
           ? response.data
           : response.data?.results || [];
       } catch (err) {
-        console.warn("Month name fetch failed, trying with month number");
-        // Try with month number if month name fails
-        try {
-          response = await api.get(
-            `/payroll/payroll/?employee_id=${selectedEmployee.id}&month=${selectedMonth}&year=${selectedYear}`
-          );
-          payrollList = Array.isArray(response.data)
-            ? response.data
-            : response.data?.results || [];
-        } catch (err2) {
-          console.warn("Both fetch attempts failed", err, err2);
-        }
+        console.warn("Payroll fetch failed:", err);
       }
 
       console.log("Payroll API Response:", response?.data);
@@ -240,23 +234,21 @@ export default function PayrollPage() {
       console.log("Employee ID:", selectedEmployee.id);
       console.log("Month:", selectedMonth);
       console.log("Year:", selectedYear);
-      
-      // Get month name for the API
+
+      // Ensure we send the full month name and month number for compatibility
       const monthName = months.find((m) => m.value === selectedMonth)?.label;
-      
-      // Use the attendance-summary API endpoint
-      // Try with month name first, fall back to month number if server errors
+      const attendanceParams = `employee_id=${encodeURIComponent(
+        selectedEmployee.id
+      )}&month=${encodeURIComponent(monthName || '')}&month_number=${encodeURIComponent(
+        String(selectedMonth)
+      )}&year=${encodeURIComponent(String(selectedYear))}`;
+
       let response;
       try {
-        response = await api.get(`payroll/attendance-summary/?employee_id=${selectedEmployee.id}&month=${monthName}&year=${selectedYear}`);
+        response = await api.get(`payroll/attendance-summary/?${attendanceParams}`);
       } catch (err) {
-        console.warn('Attendance summary with month name failed, retrying with month number', err);
-        try {
-          response = await api.get(`payroll/attendance-summary/?employee_id=${selectedEmployee.id}&month=${selectedMonth}&year=${selectedYear}`);
-        } catch (err2) {
-          // throw original error to be handled below
-          throw err2 || err;
-        }
+        console.warn('Attendance summary fetch failed', err);
+        throw err;
       }
 
       console.log("✓ Attendance Summary API Response:", response.data);

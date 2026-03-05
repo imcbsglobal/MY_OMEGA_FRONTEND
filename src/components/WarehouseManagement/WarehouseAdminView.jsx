@@ -276,10 +276,18 @@ export default function WarehouseAdminView() {
                     <p style={{ margin: "3px 0 0", fontSize: 11, color: "#9ca3af" }}>
                       {task.assigned_to_name}
                       <span style={{ margin: "0 5px" }}>·</span>
-                      {task.total_work} units
+                      {task.completed_work} / {task.total_work} units
+                      <span style={{ margin: "0 5px" }}>·</span>
+                      {task.completion_percentage}%
                       <span style={{ margin: "0 5px" }}>·</span>
                       Due {task.due_date}
                     </p>
+                    {task.remarks ? (
+                      <p style={{ margin: "6px 0 0", fontSize: 12, color: "#374151", background: "#f8fafc", padding: "8px 10px", borderRadius: 8 }}>
+                        <strong style={{ fontSize: 12, color: "#111827" }}>Employee notes:</strong>
+                        <span style={{ marginLeft: 8 }}>{task.remarks}</span>
+                      </p>
+                    ) : null}
                   </div>
                   <StatusBadge status={task.status} />
                 </li>

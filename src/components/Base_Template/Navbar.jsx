@@ -364,6 +364,25 @@ import { useState, useEffect, useRef } from "react";
     ];
 
     const navItems = isAdmin ? adminNavItems : menuTree;
+    
+    // Filter non-admin menuTree to only include items the user can view
+    const filterVisible = (items) => {
+      return (items || [])
+        .map((it) => {
+          const children = filterVisible(it.children || []);
+          const canView = it.allowed_actions?.can_view ?? true;
+          if (canView || (children && children.length > 0)) {
+            return {
+              ...it,
+              children,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+    };
+
+    const visibleNavItems = isAdmin ? adminNavItems : filterVisible(menuTree);
 
     const handleMenuClick = (item, event, itemKey) => {
       if (item.children && item.children.length > 0) {
@@ -705,7 +724,7 @@ import { useState, useEffect, useRef } from "react";
         return null;
       };
 
-      const activeItem = findItem(navItems, activeSubmenu);
+      const activeItem = findItem(visibleNavItems, activeSubmenu);
       return activeItem?.children || null;
     };
 
@@ -998,12 +1017,12 @@ import { useState, useEffect, useRef } from "react";
                 </button>
               </div>
             )}
-            {navItems.length === 0 && !isAdmin && !loading ? (
+            {visibleNavItems.length === 0 && !isAdmin && !loading ? (
               <div style={{ padding: "16px", color: "#94a3b8", fontSize: "14px", textAlign: "center" }}>
                 {isCollapsed ? "No menu" : "No menus assigned. Please contact administrator."}
               </div>
             ) : (
-              renderMainMenuItems(navItems)
+              renderMainMenuItems(visibleNavItems)
             )}
           </div>
 
