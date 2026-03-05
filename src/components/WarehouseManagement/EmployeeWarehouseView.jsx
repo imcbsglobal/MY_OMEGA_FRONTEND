@@ -113,21 +113,26 @@ function ProgressBar({ pct }) {
 
 /* ── Task Card ────────────────────────────────────────────────── */
 function TaskCard({ task, onSave, isLast }) {
-  const [completedWork, setCompletedWork] = useState(task.completed_work);
+  // keep as string so user can clear the input (empty string) instead of it auto-converting to 0
+  const [completedWork, setCompletedWork] = useState(
+    task.completed_work != null ? String(task.completed_work) : ""
+  );
   const [status,        setStatus]        = useState(task.status);
   const [remarks,       setRemarks]       = useState(task.remarks || "");
   const [showForm,      setShowForm]      = useState(false);
   const [saving,        setSaving]        = useState(false);
 
-  const pct    = task.total_work > 0 ? Math.min(100, Math.round((completedWork / task.total_work) * 100)) : 0;
+  const numericCompleted = Number(completedWork) || 0;
+  const pct = task.total_work > 0 ? Math.min(100, Math.round((numericCompleted / task.total_work) * 100)) : 0;
   const isDone = task.status === "Completed";
 
   const handleSave = async () => {
-    if (completedWork > task.total_work)
+    const toSave = Number(completedWork) || 0;
+    if (toSave > task.total_work)
       return toast.error(`Cannot exceed total (${task.total_work}).`);
     setSaving(true);
     try {
-      const res = await api.patch(`warehouse/update/${task.id}/`, { completed_work: completedWork, status, remarks });
+      const res = await api.patch(`warehouse/update/${task.id}/`, { completed_work: toSave, status, remarks });
       toast.success("Updated!");
       setShowForm(false);
       onSave(res.data);
@@ -228,7 +233,13 @@ function TaskCard({ task, onSave, isLast }) {
               min="0"
               max={task.total_work}
               value={completedWork}
-              onChange={(e) => setCompletedWork(Number(e.target.value))}
+              onChange={(e) => {
+                // allow empty string so user can clear the field; otherwise keep numeric characters only
+                const v = e.target.value;
+                if (v === "") return setCompletedWork("");
+                // keep numeric value as string
+                setCompletedWork(String(v));
+              }}
               style={inputStyle}
             />
           </div>

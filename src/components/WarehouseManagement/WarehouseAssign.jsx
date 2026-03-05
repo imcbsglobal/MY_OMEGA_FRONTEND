@@ -84,18 +84,24 @@ export default function WarehouseAssign() {
   const [form, setForm] = useState({
     assigned_to  : "",
     task_title   : "",
+    task_title_custom: "",
     description  : "",
     total_work   : "",
     assigned_date: today,
     due_date     : "",
   });
 
+  const [customTitles, setCustomTitles] = useState([]);
+
+  // Load custom titles from localStorage on mount
   useEffect(() => {
     setLoading(true);
     api.get("warehouse/employees/")
       .then((res) => setEmployees(res.data))
       .catch(()   => toast.error("Failed to load employee list."))
       .finally(() => setLoading(false));
+    const savedTitles = JSON.parse(localStorage.getItem('warehouseCustomTaskTitles') || '[]');
+    setCustomTitles(savedTitles);
   }, []);
 
   const handleChange = (e) =>
@@ -104,16 +110,34 @@ export default function WarehouseAssign() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.assigned_to)                    return toast.error("Please select an employee.");
+    if (form.task_title === "custom" && !form.task_title_custom.trim())
+      return toast.error("Custom task title is required.");
     if (!form.task_title.trim())               return toast.error("Task title is required.");
     if (!form.total_work || Number(form.total_work) <= 0)
                                                return toast.error("Total work must be greater than 0.");
     if (!form.due_date)                        return toast.error("Due date is required.");
 
+    // Save custom task title if entered
+    if (form.task_title === "custom" && form.task_title_custom.trim()) {
+      const savedTitles = JSON.parse(localStorage.getItem('warehouseCustomTaskTitles') || '[]');
+      if (!savedTitles.includes(form.task_title_custom.trim())) {
+        const updatedTitles = [...savedTitles, form.task_title_custom.trim()];
+        localStorage.setItem('warehouseCustomTaskTitles', JSON.stringify(updatedTitles));
+        setCustomTitles(updatedTitles);
+      }
+    }
+
     setSubmitting(true);
     try {
-      await api.post("warehouse/assign/", { ...form, total_work: Number(form.total_work) });
+      // Use custom title if selected
+      const submitData = {
+        ...form,
+        task_title: form.task_title === "custom" ? form.task_title_custom.trim() : form.task_title,
+        total_work: Number(form.total_work)
+      };
+      await api.post("warehouse/assign/", submitData);
       toast.success("Task assigned successfully!");
-      setForm({ assigned_to: "", task_title: "", description: "", total_work: "", assigned_date: today, due_date: "" });
+      setForm({ assigned_to: "", task_title: "", task_title_custom: "", description: "", total_work: "", assigned_date: today, due_date: "" });
     } catch (err) {
       toast.error(err?.response?.data?.detail || JSON.stringify(err?.response?.data) || "Failed to assign task.");
     } finally {
@@ -183,17 +207,43 @@ export default function WarehouseAssign() {
           {/* Task Title */}
           <div>
             <Label icon="✏️" text="Task Title" required />
-            <input
-              type="text"
-              name="task_title"
-              value={form.task_title}
-              onChange={handleChange}
-              onFocus={() => setFocusedField("task_title")}
-              onBlur={() => setFocusedField(null)}
-              placeholder="e.g., Stock Counting – Section A"
-              style={{ ...inputStyle, ...getFocusStyle("task_title") }}
-              required
-            />
+            <div style={{ position: "relative" }}>
+              <select
+                name="task_title"
+                value={form.task_title}
+                onChange={handleChange}
+                onFocus={() => setFocusedField("task_title")}
+                onBlur={() => setFocusedField(null)}
+                style={{ ...inputStyle, appearance: "none", paddingRight: 36, cursor: "pointer", ...getFocusStyle("task_title") }}
+                required
+              >
+                <option value="">Choose a task title...</option>
+                {/* Custom titles from localStorage */}
+                {customTitles.map((title, idx) => (
+                  <option key={"custom-"+idx} value={title}>{title}</option>
+                ))}
+                {/* Default options */}
+                <option value="Supporting">Supporting</option>
+                <option value="MRP Sticking">MRP Sticking</option>
+                <option value="Running Stock Filling">Running Stock Filling</option>
+                <option value="Godown Filling">Godown Filling</option>
+                <option value="custom">Other (Type below)</option>
+              </select>
+              <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#9ca3af", fontSize: 11, pointerEvents: "none" }}>▼</span>
+            </div>
+            {form.task_title === "custom" && (
+              <input
+                type="text"
+                name="task_title_custom"
+                value={form.task_title_custom || ""}
+                onChange={e => setForm(f => ({ ...f, task_title_custom: e.target.value }))}
+                onFocus={() => setFocusedField("task_title_custom")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="Type custom task title..."
+                style={{ ...inputStyle, marginTop: 8, ...getFocusStyle("task_title_custom") }}
+                required
+              />
+            )} 
           </div>
 
           {/* Description */}

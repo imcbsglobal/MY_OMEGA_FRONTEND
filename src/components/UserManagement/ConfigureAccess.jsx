@@ -50,25 +50,17 @@ export default function ConfigureAccess() {
 
   // Missing ROOT MENUS (top level)
   const missingRootMenus = [
-    // { id: 8001, title: "Marketing", children: [] },
-    // {
-    //   id: 8002,
-    //   title: "Vehicle Management",
-    //   children: [
-    //     { id: 8003, title: "Company Vehicle", path: "/company-vehicle" },
-    //     { id: 8004, title: "Non Company Vehicle", path: "/non-company-vehicle" },
-    //   ],
-    // },
-    // { id: 8005, title: "Target Management", children: [] },
-    // { id: 8006, title: "Warehouse Management", children: [] },
-    // { id: 8007, title: "Delivery Management", children: [] },
-    // {
-    //   id: 8008,
-    //   title: "Master",
-    //   children: [
-    //     { id: 8009, title: "Job Titles", path: "/master/job-titles" },
-    //   ],
-    // },
+    // Add missing root menus here. "Warehouse Management" is included below.
+    {
+      id: 8006,
+      title: "Warehouse Management",
+      name: "Warehouse Management",
+      children: [
+        { id: 8104, title: "Assign Work", name: "Assign Work", path: "/warehouse/assign" },
+        { id: 8105, title: "Task Monitor", name: "Task Monitor", path: "/warehouse/admin" },
+        { id: 8106, title: "My Warehouse Tasks", name: "My Warehouse Tasks", path: "/warehouse/mytasks" },
+      ],
+    },
   ];
 
   // Recursive renderer (unchanged)
@@ -152,7 +144,17 @@ export default function ConfigureAccess() {
         // Inject missing root menus
         finalTree = [...finalTree, ...missingRootMenus];
 
+        // Remove specific warehouse entries that shouldn't appear in Configure Access
+        const removalNames = new Set(["Warehouses", "Stock", "Stock Transfer"]);
+        const filterRemoved = (nodes) =>
+          (nodes || [])
+            .map((n) => ({ ...n, children: filterRemoved(n.children || []) }))
+            .filter((n) => !removalNames.has(n.title));
+
+        finalTree = filterRemoved(finalTree);
+
         setMenuStructure(finalTree);
+        console.log("ConfigureAccess: final menuStructure:", finalTree);
 
         // Load existing permissions for this user and initialize checked state
         try {
@@ -358,7 +360,7 @@ export default function ConfigureAccess() {
           <button
             onClick={handleSave}
             style={{
-              padding: "12px 24px",
+              padding: "12px 24px", 
               background: "#16a34a",
               color: "#fff",
               borderRadius: "8px",
