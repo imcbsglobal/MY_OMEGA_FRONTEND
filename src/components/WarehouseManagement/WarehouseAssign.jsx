@@ -15,6 +15,7 @@ function WarehouseTabs() {
   const tabs = [
     { label: "Task Monitor", icon: "📊", path: "/warehouse/admin"  },
     { label: "Assign Work",  icon: "📋", path: "/warehouse/assign" },
+    { label: "Report",       icon: "📄", path: "/warehouse/duty-report" },
   ];
   return (
     <div style={{ display: "flex", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", marginBottom: 24, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", width: "fit-content" }}>
