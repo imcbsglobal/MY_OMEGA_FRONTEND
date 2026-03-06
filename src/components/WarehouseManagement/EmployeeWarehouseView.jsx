@@ -21,6 +21,7 @@ function WarehouseTabs() {
     ...(isAdmin ? [
       { label: "Monitor", icon: "📊", path: "/warehouse/admin" },
       { label: "Assign",  icon: "📋", path: "/warehouse/assign" },
+      { label: "Report",  icon: "📄", path: "/warehouse/duty-report" },
     ] : []),
   ];
 
@@ -58,7 +59,7 @@ function WarehouseTabs() {
               borderBottom: active ? `2px solid ${PRIMARY}` : "2px solid transparent",
               transition: "all 0.15s",
               fontFamily: "inherit",
-            }}
+            }}     
           >
             <span>{t.icon}</span> {t.label}
           </button>

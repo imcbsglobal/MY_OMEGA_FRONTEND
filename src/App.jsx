@@ -65,14 +65,20 @@ import PayslipPage from "./components/Payroll/PayslipPage";
 import FuelManagement from "./components/VehicleManagement/FuelManagement";
 import Travel from "./components/VehicleManagement/Travel";
 import VehicleChallan from "./components/VehicleManagement/VehicleChallan";
+import TravelReport from "./components/Report/TravelReport";
+import RouteTargetReport from "./components/Report/RouteTargetReport";
+import CallTargetReport from "./components/Report/CallTargetReport";
+import MarketingTargetReport from "./components/Report/MarketingTargetReport";
 
 // Delivery Management
 import DeliveryList from "./components/DeliveryManagement/DeliveryList";
+import DeliveryReport from "./components/Report/DeliveryReport";
 
 // Warehouse Management
 import WarehouseAssign from "./components/WarehouseManagement/WarehouseAssign";
 import WarehouseAdminView from "./components/WarehouseManagement/WarehouseAdminView";
 import EmployeeWarehouseView from "./components/WarehouseManagement/EmployeeWarehouseView";
+import WarehouseDutyReport from "./components/Report/WarehouseDutyReport";
 import DeliveryForm from "./components/DeliveryManagement/DeliveryForm";
 import DeliveryDetail from "./components/DeliveryManagement/DeliveryDetail";
 import DeliveryStops from "./components/DeliveryManagement/DeliveryStops";
@@ -201,6 +207,10 @@ function App() {
           <Route path="vehicle/fuel-management" element={<FuelManagement />} />
           <Route path="vehicle/travel" element={<Travel />} />
           <Route path="vehicle/challan" element={<VehicleChallan />} />
+          <Route path="vehicle/travel-report" element={<TravelReport />} />
+          <Route path="target/route-target-report" element={<RouteTargetReport />} />
+          <Route path="target/call-target-report" element={<CallTargetReport />} />
+          <Route path="target/marketing-target-report" element={<MarketingTargetReport />} />
 
           {/* ============== TARGET MANAGEMENT ROUTES ============== */}
           
@@ -249,11 +259,13 @@ function App() {
 
           {/* Delivery Management */}
           <Route path="delivery-management/deliveries" element={<DeliveryList />} />
+          <Route path="delivery-management/report" element={<DeliveryReport />} />
 
           {/* Warehouse Management */}
           <Route path="warehouse/assign" element={<WarehouseAssign />} />
           <Route path="warehouse/admin" element={<WarehouseAdminView />} />
           <Route path="warehouse/mytasks" element={<EmployeeWarehouseView />} />
+          <Route path="warehouse/duty-report" element={<WarehouseDutyReport />} />
           <Route path="delivery-management/deliveries/new" element={<DeliveryForm />} />
           <Route path="delivery-management/deliveries/:id" element={<DeliveryDetail />} />
           <Route path="delivery-management/deliveries/:id/edit" element={<DeliveryForm />} />

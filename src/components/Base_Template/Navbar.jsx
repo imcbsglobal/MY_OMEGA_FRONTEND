@@ -361,6 +361,18 @@ import { useState, useEffect, useRef } from "react";
            { name: "Vehicle Master", path: "/master/vehicle-master", icon: Car },
         ]
       },
+      {
+        name: "Report",
+        icon: BarChart2,
+        children: [
+          { name: "Warehouse Duty Report",    path: "/warehouse/duty-report",           icon: FileText },
+          { name: "Travel Report",             path: "/vehicle/travel-report",           icon: FileText },
+          { name: "Delivery Report",           path: "/delivery-management/report",      icon: FileText },
+          { name: "Route Target Report",       path: "/target/route-target-report",      icon: FileText },
+          { name: "Call Target Report",        path: "/target/call-target-report",       icon: FileText },
+          { name: "Marketing Target Report",   path: "/target/marketing-target-report",  icon: FileText },
+        ]
+      },
     ];
 
     const navItems = isAdmin ? adminNavItems : menuTree;
