@@ -61,6 +61,9 @@ export default function TravelReport() {
   const [loading, setLoading] = useState(false);
   const [userName, setUserName] = useState("");
   const printRef = useRef(null);
+  const [vehicleMasterSearch, setVehicleMasterSearch] = useState("");
+  const [vehicleMaster, setVehicleMaster] = useState([]);
+  const [selectedVehicle, setSelectedVehicle] = useState(null); // { id, registration_number, vehicle_name }
 
   // load employees from warehouse employees API (active employees)
   useEffect(() => {
@@ -74,8 +77,18 @@ export default function TravelReport() {
     setUserName(emp?.name || "");
   }, [selectedUser, employees]);
 
+  // Fetch vehicle master list from backend
+  useEffect(() => {
+    api.get("/vehicle-management/vehicles/")
+      .then(r => setVehicleMaster(r.data))
+      .catch(() => toast.error("Failed to load vehicle master list"));
+  }, []);
+
   function fetchReport() {
-    if (!selectedUser) { toast.warning("Please select an employee"); return; }
+    if (!selectedVehicle && !selectedUser) {
+      toast.warning("Please select an employee or search by vehicle");
+      return;
+    }
     setLoading(true);
 
     // Build date range for selected month/year
@@ -85,9 +98,14 @@ export default function TravelReport() {
     const lastDay = new Date(y, m, 0).getDate();
     const endDate = `${y}-${String(m).padStart(2,"0")}-${String(lastDay).padStart(2,"0")}`;
 
-    api.get("/vehicle-management/trips/", {
-      params: { employee: selectedUser, start_date: startDate, end_date: endDate }
-    })
+    const params = { start_date: startDate, end_date: endDate };
+    if (selectedVehicle) {
+      params.vehicle = selectedVehicle.id;
+    } else {
+      params.employee = selectedUser;
+    }
+
+    api.get("/vehicle-management/trips/", { params })
       .then(r => {
         const data = Array.isArray(r.data) ? r.data : (r.data?.results || []);
         // sort by date asc
@@ -104,7 +122,7 @@ export default function TravelReport() {
 
     const title    = `TRAVEL MANAGEMENT REPORT - ${userName.toUpperCase()}`;
     const subtitle = `${MONTHS[Number(month) - 1]} ${year}`;
-    const headers  = ["#","DATE","VEHICLE","TRAVELED BY","CLIENT & PURPOSE","START TIME","END TIME","ODO START","ODO END","DISTANCE (KM)","FUEL COST (₹)","STATUS"];
+    const headers  = ["#","DATE","VEHICLE","TRAVELED BY","CLIENT & PURPOSE","ROUTE","START TIME","END TIME","ODO START","ODO END","DISTANCE (KM)","FUEL COST (₹)","STATUS"];
 
     const wsData = [
       [title],
@@ -117,6 +135,7 @@ export default function TravelReport() {
         `${t.vehicle_info?.registration_number || ""}${t.vehicle_info?.vehicle_name ? "\n" + t.vehicle_info.vehicle_name : ""}`,
         t.employee_info?.full_name || t.employee_info?.email || "—",
         `${t.client_name || ""}${t.purpose ? " / " + t.purpose : ""}`,
+        t.route || "—",
         t.start_time ? fmtTime(t.start_time) : "—",
         t.end_time   ? fmtTime(t.end_time)   : "—",
         t.odometer_start ?? "—",
@@ -129,11 +148,11 @@ export default function TravelReport() {
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 11 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 11 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 12 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 12 } },
     ];
     ws["!cols"] = [
-      { wch: 4 }, { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 28 },
+      { wch: 4 }, { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 28 }, { wch: 24 },
       { wch: 11 }, { wch: 11 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     ];
 
@@ -146,6 +165,11 @@ export default function TravelReport() {
     if (!trips.length) { toast.warning("No data to print"); return; }
     window.print();
   }
+
+  // Normalize vehicle master list (API can return array or paginated object)
+  const vehicleMasterList = Array.isArray(vehicleMaster)
+    ? vehicleMaster
+    : (vehicleMaster?.results || []);
 
   // Summary stats
   const totalDistance  = trips.reduce((s, t) => s + (parseFloat(t.distance_km)  || 0), 0);
@@ -168,20 +192,22 @@ export default function TravelReport() {
         </h2>
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          {/* Employee */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 200 }}>
-            <label style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Employee</label>
-            <select
-              value={selectedUser}
-              onChange={e => setSelectedUser(e.target.value)}
-              style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, background: "#fff", cursor: "pointer" }}
-            >
-              <option value="">— Select Employee —</option>
-              {employees.map(e => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
-            </select>
-          </div>
+          {/* Employee — hidden when a vehicle is selected */}
+          {!selectedVehicle && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 200 }}>
+              <label style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Employee</label>
+              <select
+                value={selectedUser}
+                onChange={e => setSelectedUser(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, background: "#fff", cursor: "pointer" }}
+              >
+                <option value="">— Select Employee —</option>
+                {employees.map(e => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Month */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 140 }}>
@@ -210,6 +236,58 @@ export default function TravelReport() {
               ))}
             </select>
           </div>
+
+          {/* Vehicle Master Search — hidden when an employee is selected */}
+          {!selectedUser && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 200, position: "relative" }}>
+              <label style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Vehicle Search</label>
+              {selectedVehicle ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, border: "1px solid #10b981", background: "#f0fdf4", fontSize: 13 }}>
+                  <span style={{ flex: 1 }}><strong>{selectedVehicle.registration_number}</strong> — {selectedVehicle.vehicle_name}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedVehicle(null); setVehicleMasterSearch(""); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontWeight: 700, fontSize: 16, lineHeight: 1 }}
+                    title="Clear vehicle"
+                  >×</button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={vehicleMasterSearch}
+                    onChange={e => setVehicleMasterSearch(e.target.value)}
+                    placeholder="Type reg. no or name…"
+                    style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, background: "#fff" }}
+                  />
+                  {vehicleMasterSearch && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #d1d5db", borderRadius: 8, marginTop: 4, maxHeight: 200, overflowY: "auto", zIndex: 50, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                      {vehicleMasterList.filter(v =>
+                        v.registration_number.toLowerCase().includes(vehicleMasterSearch.toLowerCase()) ||
+                        v.vehicle_name.toLowerCase().includes(vehicleMasterSearch.toLowerCase())
+                      ).map(v => (
+                        <div
+                          key={v.id}
+                          onClick={() => { setSelectedVehicle(v); setVehicleMasterSearch(""); }}
+                          style={{ padding: "8px 12px", borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                          onMouseLeave={e => e.currentTarget.style.background = ""}
+                        >
+                          <strong>{v.registration_number}</strong> — {v.vehicle_name}
+                        </div>
+                      ))}
+                      {vehicleMasterList.filter(v =>
+                        v.registration_number.toLowerCase().includes(vehicleMasterSearch.toLowerCase()) ||
+                        v.vehicle_name.toLowerCase().includes(vehicleMasterSearch.toLowerCase())
+                      ).length === 0 && (
+                        <div style={{ padding: "8px 12px", color: "#9ca3af" }}>No vehicles found</div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           <button
             onClick={fetchReport}
@@ -287,7 +365,7 @@ export default function TravelReport() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "#10b981" }}>
-                  {["#","VEHICLE","TRAVELED BY","CLIENT & PURPOSE","DATE","START TIME","END TIME","ODO START","ODO END","DISTANCE (KM)","FUEL COST","STATUS"].map(h => (
+                  {["#","VEHICLE","TRAVELED BY","CLIENT & PURPOSE","ROUTE","DATE","START TIME","END TIME","ODO START","ODO END","DISTANCE (KM)","FUEL COST","STATUS"].map(h => (
                     <th key={h} style={{
                       padding: "10px 12px",
                       textAlign: "left",
@@ -316,6 +394,7 @@ export default function TravelReport() {
                       <div style={{ fontWeight: 500 }}>{t.client_name || "—"}</div>
                       {t.purpose && <div style={{ fontSize: 11, color: "#6b7280" }}>{t.purpose}</div>}
                     </td>
+                    <td style={{ ...td, maxWidth: 180, color: "#374151" }}>{t.route || "—"}</td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>{fmtDate(t.date)}</td>
                     <td style={{ ...td, whiteSpace: "nowrap", color: "#2563eb", fontWeight: 500 }}>{t.start_time ? fmtTime(t.start_time) : "—"}</td>
                     <td style={{ ...td, whiteSpace: "nowrap", color: "#2563eb", fontWeight: 500 }}>{t.end_time   ? fmtTime(t.end_time)   : "—"}</td>
@@ -330,7 +409,7 @@ export default function TravelReport() {
               {/* Totals row */}
               <tfoot>
                 <tr style={{ background: "#f0fdf4", borderTop: "2px solid #bbf7d0" }}>
-                  <td colSpan={9} style={{ ...td, fontWeight: 700, textAlign: "right", color: "#111827" }}>Totals:</td>
+                  <td colSpan={10} style={{ ...td, fontWeight: 700, textAlign: "right", color: "#111827" }}>Totals:</td>
                   <td style={{ ...td, fontWeight: 700, color: "#7c3aed" }}>{totalDistance.toFixed(2)}</td>
                   <td style={{ ...td, fontWeight: 700, color: "#ea580c" }}>₹{totalFuelCost.toFixed(2)}</td>
                   <td style={td}></td>
@@ -380,3 +459,5 @@ const td = {
   verticalAlign: "top",
   borderRight: "1px solid #f3f4f6",
 };
+
+

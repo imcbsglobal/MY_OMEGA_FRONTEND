@@ -67,11 +67,11 @@ export default function EmployeeView() {
           <Row label="designation" value={show(employee.designation ?? employee.job_info?.designation)} />
           <Row label="reporting_manager" value={show(employee.reporting_manager ?? employee.job_info?.reporting_manager)} />
           <Row label="date_of_joining" value={show(employee.date_of_joining ?? employee.job_info?.date_of_joining)} />
-          <Row label="date_of_leaving" value={show(employee.date_of_leaving ?? employee.job_info?.date_of_leaving)} />
+
           <Row label="probation_end_date" value={show(employee.probation_end_date ?? employee.job_info?.probation_end_date)} />
           <Row label="confirmation_date" value={show(employee.confirmation_date ?? employee.job_info?.confirmation_date)} />
           <Row label="basic_salary" value={show(employee.basic_salary ?? employee.job_info?.basic_salary)} />
-          <Row label="allowances" value={show(employee.allowances ?? employee.job_info?.allowances)} />
+
           <Row label="gross_salary" value={show(employee.gross_salary ?? employee.job_info?.gross_salary)} />
           <Row label="location" value={show(employee.location ?? employee.job_info?.location)} />
           <Row label="work_location" value={show(employee.work_location ?? employee.job_info?.work_location)} />

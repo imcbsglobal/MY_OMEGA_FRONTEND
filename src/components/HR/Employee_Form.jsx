@@ -23,7 +23,7 @@ export default function EmployeeForm() {
     duty_time: "",
     reporting_manager: "",
     date_of_joining: "",
-    date_of_leaving: "",
+
     probation_end_date: "",
     confirmation_date: "",
     basic_salary: "",

@@ -25,6 +25,7 @@ export default function Travel() {
     time_period: 'AM',
     client_name: '',
     purpose: '',
+    route: '',
     odometer_start_image: null,
     odometer_start_preview: null,
   });
@@ -150,6 +151,7 @@ export default function Travel() {
       client_purpose: trip.client_name && trip.purpose 
         ? `${trip.client_name}\n${trip.purpose}` 
         : trip.purpose || '—',
+      route: trip.route || '—',
       date: formatDate(trip.date),
       start_time: formatTime(trip.start_time, trip.time_period),
       end_time: trip.end_time ? formatTime(trip.end_time, trip.time_period) : '—',
@@ -210,6 +212,7 @@ export default function Travel() {
       submitData.append('time_period', formData.time_period);
       submitData.append('client_name', formData.client_name || '');
       submitData.append('purpose', formData.purpose || '');
+      submitData.append('route', formData.route || '');
       
       if (formData.odometer_start_image) {
         submitData.append('odometer_start_image', formData.odometer_start_image);
@@ -236,6 +239,7 @@ export default function Travel() {
         time_period: 'AM',
         client_name: '',
         purpose: '',
+        route: '',
         odometer_start_image: null,
       });
       
@@ -414,6 +418,18 @@ export default function Travel() {
                 <option value="Product delivery&collection">Product delivery&collection</option>
               </select>
               {errors.purpose && <span style={styles.errorText}>{errors.purpose}</span>}
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Route</label>
+              <input
+                type="text"
+                value={formData.route}
+                onChange={(e) => setFormData({...formData, route: e.target.value})}
+                style={styles.input}
+                placeholder="e.g. Kochi → Thrissur → Palakkad"
+              />
+              {errors.route && <span style={styles.errorText}>{errors.route}</span>}
             </div>
           </div>
 
@@ -845,6 +861,7 @@ export default function Travel() {
                 <th style={styles.tableHeader}>VEHICLE</th>
                 <th style={styles.tableHeader}>TRAVELED BY</th>
                 <th style={styles.tableHeader}>CLIENT & PURPOSE</th>
+                <th style={styles.tableHeader}>ROUTE</th>
                 <th style={styles.tableHeader}>DATE</th>
                 <th style={styles.tableHeader}>START TIME</th>
                 <th style={styles.tableHeader}>END TIME</th>
@@ -860,11 +877,11 @@ export default function Travel() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="14" style={styles.noData}>Loading trips...</td>
+                  <td colSpan="15" style={styles.noData}>Loading trips...</td>
                 </tr>
               ) : trips.length === 0 ? (
                 <tr>
-                  <td colSpan="14" style={styles.noData}>No trips found. Start your first trip!</td>
+                  <td colSpan="15" style={styles.noData}>No trips found. Start your first trip!</td>
                 </tr>
               ) : (
                 trips.map((trip, index) => (
@@ -893,6 +910,7 @@ export default function Travel() {
                         trip.client_purpose
                       )}
                     </td>
+                    <td style={styles.tableCell}>{trip.route}</td>
                     <td style={styles.tableCell}>{trip.date}</td>
                     <td style={styles.tableCell}>{trip.start_time}</td>
                     <td style={styles.tableCell}>{trip.end_time}</td>
