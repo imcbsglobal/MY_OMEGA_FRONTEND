@@ -20,20 +20,12 @@ export default function FuelManagement() {
   const [errorMessage, setErrorMessage] = useState('');
   const [imageModal, setImageModal] = useState({ show: false, url: '', title: '' });
 
-  // Check if user is admin
-  useEffect(() => {
-    if (!isAdmin) {
-      window.location.href = '/';
-    }
-  }, [isAdmin]);
 
   // Fetch trips and vehicles data
   useEffect(() => {
-    if (isAdmin) {
-      fetchTrips();
-      fetchVehicles();
-    }
-  }, [isAdmin]);
+    fetchTrips();
+    fetchVehicles();
+  }, []);
 
   // Fetch all vehicles for filter dropdown
   const fetchVehicles = async () => {

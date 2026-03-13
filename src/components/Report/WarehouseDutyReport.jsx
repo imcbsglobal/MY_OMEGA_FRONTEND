@@ -10,7 +10,7 @@ const PRIMARY_DARK = "#ef4444";
 function WarehouseTabs() {
 const navigate     = useNavigate();
 const { pathname } = useLocation();
-const user    = JSON.parse(localStorage.getItem("user") || "{}");
+const user    = JSON.parse(localStorage.getItem("xuser") || "{}");
 const level   = user?.user_level || "User";
 const isAdmin = level === "Admin" || level === "Super Admin" || user?.is_staff || user?.is_superuser;
 

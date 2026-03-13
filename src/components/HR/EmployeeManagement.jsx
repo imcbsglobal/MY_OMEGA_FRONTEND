@@ -426,7 +426,7 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
           <Info label="Duty Time" value={employee.duty_time || employee.job_info?.duty_time} />
           <Info label="Reporting Manager" value={employee.reporting_manager || employee.job_info?.reporting_manager} />
           <Info label="Date of Joining" value={employee.date_of_joining || employee.job_info?.date_of_joining} />
-          <Info label="Date of Leaving" value={employee.date_of_leaving || employee.job_info?.date_of_leaving} />
+
           <Info label="Probation End Date" value={employee.probation_end_date || employee.job_info?.probation_end_date} />
           <Info label="Confirmation Date" value={employee.confirmation_date || employee.job_info?.confirmation_date} />
         </div>
@@ -436,7 +436,7 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
         <div style={S.sectionTitle}>Salary Information</div>
         <div style={S.grid}>
           <Info label="Basic Salary" value={employee.basic_salary || employee.job_info?.basic_salary} />
-          <Info label="Allowances" value={employee.allowances || employee.job_info?.allowances} />
+
           <Info label="Gross Salary" value={employee.gross_salary || employee.job_info?.gross_salary} />
         </div>
       </div>
@@ -602,7 +602,6 @@ const S = {
   detailName: { fontSize: 20, fontWeight: 700, color: "#111827" },
   detailEmail: { color: "#6b7280", marginTop: 2, fontSize: 14 },
   detailId: { color: "#6b7280", marginTop: 2, fontSize: 12 },
-  badge: { padding: "4px 10px", borderRadius: 12, display: "inline-block", fontSize: 11, fontWeight: 700, marginTop: 6 },
   editBtn: { background: "#fef3c7", border: "1px solid #fde68a", padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   deleteBtn: { background: "#fee2e2", border: "1px solid #fecaca", padding: "8px 12px", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   

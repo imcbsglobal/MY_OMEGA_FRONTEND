@@ -27,7 +27,7 @@ export default function DeliveryFormUpdated() {
   });
 
   const [productRows, setProductRows] = useState([
-    { product: "", loaded_quantity: "", unit_price: "", notes: "" },
+    { bill_number: "", loaded_quantity: "", amount: "", notes: "" },
   ]);
 
   // Stops removed from this form — individual delivery stops are not collected here
@@ -83,12 +83,12 @@ export default function DeliveryFormUpdated() {
 
         // Products
         const pRows = (d.products || []).map(p => ({
-          product: String(p.product ?? p.product_id ?? ""),
+          bill_number: p.bill_number || '',
           loaded_quantity: p.loaded_quantity != null ? String(p.loaded_quantity) : "",
-          unit_price: p.unit_price != null ? String(p.unit_price) : "",
+          amount: p.total_amount != null ? String(p.total_amount) : "",
           notes: p.notes || "",
         }));
-        setProductRows(pRows.length ? pRows : [{ product: "", loaded_quantity: "", unit_price: "", notes: "" }]);
+        setProductRows(pRows.length ? pRows : [{ bill_number: "", loaded_quantity: "", amount: "", notes: "" }]);
         // Stops removed — not loaded into this form
 
         setCurrentStep(1);
@@ -103,7 +103,7 @@ export default function DeliveryFormUpdated() {
 
   // ── Product row management ──
   const addProductRow = () => {
-    setProductRows([...productRows, { product: "", loaded_quantity: "", unit_price: "", notes: "" }]);
+    setProductRows([...productRows, { bill_number: "", loaded_quantity: "", amount: "", notes: "" }]);
   };
 
   const removeProductRow = (index) => {
@@ -150,9 +150,9 @@ export default function DeliveryFormUpdated() {
     }
 
     // Final validation
-    const validProducts = productRows.filter(p => p.product && p.loaded_quantity);
+    const validProducts = productRows.filter(p => p.loaded_quantity);
     if (validProducts.length === 0) {
-      setError("Please add at least one product.");
+      setError("Please add at least one product row with boxes filled.");
       return;
     }
 
@@ -168,9 +168,10 @@ export default function DeliveryFormUpdated() {
         vehicle:  form.vehicle  ? parseInt(form.vehicle)  : null,
         route:    form.route    ? parseInt(form.route)    : null,
         products: validProducts.map((p) => ({
-          product: parseInt(p.product),
+          bill_number: p.bill_number || "",
+          product: null,
           loaded_quantity: parseFloat(p.loaded_quantity),
-          unit_price: p.unit_price ? parseFloat(p.unit_price) : null,
+          total_amount: p.amount ? parseFloat(p.amount) : 0,
           notes: p.notes || "",
         })),
         // stops omitted — backend will handle stops separately if needed
@@ -194,8 +195,8 @@ export default function DeliveryFormUpdated() {
 
   const calculateTotal = () => {
     return productRows
-      .filter((p) => p.loaded_quantity && p.unit_price)
-      .reduce((sum, p) => sum + parseFloat(p.loaded_quantity || 0) * parseFloat(p.unit_price || 0), 0);
+      .filter((p) => p.amount)
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   };
 
   const calculateTotalBoxes = () => {
@@ -353,34 +354,29 @@ export default function DeliveryFormUpdated() {
                 <thead>
                   <tr>
                     <th style={thStyle}>No. of Bills</th>
-                      <th style={thStyle}>No. of Boxes</th>
-                      <th style={thStyle}>Avg Box Value</th>
+                    <th style={thStyle}>No. of Boxes</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Amount</th>
+                    <th style={{ ...thStyle, textAlign: "right" }}>Avg Box Value</th>
                     <th style={thStyle}>Notes</th>
                     <th style={thStyle}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {productRows.map((row, i) => {
-                    const rowTotal =
-                      row.loaded_quantity && row.unit_price
-                        ? parseFloat(row.loaded_quantity) * parseFloat(row.unit_price)
-                        : 0;
+                    const avgBoxValue =
+                      row.amount && row.loaded_quantity && parseFloat(row.loaded_quantity) > 0
+                        ? parseFloat(row.amount) / parseFloat(row.loaded_quantity)
+                        : null;
                     return (
                       <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                         <td style={{ padding: "8px" }}>
-                          <select
-                            value={row.product}
-                            onChange={(e) => updateProductRow(i, "product", e.target.value)}
+                          <input
+                            type="text"
+                            value={row.bill_number}
+                            onChange={(e) => updateProductRow(i, "bill_number", e.target.value)}
+                            placeholder="Enter bill no."
                             style={cellInput}
-                          >
-                            <option value="">Select bill</option>
-                            {products.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.product_name}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </td>
                         <td style={{ padding: "8px", width: 120 }}>
                           <input
@@ -393,19 +389,19 @@ export default function DeliveryFormUpdated() {
                             style={cellInput}
                           />
                         </td>
-                        <td style={{ padding: "8px", width: 130 }}>
+                        <td style={{ padding: "8px", width: 140 }}>
                           <input
                             type="number"
                             min="0"
                             step="0.01"
-                            value={row.unit_price}
-                            onChange={(e) => updateProductRow(i, "unit_price", e.target.value)}
+                            value={row.amount}
+                            onChange={(e) => updateProductRow(i, "amount", e.target.value)}
                             placeholder="0.00"
                             style={cellInput}
                           />
                         </td>
-                        <td style={{ padding: "8px", width: 130, textAlign: "right", fontFamily: "monospace", fontWeight: 600 }}>
-                          {rowTotal > 0 ? `₹${rowTotal.toFixed(2)}` : "—"}
+                        <td style={{ padding: "8px", width: 130, textAlign: "right", fontFamily: "monospace", fontWeight: 600, color: "#0369a1" }}>
+                          {avgBoxValue != null ? `₹${avgBoxValue.toFixed(2)}` : "—"}
                         </td>
                         <td style={{ padding: "8px" }}>
                           <input

@@ -17,124 +17,124 @@ function WarehouseTabs() {
     { label: "Assign Work",  icon: "📋", path: "/warehouse/assign" },
     { label: "Report",       icon: "📄", path: "/warehouse/duty-report" },
   ];
-  return (
-    <div style={{ display: "flex", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", marginBottom: 24, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", width: "fit-content" }}>
-      {tabs.map((t, i) => {
-        const active = pathname === t.path;
-        return (
-          <button
-            key={t.path}
-            onClick={() => navigate(t.path)}
-            style={{
-              padding: "10px 20px",
-              fontSize: 13,
-              fontWeight: 500,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: active ? PRIMARY : "#fff",
-              color: active ? "#fff" : "#6b7280",
-              borderRight: i < tabs.length - 1 ? "1px solid #e5e7eb" : "none",
-              border: "none",
-              cursor: "pointer",
-              transition: "background 0.15s, color 0.15s",
-            }}
-          >
-            <span>{t.icon}</span> {t.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+          return (
+            <div style={{ display: "flex", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", marginBottom: 24, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", width: "fit-content" }}>
+              {tabs.map((t, i) => {
+                const active = pathname === t.path;
+                return (
+                  <button
+                    key={t.path}
+                    onClick={() => navigate(t.path)}
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: active ? PRIMARY : "#fff",
+                      color: active ? "#fff" : "#6b7280",
+                      borderRight: i < tabs.length - 1 ? "1px solid #e5e7eb" : "none",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    <span>{t.icon}</span> {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        }
 
-/* ── Field Label ─────────────────────────────────────────────── */
-function Label({ icon, text, required }) {
-  return (
-    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
-      <span style={{ fontSize: 14, color: PRIMARY }}>{icon}</span>
-      {text}
-      {required && <span style={{ color: "#ef4444", marginLeft: 2 }}>*</span>}
-    </label>
-  );
-}
+        /* ── Field Label ─────────────────────────────────────────────── */
+        function Label({ icon, text, required }) {
+          return (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+              <span style={{ fontSize: 14, color: PRIMARY }}>{icon}</span>
+              {text}
+              {required && <span style={{ color: "#ef4444", marginLeft: 2 }}>*</span>}
+            </label>
+          );
+        }
 
-const inputStyle = {
-  width: "100%",
-  border: "1.5px solid #e5e7eb",
-  borderRadius: 10,
-  padding: "10px 14px",
-  fontSize: 13,
-  color: "#374151",
-  background: "#fff",
-  outline: "none",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-  transition: "border-color 0.15s",
-};
+        const inputStyle = {
+          width: "100%",
+          border: "1.5px solid #e5e7eb",
+          borderRadius: 10,
+          padding: "10px 14px",
+          fontSize: 13,
+          color: "#374151",
+          background: "#fff",
+          outline: "none",
+          boxSizing: "border-box",
+          fontFamily: "inherit",
+          transition: "border-color 0.15s",
+        };
 
-/* ── Main ─────────────────────────────────────────────────────── */
-export default function WarehouseAssign() {
-  const [employees,  setEmployees]  = useState([]);
-  const [loading,    setLoading]    = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [focusedField, setFocusedField] = useState(null);
+        /* ── Main ─────────────────────────────────────────────────────── */
+        export default function WarehouseAssign() {
+          const [employees,  setEmployees]  = useState([]);
+          const [loading,    setLoading]    = useState(false);
+          const [submitting, setSubmitting] = useState(false);
+          const [focusedField, setFocusedField] = useState(null);
 
-  const today = new Date().toISOString().split("T")[0];
+          const today = new Date().toISOString().split("T")[0];
 
-  const [form, setForm] = useState({
-    assigned_to  : "",
-    task_title   : "",
-    task_title_custom: "",
-    description  : "",
-    total_work   : "",
-    assigned_date: today,
-    due_date     : "",
-  });
+          const [form, setForm] = useState({
+            assigned_to  : "",
+            task_title   : "",
+            task_title_custom: "",
+            description  : "",
+            total_work   : "",
+            assigned_date: today,
+            due_date     : "",
+          });
 
-  const [customTitles, setCustomTitles] = useState([]);
+          const [customTitles, setCustomTitles] = useState([]);
 
-  // Load custom titles from localStorage on mount
-  useEffect(() => {
-    setLoading(true);
-    api.get("warehouse/employees/")
-      .then((res) => setEmployees(res.data))
-      .catch(()   => toast.error("Failed to load employee list."))
-      .finally(() => setLoading(false));
-    const savedTitles = JSON.parse(localStorage.getItem('warehouseCustomTaskTitles') || '[]');
-    setCustomTitles(savedTitles);
-  }, []);
+          // Load custom titles from localStorage on mount
+          useEffect(() => {
+            setLoading(true);
+            api.get("warehouse/employees/")
+              .then((res) => setEmployees(res.data))
+              .catch(()   => toast.error("Failed to load employee list."))
+              .finally(() => setLoading(false));
+            const savedTitles = JSON.parse(localStorage.getItem('warehouseCustomTaskTitles') || '[]');
+            setCustomTitles(savedTitles);
+          }, []);
 
-  const handleChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+          const handleChange = (e) =>
+            setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.assigned_to)                    return toast.error("Please select an employee.");
-    if (form.task_title === "custom" && !form.task_title_custom.trim())
-      return toast.error("Custom task title is required.");
-    if (!form.task_title.trim())               return toast.error("Task title is required.");
-    if (!form.total_work || Number(form.total_work) <= 0)
-                                               return toast.error("Total work must be greater than 0.");
-    if (!form.due_date)                        return toast.error("Due date is required.");
+          const handleSubmit = async (e) => {
+            e.preventDefault();
+            if (!form.assigned_to)                    return toast.error("Please select an employee.");
+            if (form.task_title === "custom" && !form.task_title_custom.trim())
+              return toast.error("Custom task title is required.");
+            if (!form.task_title.trim())               return toast.error("Task title is required.");
+            if (!form.total_work || Number(form.total_work) <= 0)
+                                                      return toast.error("Total work must be greater than 0.");
+            if (!form.due_date)                        return toast.error("Due date is required.");
 
-    // Save custom task title if entered
-    if (form.task_title === "custom" && form.task_title_custom.trim()) {
-      const savedTitles = JSON.parse(localStorage.getItem('warehouseCustomTaskTitles') || '[]');
-      if (!savedTitles.includes(form.task_title_custom.trim())) {
-        const updatedTitles = [...savedTitles, form.task_title_custom.trim()];
-        localStorage.setItem('warehouseCustomTaskTitles', JSON.stringify(updatedTitles));
-        setCustomTitles(updatedTitles);
-      }
-    }
+            // Save custom task title if entered
+            if (form.task_title === "custom" && form.task_title_custom.trim()) {
+              const savedTitles = JSON.parse(localStorage.getItem('warehouseCustomTaskTitles') || '[]');
+              if (!savedTitles.includes(form.task_title_custom.trim())) {
+                const updatedTitles = [...savedTitles, form.task_title_custom.trim()];
+                localStorage.setItem('warehouseCustomTaskTitles', JSON.stringify(updatedTitles));
+                setCustomTitles(updatedTitles);
+              }
+            }
 
-    setSubmitting(true);
-    try {
-      // Use custom title if selected
-      const submitData = {
-        ...form,
-        task_title: form.task_title === "custom" ? form.task_title_custom.trim() : form.task_title,
-        total_work: Number(form.total_work)
+            setSubmitting(true);
+            try {
+              // Use custom title if selected
+              const submitData = {
+                ...form,
+                task_title: form.task_title === "custom" ? form.task_title_custom.trim() : form.task_title,
+                total_work: Number(form.total_work)
       };
       await api.post("warehouse/assign/", submitData);
       toast.success("Task assigned successfully!");

@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "registration_number": "1234ABCD",
+    "vehicle_name": "Swift Dezire"
+  },
+  {
+    "id": 2,
+    "registration_number": "5678EFGH",
+    "vehicle_name": "Honda City"
+  }
+]
