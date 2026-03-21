@@ -10,7 +10,7 @@ const PRIMARY_DARK = "#ef4444";
 function WarehouseTabs() {
 const navigate     = useNavigate();
 const { pathname } = useLocation();
-const user    = JSON.parse(localStorage.getItem("xuser") || "{}");
+const user    = JSON.parse(localStorage.getItem("user") || "{}");
 const level   = user?.user_level || "User";
 const isAdmin = level === "Admin" || level === "Super Admin" || user?.is_staff || user?.is_superuser;
 
@@ -19,8 +19,9 @@ const tabs = [
 ...(isAdmin ? [
 { label: "Monitor",  icon: "📊", path: "/warehouse/admin" },
 { label: "Assign",   icon: "📋", path: "/warehouse/assign" },
-{ label: "Report",   icon: "📄", path: "/warehouse/duty-report" },
 ] : []),
+// Report tab is visible to all users who have been granted access via User Control
+{ label: "Report",   icon: "📄", path: "/warehouse/duty-report" },
 ];
 
 return (
@@ -93,14 +94,14 @@ const [userName, setUserName] = useState("");
 const printRef = useRef(null);
 
 useEffect(() => {
-api.get("/warehouse/employees/")
-.then(r => setEmployees(r.data))
+api.get("/employee-management/employees/?page_size=500")
+.then(r => setEmployees(r.data.results || r.data || []))
 .catch(() => toast.error("Failed to load employees"));
 }, []);
 
 useEffect(() => {
 const emp = employees.find(e => String(e.id) === String(selectedUser));
-setUserName(emp?.name || "");
+setUserName(emp?.full_name || emp?.name || "");
 }, [selectedUser, employees]);
 
 function fetchReport() {
@@ -188,7 +189,7 @@ fontSize: 13, background: "#fff", cursor: "pointer",
 >
 <option value="">— Select Employee —</option>
 {employees.map(e => (
-<option key={e.id} value={e.id}>{e.name}</option>
+<option key={e.id} value={e.id}>{e.full_name || e.name || e.employee_id || e.id}</option>
 ))}
 </select>
 </div>

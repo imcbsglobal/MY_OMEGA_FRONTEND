@@ -67,14 +67,14 @@ export default function TravelReport() {
 
   // load employees from warehouse employees API (active employees)
   useEffect(() => {
-    api.get("/warehouse/employees/")
-      .then(r => setEmployees(r.data))
+    api.get("/employee-management/employees/?page_size=500")
+      .then(r => setEmployees(r.data.results || r.data || []))
       .catch(() => toast.error("Failed to load employees"));
   }, []);
 
   useEffect(() => {
     const emp = employees.find(e => String(e.id) === String(selectedUser));
-    setUserName(emp?.name || "");
+    setUserName(emp?.full_name || emp?.name || "");
   }, [selectedUser, employees]);
 
   // Fetch vehicle master list from backend
@@ -203,7 +203,7 @@ export default function TravelReport() {
               >
                 <option value="">— Select Employee —</option>
                 {employees.map(e => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
+                  <option key={e.id} value={e.id}>{e.full_name || e.name || e.employee_id || e.id}</option>
                 ))}
               </select>
             </div>
@@ -459,5 +459,3 @@ const td = {
   verticalAlign: "top",
   borderRight: "1px solid #f3f4f6",
 };
-
-
