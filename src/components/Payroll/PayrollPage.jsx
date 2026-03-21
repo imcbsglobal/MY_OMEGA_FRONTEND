@@ -210,6 +210,17 @@ export default function PayrollPage() {
     return emp?.full_name || emp?.name || emp?.employee_id || "Unknown";
   };
 
+  const fetchEmployeeProfile = async (employeeId) => {
+    if (!employeeId) return null;
+    try {
+      const response = await api.get(`employee-management/employees/${employeeId}/`);
+      return response.data || null;
+    } catch (err) {
+      console.warn("Failed to fetch employee profile:", err);
+      return null;
+    }
+  };
+
   const handleSelectEmployee = async (emp) => {
     setSelectedEmployee(emp);
     setSearchTerm("");
@@ -223,25 +234,29 @@ export default function PayrollPage() {
     }, 500);
   };
 
-  const fetchAttendanceStats = async () => {
+  const fetchAttendanceStats = async (
+    employee = selectedEmployee,
+    month = selectedMonth,
+    year = selectedYear
+  ) => {
     try {
-      if (!selectedEmployee?.id) {
+      if (!employee?.id) {
         console.log("No employee selected for attendance fetch");
-        return;
+        return null;
       }
       
       console.log("=== Fetching Attendance Stats ===");
-      console.log("Employee ID:", selectedEmployee.id);
-      console.log("Month:", selectedMonth);
-      console.log("Year:", selectedYear);
+      console.log("Employee ID:", employee.id);
+      console.log("Month:", month);
+      console.log("Year:", year);
 
       // Ensure we send the full month name and month number for compatibility
-      const monthName = months.find((m) => m.value === selectedMonth)?.label;
+      const monthName = months.find((m) => m.value === month)?.label;
       const attendanceParams = `employee_id=${encodeURIComponent(
-        selectedEmployee.id
+        employee.id
       )}&month=${encodeURIComponent(monthName || '')}&month_number=${encodeURIComponent(
-        String(selectedMonth)
-      )}&year=${encodeURIComponent(String(selectedYear))}`;
+        String(month)
+      )}&year=${encodeURIComponent(String(year))}`;
 
       let response;
       try {
@@ -322,6 +337,7 @@ export default function PayrollPage() {
       console.log("=== Attendance Fetch Complete ===");
       
       setAttendanceStats(statsObj);
+      return statsObj;
     } catch (err) {
         console.error("❌ Failed to fetch attendance stats:", err);
         console.error("Error details:", err.response?.data || err.message);
@@ -331,7 +347,7 @@ export default function PayrollPage() {
         const friendly = typeof serverMsg === 'string' ? serverMsg : 'Failed to calculate attendance summary';
         setError(`Attendance: ${friendly}`);
 
-        setAttendanceStats({
+        const emptyStats = {
         totalDaysInMonth: 0,
         totalWorkingDays: 0,
         sundays: 0,
@@ -353,7 +369,10 @@ export default function PayrollPage() {
         attendancePercentage: 0,
         totalLeavesTaken: 0,
         paidLeavesTaken: 0,
-      });
+      };
+
+      setAttendanceStats(emptyStats);
+      return emptyStats;
     }
   };
 
@@ -372,6 +391,7 @@ export default function PayrollPage() {
       try {
         const response = await api.get(`employee-management/employees/${emp.id}/`);
         employeeData = response.data;
+        setSelectedEmployee((prev) => ({ ...(prev || {}), ...(employeeData || {}) }));
         console.log("Full Employee details fetched:", employeeData);
         console.log("Basic salary field:", employeeData.basic_salary, "Type:", typeof employeeData.basic_salary);
         
@@ -441,22 +461,108 @@ export default function PayrollPage() {
         return;
       }
 
+      // Fetch the latest attendance summary before generating payslip
+      const latestAttendance = await fetchAttendanceStats(
+        selectedEmployee,
+        selectedMonth,
+        selectedYear
+      );
+      const stats = latestAttendance || attendanceStats || {};
+
       const monthName = months.find((m) => m.value === selectedMonth)?.label;
       const netSalary = calculatePayroll(allowances, deductions);
+
+      // Always resolve employee identity fields from Employee Management detail endpoint
+      const employeeProfile =
+        (await fetchEmployeeProfile(selectedEmployee.id)) || selectedEmployee || {};
+      const employeeDesignation =
+        employeeProfile?.designation ||
+        employeeProfile?.job_title ||
+        employeeProfile?.job_info?.designation ||
+        employeeProfile?.job_info?.job_title ||
+        selectedEmployee?.designation ||
+        selectedEmployee?.job_info?.designation ||
+        "";
+      const employeeDateOfJoining =
+        employeeProfile?.date_of_joining ||
+        employeeProfile?.job_info?.date_of_joining ||
+        selectedEmployee?.date_of_joining ||
+        selectedEmployee?.job_info?.date_of_joining ||
+        "";
+      const employeePfNumber =
+        employeeProfile?.pf_number ||
+        employeeProfile?.bank_info?.pf_number ||
+        selectedEmployee?.pf_number ||
+        selectedEmployee?.bank_info?.pf_number ||
+        "";
+      const employeeUanNumber =
+        employeeProfile?.uan_number ||
+        employeeProfile?.bank_info?.uan_number ||
+        selectedEmployee?.uan_number ||
+        selectedEmployee?.bank_info?.uan_number ||
+        "";
+
+      const normalizedAllowances = Array.isArray(allowances)
+        ? allowances.map((item, idx) => ({
+            name: item?.name || item?.allowance_type || item?.type || `Allowance ${idx + 1}`,
+            amount: parseFloat(item?.amount) || 0,
+          }))
+        : [];
+
+      const normalizedDeductions = Array.isArray(deductions)
+        ? deductions.map((item, idx) => ({
+            name: item?.name || item?.deduction_type || item?.type || `Deduction ${idx + 1}`,
+            amount: parseFloat(item?.amount) || 0,
+          }))
+        : [];
+
+      const casualLeaveDays =
+        stats?.casualLeave?.taken_this_month ??
+        stats?.casualLeave?.taken_paid ??
+        0;
+      const sickLeaveDays =
+        stats?.sickLeave?.taken_this_month ??
+        stats?.sickLeave?.taken_paid ??
+        0;
+      const specialLeaveDays =
+        stats?.specialLeave?.taken_this_month ??
+        stats?.specialLeave?.taken_paid ??
+        0;
+      const unpaidLeaveDays = stats?.unpaidLeave?.this_month ?? 0;
+      const totalLeaveDays =
+        stats?.totalLeavesTaken ??
+        (casualLeaveDays + sickLeaveDays + specialLeaveDays + unpaidLeaveDays);
 
       // Save payroll data temporarily in localStorage
       const payrollPayload = {
         employee_id: selectedEmployee.id,
-        employee_name: getEmployeeName(selectedEmployee),
+        employee_name: getEmployeeName(employeeProfile) || getEmployeeName(selectedEmployee),
+        designation: employeeDesignation,
+        date_of_joining: employeeDateOfJoining,
+        pf_number: employeePfNumber,
+        uan_number: employeeUanNumber,
         month: monthName,
         month_number: selectedMonth,
         year: selectedYear,
         basic_salary: basicSalary,
-        allowances: allowances,
-        deductions: deductions,
+        allowances: normalizedAllowances,
+        deductions: normalizedDeductions,
         total_allowances: totalAllowances,
         total_deductions: totalDeductions,
         net_salary: netSalary,
+
+        // Attendance details for payslip template
+        working_days: stats?.totalWorkingDays || 0,
+        casual_leave: casualLeaveDays,
+        sick_days: sickLeaveDays,
+        total_leave: totalLeaveDays,
+        worked_days: stats?.totalWorked || 0,
+        punch_miss: stats?.notMarkedDays || 0,
+        late_punch: stats?.latePunch || 0,
+        attendance_percentage: stats?.attendancePercentage || 0,
+
+        // Keep full stats for future template fields
+        attendance_stats: stats,
       };
 
       console.log("Payroll Payload being sent to PayslipPage:", payrollPayload);

@@ -89,6 +89,7 @@ function WarehouseTabs() {
             description  : "",
             total_work   : "",
             assigned_date: today,
+            assigned_time: "",
             due_date     : "",
           });
 
@@ -138,7 +139,7 @@ function WarehouseTabs() {
       };
       await api.post("warehouse/assign/", submitData);
       toast.success("Task assigned successfully!");
-      setForm({ assigned_to: "", task_title: "", task_title_custom: "", description: "", total_work: "", assigned_date: today, due_date: "" });
+      setForm({ assigned_to: "", task_title: "", task_title_custom: "", description: "", total_work: "", assigned_date: today, assigned_time: "", due_date: "" });
     } catch (err) {
       toast.error(err?.response?.data?.detail || JSON.stringify(err?.response?.data) || "Failed to assign task.");
     } finally {
@@ -279,8 +280,8 @@ function WarehouseTabs() {
             />
           </div>
 
-          {/* Dates */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* Dates & Time */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16 }}>
             <div>
               <Label icon="📅" text="Assign Date" required />
               <input
@@ -292,6 +293,19 @@ function WarehouseTabs() {
                 onBlur={() => setFocusedField(null)}
                 style={{ ...inputStyle, ...getFocusStyle("assigned_date") }}
                 required
+              />
+            </div>
+            <div>
+              <Label icon="🕐" text="Assign Time" />
+              <input
+                type="time"
+                name="assigned_time"
+                value={form.assigned_time}
+                onChange={handleChange}
+                onFocus={() => setFocusedField("assigned_time")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="hh:mm AM/PM"
+                style={{ ...inputStyle, ...getFocusStyle("assigned_time") }}
               />
             </div>
             <div>

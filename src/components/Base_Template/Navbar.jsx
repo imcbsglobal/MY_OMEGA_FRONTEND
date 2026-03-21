@@ -341,6 +341,7 @@ import { useState, useEffect, useRef } from "react";
         children: [
           { name: "List Deliveries", path: "/delivery-management/deliveries", icon: ClipboardList },
           { name: "Create Delivery", path: "/delivery-management/deliveries/new", icon: Truck },
+          { name: "Courier", path: "/delivery-management/courier", icon: Package },
           { name: "Employee Delivery View", path: "/delivery-management/employee-view", icon: UserCheck },
         ]
       },

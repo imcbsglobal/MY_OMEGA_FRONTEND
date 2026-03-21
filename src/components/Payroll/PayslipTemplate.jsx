@@ -18,14 +18,67 @@ export default function PayslipTemplate({ payrollData, onClose }) {
   if (!payrollData) return null;
 
   const basicSalary = parseFloat(payrollData.basic_salary) || 0;
-  const allowances = Array.isArray(payrollData.allowances) 
-    ? payrollData.allowances 
+  const rawAllowances = Array.isArray(payrollData.allowances)
+    ? payrollData.allowances
+    : Array.isArray(payrollData.allowance_items)
+    ? payrollData.allowance_items
     : [];
-  const deductions = Array.isArray(payrollData.deductions) 
-    ? payrollData.deductions 
+  const rawDeductions = Array.isArray(payrollData.deductions)
+    ? payrollData.deductions
+    : Array.isArray(payrollData.deduction_items)
+    ? payrollData.deduction_items
     : [];
-  const totalAllowances = parseFloat(payrollData.total_allowances) || 0;
-  const totalDeductions = parseFloat(payrollData.total_deductions) || 0;
+
+  const allowances = rawAllowances.map((allowance, idx) => ({
+    name: allowance?.name || allowance?.allowance_type || allowance?.type || `Allowance ${idx + 1}`,
+    amount: parseFloat(allowance?.amount) || 0,
+  }));
+
+  const deductions = rawDeductions.map((deduction, idx) => ({
+    name: deduction?.name || deduction?.deduction_type || deduction?.type || `Deduction ${idx + 1}`,
+    amount: parseFloat(deduction?.amount) || 0,
+  }));
+
+  const attendance = payrollData.attendance_stats || {};
+  const employeeName =
+    payrollData.employee_name ||
+    payrollData.employee?.full_name ||
+    payrollData.employee?.name ||
+    "N/A";
+  const designation =
+    payrollData.designation ||
+    payrollData.employee?.designation ||
+    payrollData.employee?.job_info?.designation ||
+    "N/A";
+  const dateOfJoining =
+    payrollData.date_of_joining ||
+    payrollData.employee?.date_of_joining ||
+    payrollData.employee?.job_info?.date_of_joining ||
+    "N/A";
+  const pfNumber =
+    payrollData.pf_number ||
+    payrollData.employee?.pf_number ||
+    payrollData.employee?.bank_info?.pf_number ||
+    "N/A";
+  const uanNumber =
+    payrollData.uan_number ||
+    payrollData.employee?.uan_number ||
+    payrollData.employee?.bank_info?.uan_number ||
+    "N/A";
+  const workingDays = payrollData.working_days ?? attendance.totalWorkingDays ?? attendance.total_working_days ?? 0;
+  const casualLeave = payrollData.casual_leave ?? attendance.casualLeave?.taken_this_month ?? attendance.casualLeave?.taken_paid ?? 0;
+  const sickDays = payrollData.sick_days ?? attendance.sickLeave?.taken_this_month ?? attendance.sickLeave?.taken_paid ?? 0;
+  const totalLeave = payrollData.total_leave ?? attendance.totalLeavesTaken ?? attendance.total_leaves_taken ?? 0;
+  const workedDays = payrollData.worked_days ?? attendance.totalWorked ?? attendance.total_worked ?? 0;
+  const punchMiss = payrollData.punch_miss ?? attendance.notMarkedDays ?? attendance.not_marked_days ?? 0;
+  const latePunch = payrollData.late_punch ?? attendance.latePunch ?? attendance.late_punch ?? 0;
+
+  const totalAllowances =
+    parseFloat(payrollData.total_allowances) ||
+    allowances.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  const totalDeductions =
+    parseFloat(payrollData.total_deductions) ||
+    deductions.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   const netSalary = basicSalary + totalAllowances - totalDeductions;
 
   return (
@@ -95,35 +148,23 @@ export default function PayslipTemplate({ payrollData, onClose }) {
                 <tbody>
                   <tr>
                     <td style={styles.labelCell}>Employee Name</td>
-                    <td style={styles.valueCell}>{payrollData.employee_name || "N/A"}</td>
+                    <td style={styles.valueCell}>{employeeName}</td>
                   </tr>
                   <tr>
                     <td style={styles.labelCell}>Designation</td>
-                    <td style={styles.valueCell}>{payrollData.designation || "N/A"}</td>
+                    <td style={styles.valueCell}>{designation}</td>
                   </tr>
                   <tr>
                     <td style={styles.labelCell}>Date of Joining</td>
-                    <td style={styles.valueCell}>{payrollData.date_of_joining || "N/A"}</td>
-                  </tr>
-                  <tr>
-                    <td style={styles.labelCell}>Pay Period</td>
-                    <td style={styles.valueCell}>
-                      {payrollData.month} {payrollData.year}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={styles.labelCell}>Pay Date</td>
-                    <td style={styles.valueCell}>
-                      {new Date().toLocaleDateString("en-IN")}
-                    </td>
+                    <td style={styles.valueCell}>{dateOfJoining}</td>
                   </tr>
                   <tr>
                     <td style={styles.labelCell}>PF A/C Number</td>
-                    <td style={styles.valueCell}>{payrollData.pf_number || "N/A"}</td>
+                    <td style={styles.valueCell}>{pfNumber}</td>
                   </tr>
                   <tr>
                     <td style={styles.labelCell}>UAN Number</td>
-                    <td style={styles.valueCell}>{payrollData.uan_number || "N/A"}</td>
+                    <td style={styles.valueCell}>{uanNumber}</td>
                   </tr>
                 </tbody>
               </table>
@@ -133,7 +174,7 @@ export default function PayslipTemplate({ payrollData, onClose }) {
                 <div style={styles.netPayLabel}>Employee Net Pay</div>
                 <div style={styles.netPayAmount}>{formatCurrency(netSalary)}</div>
                 <div style={styles.netPayDetails}>
-                  Worked Days: {payrollData.worked_days || 0} | Leave Days: {payrollData.total_leave || 0}
+                  Worked Days: {workedDays} | Leave Days: {totalLeave}
                 </div>
               </div>
             </div>
@@ -192,31 +233,31 @@ export default function PayslipTemplate({ payrollData, onClose }) {
                 <tbody>
                   <tr style={styles.detailRow}>
                     <td style={styles.detailLabel}>Working Days</td>
-                    <td style={styles.detailValue}>{payrollData.working_days || 0}</td>
+                    <td style={styles.detailValue}>{workingDays}</td>
                   </tr>
                   <tr style={styles.detailRow}>
                     <td style={styles.detailLabel}>Casual Leave</td>
-                    <td style={styles.detailValue}>{payrollData.casual_leave || 0}</td>
+                    <td style={styles.detailValue}>{casualLeave}</td>
                   </tr>
                   <tr style={styles.detailRow}>
                     <td style={styles.detailLabel}>Sick Days</td>
-                    <td style={styles.detailValue}>{payrollData.sick_days || "-"}</td>
+                    <td style={styles.detailValue}>{sickDays}</td>
                   </tr>
                   <tr style={styles.detailRow}>
                     <td style={styles.detailLabel}>Total Leave</td>
-                    <td style={styles.detailValue}>{payrollData.total_leave || 0}</td>
+                    <td style={styles.detailValue}>{totalLeave}</td>
                   </tr>
                   <tr style={styles.detailRow}>
                     <td style={styles.detailLabel}>Worked Days</td>
-                    <td style={styles.detailValue}>{payrollData.worked_days || 0}</td>
+                    <td style={styles.detailValue}>{workedDays}</td>
                   </tr>
                   <tr style={styles.detailRow}>
                     <td style={styles.detailLabel}>Punch Miss</td>
-                    <td style={styles.detailValue}>{payrollData.punch_miss || "-"}</td>
+                    <td style={styles.detailValue}>{punchMiss}</td>
                   </tr>
                   <tr style={styles.detailRow}>
                     <td style={styles.detailLabel}>Late Punch</td>
-                    <td style={styles.detailValue}>{payrollData.late_punch || "-"}</td>
+                    <td style={styles.detailValue}>{latePunch}</td>
                   </tr>
                 </tbody>
               </table>

@@ -3,6 +3,15 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/client";
 
+const DEFAULT_INCENTIVE_ROWS = [
+  { parameter: "NO.OF SHOP VISIT", daily_target: "", monthly_target: "", incentive: "" },
+  { parameter: "TOTAL BOXES", daily_target: "", monthly_target: "", incentive: "" },
+  { parameter: "NEW SHOP", daily_target: "", monthly_target: "", incentive: "" },
+  { parameter: "FOCUS CATAGORY", daily_target: "", monthly_target: "", incentive: "" },
+];
+
+const getDefaultIncentiveRows = () => DEFAULT_INCENTIVE_ROWS.map((row) => ({ ...row }));
+
 export default function OfferLetterForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -24,9 +33,12 @@ export default function OfferLetterForm() {
     work_start_time: "09:30",
     work_end_time: "17:30",
     notice_period: "30",
+    sales_director_name: "",
+    sales_director_designation: "Sales Director",
     body: "Dear Candidate,",
     terms_condition: "As per company policy",
     subject: "Job Offer Letter",
+    incentives_parameters: getDefaultIncentiveRows(),
   });
 
   const [candidateList, setCandidateList] = useState([]);
@@ -125,9 +137,19 @@ export default function OfferLetterForm() {
         work_start_time: data.work_start_time || "09:30",
         work_end_time: data.work_end_time || "17:30",
         notice_period: data.notice_period || "30",
+        sales_director_name: data.sales_director_name || "",
+        sales_director_designation: data.sales_director_designation || "Sales Director",
         body: data.body || "Dear Candidate,",
         terms_condition: data.terms_condition || "As per company policy",
         subject: data.subject || "Job Offer Letter",
+        incentives_parameters: Array.isArray(data.incentives_parameters) && data.incentives_parameters.length
+          ? data.incentives_parameters.map((row) => ({
+              parameter: row?.parameter || "",
+              daily_target: row?.daily_target || "",
+              monthly_target: row?.monthly_target || "",
+              incentive: row?.incentive || "",
+            }))
+          : getDefaultIncentiveRows(),
       });
     } catch (err) {
       console.error("Error fetching offer letter data", err);
@@ -218,6 +240,22 @@ export default function OfferLetterForm() {
     }
   };
 
+  const handleIncentiveParamChange = (index, field, value) => {
+    setFormData((prev) => {
+      const nextRows = Array.isArray(prev.incentives_parameters)
+        ? [...prev.incentives_parameters]
+        : getDefaultIncentiveRows();
+      nextRows[index] = {
+        ...(nextRows[index] || { parameter: "", daily_target: "", monthly_target: "", incentive: "" }),
+        [field]: value,
+      };
+      return {
+        ...prev,
+        incentives_parameters: nextRows,
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -245,27 +283,39 @@ export default function OfferLetterForm() {
     const conveyance_earnings = parseFloat(formData.conveyance_earnings) || 0;
     const salary = parseFloat(formData.salary) || 0;
 
-   const dataToSend = {
-  candidate: formData.candidate,
-  position: formData.job_title,
-  department: formData.department,
-  job_title_id: formData.job_title_id,
-  department_id: formData.department_id,
+    const incentives_parameters = (formData.incentives_parameters || [])
+      .map((row) => ({
+        parameter: String(row?.parameter || "").trim(),
+        daily_target: String(row?.daily_target || "").trim(),
+        monthly_target: String(row?.monthly_target || "").trim(),
+        incentive: String(row?.incentive || "").trim(),
+      }))
+      .filter((row) => row.daily_target || row.monthly_target || row.incentive);
 
-  basic_pay: Number(formData.basic_pay) || 0,
-  house_rent_allowance: Number(formData.house_rent_allowance) || 0,
-  dearness_allowance: Number(formData.dearness_allowance) || 0,
-  salary: calculateTotalSalary(),
+    const dataToSend = {
+      candidate: formData.candidate,
+      position: formData.job_title,
+      department: formData.department,
+      job_title_id: formData.job_title_id,
+      department_id: formData.department_id,
 
-  joining_data: formData.joining_date,
-  work_start_time: formData.work_start_time,
-  work_end_time: formData.work_end_time,
-  notice_period: Number(formData.notice_period) || 30,
+      basic_pay: Number(formData.basic_pay) || 0,
+      house_rent_allowance: Number(formData.house_rent_allowance) || 0,
+      dearness_allowance: Number(formData.dearness_allowance) || 0,
+      salary: calculateTotalSalary(),
+      incentives_parameters,
 
-  subject: formData.subject,
-  body: formData.body,
-  terms_condition: formData.terms_condition,
-};
+      joining_data: formData.joining_date,
+      work_start_time: formData.work_start_time,
+      work_end_time: formData.work_end_time,
+      notice_period: Number(formData.notice_period) || 30,
+      sales_director_name: (formData.sales_director_name || "").trim(),
+      sales_director_designation: (formData.sales_director_designation || "").trim(),
+
+      subject: formData.subject,
+      body: formData.body,
+      terms_condition: formData.terms_condition,
+    };
 
 
     console.log("=== SUBMITTING OFFER LETTER ===");
@@ -451,6 +501,33 @@ export default function OfferLetterForm() {
                 min="0" 
               />
             </div>
+
+            <div style={styles.signatoryBox}>
+              <h4 style={styles.signatoryTitle}>Sales Director Signatory</h4>
+              <div style={styles.field}>
+                <label style={styles.label}>Sales Director Name</label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  name="sales_director_name"
+                  value={formData.sales_director_name}
+                  onChange={handleChange}
+                  placeholder="Enter sales director name"
+                />
+              </div>
+
+              <div style={styles.field}>
+                <label style={styles.label}>Sales Director Designation</label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  name="sales_director_designation"
+                  value={formData.sales_director_designation}
+                  onChange={handleChange}
+                  placeholder="Enter designation"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Right Column - Salary */}
@@ -531,6 +608,49 @@ export default function OfferLetterForm() {
               <div style={styles.totalBox}>
                 <span style={styles.totalLabel}>Total Salary</span>
                 <span style={styles.totalValue}>₹ {calculateTotalSalary().toLocaleString('en-IN')}</span>
+              </div>
+
+              <div style={styles.incentiveParamsBox}>
+                <h4 style={styles.incentiveParamsTitle}>Incentives Parameters Monthly (Optional)</h4>
+                <div style={styles.incentiveGridHeader}>
+                  <span>Incentives Parameters</span>
+                  <span>Daily Target</span>
+                  <span>Monthly Target</span>
+                  <span>Incentives</span>
+                </div>
+
+                {(formData.incentives_parameters || []).map((row, index) => (
+                  <div key={index} style={styles.incentiveGridRow}>
+                    <input
+                      type="text"
+                      style={styles.incentiveInput}
+                      value={row.parameter || ""}
+                      onChange={(e) => handleIncentiveParamChange(index, "parameter", e.target.value)}
+                      placeholder="Parameter"
+                    />
+                    <input
+                      type="text"
+                      style={styles.incentiveInput}
+                      value={row.daily_target || ""}
+                      onChange={(e) => handleIncentiveParamChange(index, "daily_target", e.target.value)}
+                      placeholder="Daily"
+                    />
+                    <input
+                      type="text"
+                      style={styles.incentiveInput}
+                      value={row.monthly_target || ""}
+                      onChange={(e) => handleIncentiveParamChange(index, "monthly_target", e.target.value)}
+                      placeholder="Monthly"
+                    />
+                    <input
+                      type="text"
+                      style={styles.incentiveInput}
+                      value={row.incentive || ""}
+                      onChange={(e) => handleIncentiveParamChange(index, "incentive", e.target.value)}
+                      placeholder="Amount"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -671,6 +791,54 @@ const styles = {
     fontSize: "20px",
     fontWeight: "700",
     color: "#1e40af",
+  },
+  incentiveParamsBox: {
+    marginTop: "14px",
+    backgroundColor: "#ffffff",
+    border: "1px solid #dbeafe",
+    borderRadius: "8px",
+    padding: "12px",
+  },
+  incentiveParamsTitle: {
+    margin: "0 0 10px 0",
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#1e3a8a",
+  },
+  incentiveGridHeader: {
+    display: "grid",
+    gridTemplateColumns: "1.6fr 1fr 1fr 1fr",
+    gap: "8px",
+    fontSize: "11px",
+    fontWeight: "700",
+    color: "#475569",
+    marginBottom: "8px",
+  },
+  incentiveGridRow: {
+    display: "grid",
+    gridTemplateColumns: "1.6fr 1fr 1fr 1fr",
+    gap: "8px",
+    marginBottom: "8px",
+  },
+  incentiveInput: {
+    padding: "8px 10px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "6px",
+    fontSize: "12px",
+    backgroundColor: "#fff",
+  },
+  signatoryBox: {
+    marginTop: "8px",
+    backgroundColor: "#ffffff",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    padding: "12px",
+  },
+  signatoryTitle: {
+    margin: "0 0 10px 0",
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#1f2937",
   },
   actions: {
     display: "flex",

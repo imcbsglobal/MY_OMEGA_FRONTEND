@@ -24,6 +24,8 @@ export default function ConfigureAccess() {
   const [selectedMenus, setSelectedMenus] = useState([]);
   const [openMenu, setOpenMenu] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userAllowedMenuIds, setUserAllowedMenuIds] = useState(new Set());
 
   // Missing HR (children)
   const missingHRMenus = [
@@ -125,6 +127,22 @@ export default function ConfigureAccess() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Get current user info
+        const userRes = await api.get("/users/me/");
+        const user = userRes.data;
+        setCurrentUser(user);
+        
+        // If not superuser, get their allowed menu IDs
+        if (!user.is_superuser) {
+          try {
+            const accessRes = await api.get(`/user-controll/admin/user/${user.id}/menus/`);
+            const allowedIds = new Set(accessRes.data.menu_ids || []);
+            setUserAllowedMenuIds(allowedIds);
+          } catch (e) {
+            console.warn("Could not fetch user's allowed menus:", e);
+          }
+        }
+        
         const treeRes = await api.get("/user-controll/admin/menu-tree/");
 
         const formatMenu = (item) => ({
@@ -152,6 +170,20 @@ export default function ConfigureAccess() {
             .filter((n) => !removalNames.has(n.title));
 
         finalTree = filterRemoved(finalTree);
+        
+        // Filter menus based on user role
+        if (!user.is_superuser) {
+          // Non-superuser: only show menus they have access to
+          const filterAllowedMenus = (nodes) => {
+            return (nodes || [])
+              .filter((n) => userAllowedMenuIds.has(n.id) || (n.children && n.children.length > 0))
+              .map((n) => ({
+                ...n,
+                children: filterAllowedMenus(n.children || [])
+              }));
+          };
+          finalTree = filterAllowedMenus(finalTree);
+        }
 
         setMenuStructure(finalTree);
         console.log("ConfigureAccess: final menuStructure:", finalTree);
@@ -192,6 +224,12 @@ export default function ConfigureAccess() {
 
   // Toggle menu (manual configuration)
   const toggleSubMenu = (menuId) => {
+    // Prevent non-superusers from toggling menus they don't have access to
+    if (currentUser && !currentUser.is_superuser && !userAllowedMenuIds.has(menuId)) {
+      alert("You don't have access to configure this menu");
+      return;
+    }
+
     setChecked((prev) => {
       const current = prev[menuId]?.main || false;
       // If unchecking main, clear all permissions
@@ -230,6 +268,12 @@ export default function ConfigureAccess() {
 
   // Toggle action
   const toggleAction = (menuId, action) => {
+    // Prevent non-superusers from toggling permissions on menus they don't have access to
+    if (currentUser && !currentUser.is_superuser && !userAllowedMenuIds.has(menuId)) {
+      alert("You don't have access to configure permissions for this menu");
+      return;
+    }
+
     setChecked((prev) => {
       const newActionValue = !prev[menuId]?.[action];
       const updatedPerms = {
@@ -311,6 +355,21 @@ export default function ConfigureAccess() {
         >
           ← Back
         </button>
+
+        {/* Show access restriction warning for non-superusers */}
+        {currentUser && !currentUser.is_superuser && (
+          <div style={{
+            background: "#fef3c7",
+            color: "#92400e",
+            padding: "12px 16px",
+            borderRadius: "6px",
+            marginBottom: "16px",
+            fontSize: "13px",
+            border: "1px solid #fcd34d"
+          }}>
+            ⚠️ You can only configure menus you have access to. Superadmins can configure all menus.
+          </div>
+        )}
 
         <div
           style={{
