@@ -3,260 +3,262 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
 export default function UserControl() {
-  const [selectedUser, setSelectedUser] = useState("");
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userAccess, setUserAccess] = useState(null);
-  const [loadingAccess, setLoadingAccess] = useState(false);
+  const [users, setUsers]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [search, setSearch]         = useState("");
+  const [filterLevel, setFilter]    = useState("all");
   const navigate = useNavigate();
 
-  const styles = {
-    page: {
-      padding: "25px",
-      backgroundColor: "#f8fafc",
-      minHeight: "100vh",
-      fontFamily: "Inter, sans-serif",
-    },
-    card: {
-      width: "50%",
-      margin: "0 auto",
-      background: "#ffffff",
-      borderRadius: "10px",
-      padding: "20px 25px",
-      boxShadow: "0 3px 10px rgba(0,0,0,0.08)",
-      border: "1px solid #e5e7eb",
-    },
-    header: {
-      background: "#1d4ed8",
-      color: "white",
-      padding: "10px 15px",
-      fontWeight: "600",
-      borderRadius: "6px 6px 0 0",
-      marginBottom: "15px",
-      fontSize: "14px",
-      letterSpacing: "0.3px",
-    },
-    label: {
-      fontSize: "13px",
-      fontWeight: "600",
-      marginBottom: "6px",
-      display: "block",
-      color: "#374151",
-    },
-    select: {
-      width: "100%",
-      padding: "12px 14px",
-      borderRadius: "8px",
-      border: "1px solid #cbd5e1",
-      marginBottom: "18px",
-      fontSize: "14px",
-      cursor: "pointer",
-      background: "#fff",
-      outline: "none",
-      color: "#111827",
-      boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-    },
-    actionBtn: {
-      width: "100%",
-      background: "#1d4ed8",
-      border: "none",
-      color: "#fff",
-      fontWeight: "600",
-      padding: "10px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontSize: "14px",
-      boxShadow: "0px 3px 6px rgba(0,0,0,0.15)",
-      transition: "background 0.2s ease",
-    },
-    actionBtnDisabled: {
-      width: "100%",
-      background: "#94a3b8",
-      border: "none",
-      color: "#fff",
-      fontWeight: "600",
-      padding: "10px",
-      borderRadius: "8px",
-      cursor: "not-allowed",
-      fontSize: "14px",
-      boxShadow: "0px 3px 6px rgba(0,0,0,0.15)",
-    },
-  };
-
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get current user
-        const currentUserRes = await api.get("/users/me/");
-        setCurrentUser(currentUserRes.data);
-        
-        // Fetch all users
-        const res = await api.get("/user-controll/admin/users/");
-        
-        // Filter users based on current user's permissions
-        let filteredUsers = res.data;
-        
-        if (!currentUserRes.data.is_superuser) {
-          // Non-superuser: only show users they can manage
-          // For now, show all non-admin users  
-          filteredUsers = res.data.filter(u => 
-            u.user_level !== "Super Admin" && !u.is_superuser
-          );
-        }
-        
-        setUsers(filteredUsers);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    api.get("/user-controll/admin/users/")
+      .then((r) => setUsers(r.data))
+      .catch((e) => console.error("Error fetching users:", e))
+      .finally(() => setLoading(false));
   }, []);
 
-  // Fetch user access when user is selected
-  useEffect(() => {
-    if (!selectedUser) {
-      setUserAccess(null);
-      return;
-    }
+  const filtered = users.filter((u) => {
+    const matchSearch =
+      !search ||
+      (u.name || u.username || "").toLowerCase().includes(search.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(search.toLowerCase());
+    const level = (u.user_level || "User");
+    const matchLevel = filterLevel === "all" || level === filterLevel;
+    return matchSearch && matchLevel;
+  });
 
-    const fetchUserAccess = async () => {
-      setLoadingAccess(true);
-      try {
-        const res = await api.get(`/user-controll/admin/user/${selectedUser}/menus/`);
-        setUserAccess(res.data);
-      } catch (error) {
-        console.error("Error fetching user access:", error);
-        setUserAccess(null);
-      } finally {
-        setLoadingAccess(false);
-      }
-    };
+  const levelColor = (level) => {
+    if (level === "Super Admin") return { bg: "#fef2f2", text: "#dc2626", border: "#fecaca" };
+    if (level === "Admin")       return { bg: "#fffbeb", text: "#d97706", border: "#fde68a" };
+    return                              { bg: "#f0f9ff", text: "#0369a1", border: "#bae6fd" };
+  };
 
-    fetchUserAccess();
-  }, [selectedUser]);
-
-  if (loading) return <p style={{ textAlign: "center" }}>Loading users...</p>;
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", fontFamily: "system-ui, sans-serif" }}>
+        <div style={{ textAlign: "center", color: "#64748b" }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div style={{ fontWeight: 600 }}>Loading users…</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.header}>Select User for Menu Control</div>
+    <div style={{ padding: 24, background: "#f1f5f9", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
-        <label style={styles.label}>Select User</label>
-        <select
-          style={styles.select}
-          value={selectedUser}
-          onChange={(e) => setSelectedUser(e.target.value)}
-        >
-          <option value="">-- Select User --</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name || u.username} ({u.email})
-            </option>
-          ))}
-        </select>
+        {/* Page header */}
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a" }}>
+            🔐 User Control Panel
+          </h1>
+          <p style={{ margin: "4px 0 0", fontSize: 14, color: "#64748b" }}>
+            Configure menu access and permissions for each user
+          </p>
+        </div>
 
-        <button
-          style={selectedUser ? styles.actionBtn : styles.actionBtnDisabled}
-          disabled={!selectedUser}
-          onClick={() => navigate(`/configure-access/${selectedUser}`)}
-        >
-          ⚙ Configure Menu Access
-        </button>
-      </div>
-
-      {/* Display User Access Section */}
-      {selectedUser && (
+        {/* Filter bar */}
         <div style={{
-          ...styles.card,
-          marginTop: "20px",
-          maxWidth: "900px",
+          background: "#fff",
+          border: "1px solid #e2e8f0",
+          borderRadius: 10,
+          padding: "14px 18px",
+          marginBottom: 16,
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
         }}>
-          <div style={styles.header}>Current Access Permissions</div>
-          
-          {loadingAccess ? (
-            <p style={{ padding: "15px", color: "#666" }}>Loading access details...</p>
-          ) : userAccess?.menu_perms && userAccess.menu_perms.length > 0 ? (
-            <div>
-              <div style={{ marginBottom: "15px", fontSize: "13px", color: "#666" }}>
-                Total Access: <strong>{userAccess.menu_perms.length}</strong> menu(s)
-              </div>
-              <div style={{
-                maxHeight: "400px",
-                overflowY: "auto",
-                border: "1px solid #e5e7eb",
-                borderRadius: "6px"
-              }}>
-                {userAccess.menu_perms.map((perm, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: "12px 15px",
-                      borderBottom: idx < userAccess.menu_perms.length - 1 ? "1px solid #f3f4f6" : "none",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      backgroundColor: idx % 2 === 0 ? "#ffffff" : "#fafafa"
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: "14px", fontWeight: "600", color: "#1f2937" }}>
-                        {perm.name || `Menu #${perm.menu_id}`}
-                      </div>
+          <input
+            type="text"
+            placeholder="🔍  Search by name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: 200,
+              padding: "9px 14px",
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              fontSize: 14,
+              outline: "none",
+              color: "#0f172a",
+            }}
+          />
+          {["all", "Super Admin", "Admin", "User"].map((lvl) => (
+            <button
+              key={lvl}
+              onClick={() => setFilter(lvl)}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 7,
+                border: "1px solid",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                ...(filterLevel === lvl
+                  ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" }
+                  : { background: "#f8fafc", color: "#374151", borderColor: "#e2e8f0" }),
+              }}
+            >
+              {lvl === "all" ? `All (${users.length})` : lvl}
+            </button>
+          ))}
+        </div>
+
+        {/* User cards */}
+        {filtered.length === 0 ? (
+          <div style={{
+            background: "#fff",
+            borderRadius: 10,
+            padding: "40px 24px",
+            textAlign: "center",
+            color: "#64748b",
+            border: "1px solid #e2e8f0",
+          }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>👤</div>
+            <div style={{ fontWeight: 600 }}>No users found</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {filtered.map((u) => {
+              const level  = u.user_level || "User";
+              const colors = levelColor(level);
+              const initials = (u.name || u.username || u.email || "?")
+                .split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+
+              return (
+                <div
+                  key={u.id}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 10,
+                    padding: "14px 18px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                    transition: "box-shadow 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 3px 10px rgba(0,0,0,0.09)"}
+                  onMouseLeave={(e) => e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"}
+                >
+                  {/* Avatar */}
+                  <div style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    background: colors.bg,
+                    border: `2px solid ${colors.border}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    color: colors.text,
+                    flexShrink: 0,
+                  }}>
+                    {initials}
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
+                        {u.name || u.username}
+                      </span>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "2px 8px",
+                        borderRadius: 20,
+                        background: colors.bg,
+                        color: colors.text,
+                        border: `1px solid ${colors.border}`,
+                      }}>
+                        {level}
+                      </span>
+                      {u.is_superuser && (
+                        <span style={{
+                          fontSize: 11,
+                          padding: "2px 8px",
+                          borderRadius: 20,
+                          background: "#fdf4ff",
+                          color: "#7e22ce",
+                          border: "1px solid #e9d5ff",
+                          fontWeight: 700,
+                        }}>
+                          Django Superuser
+                        </span>
+                      )}
                     </div>
-                    <div style={{
-                      display: "flex",
-                      gap: "15px",
-                      fontSize: "12px"
-                    }}>
-                      <div style={{
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        backgroundColor: perm.can_view ? "#dcfce7" : "#f3f4f6",
-                        color: perm.can_view ? "#166534" : "#9ca3af",
-                        fontWeight: "500"
-                      }}>
-                        👁 {perm.can_view ? "View" : "—"}
-                      </div>
-                      <div style={{
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        backgroundColor: perm.can_edit ? "#dbeafe" : "#f3f4f6",
-                        color: perm.can_edit ? "#1e40af" : "#9ca3af",
-                        fontWeight: "500"
-                      }}>
-                        ✏ {perm.can_edit ? "Edit" : "—"}
-                      </div>
-                      <div style={{
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        backgroundColor: perm.can_delete ? "#fee2e2" : "#f3f4f6",
-                        color: perm.can_delete ? "#991b1b" : "#9ca3af",
-                        fontWeight: "500"
-                      }}>
-                        🗑 {perm.can_delete ? "Delete" : "—"}
-                      </div>
+                    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                      {u.email}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              padding: "15px",
-              color: "#666",
-              textAlign: "center",
-              backgroundColor: "#f9fafb",
-              borderRadius: "6px"
-            }}>
-              No access permissions assigned to this user
-            </div>
-          )}
-        </div>
-      )}
+
+                  {/* Action */}
+                  <div style={{ flexShrink: 0 }}>
+                    {level === "Super Admin" || level === "Admin" ? (
+                      <div style={{
+                        fontSize: 12,
+                        color: "#d97706",
+                        background: "#fffbeb",
+                        padding: "6px 12px",
+                        borderRadius: 7,
+                        border: "1px solid #fde68a",
+                        fontWeight: 600,
+                      }}>
+                        Full Access
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => navigate(`/configure-access/${u.id}`)}
+                        style={{
+                          padding: "8px 18px",
+                          background: "#1d4ed8",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          fontWeight: 700,
+                          fontSize: 13,
+                          boxShadow: "0 2px 6px rgba(29,78,216,0.25)",
+                        }}
+                      >
+                        ⚙ Configure Access
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Note for admin/superadmin */}
+        {filtered.some((u) => ["Super Admin", "Admin"].includes(u.user_level)) && (
+          <div style={{
+            marginTop: 16,
+            background: "#fffbeb",
+            border: "1px solid #fde68a",
+            borderRadius: 8,
+            padding: "10px 16px",
+            fontSize: 13,
+            color: "#92400e",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}>
+            <span>⚠️</span>
+            <span>
+              <strong>Admin</strong> and <strong>Super Admin</strong> users automatically have access to all menus — no configuration needed. Only <strong>User</strong>-level accounts require explicit menu assignment.
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
