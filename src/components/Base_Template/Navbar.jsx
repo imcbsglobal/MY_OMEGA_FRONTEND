@@ -1097,3 +1097,7 @@ import { useState, useEffect, useRef } from "react";
       </>
     );
   }
+
+
+
+// when we add new menu item in backend, just update the `menus` list in this command and run `python manage.py seed_menus` again. It will safely create new items and update existing ones without deleting anything!

@@ -243,7 +243,72 @@ export default function FuelManagement() {
   });
 
   if (!isAdmin) {
-    return null;
+    return (
+      <div style={styles.container}>
+        <div style={styles.pageHeader}>
+          <h1 style={styles.pageTitle}>My Trips</h1>
+          <p style={styles.pageDescription}>View your submitted trips</p>
+        </div>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>Loading trips...</div>
+        ) : filteredTrips.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px", color: "#9ca3af", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+            <div style={{ fontSize: "40px", marginBottom: "12px" }}>🚗</div>
+            <div style={{ fontWeight: "600", fontSize: "16px" }}>No trips found</div>
+            <div style={{ fontSize: "13px", marginTop: "6px" }}>Your trips will appear here once submitted.</div>
+          </div>
+        ) : (
+          <div style={styles.tableContainer}>
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHeaderRow}>
+                    <th style={styles.tableHeader}>#</th>
+                    <th style={styles.tableHeader}>VEHICLE</th>
+                    <th style={styles.tableHeader}>CLIENT &amp; PURPOSE</th>
+                    <th style={styles.tableHeader}>DATE</th>
+                    <th style={styles.tableHeader}>START TIME</th>
+                    <th style={styles.tableHeader}>END TIME</th>
+                    <th style={styles.tableHeader}>DISTANCE (KM)</th>
+                    <th style={styles.tableHeader}>FUEL COST</th>
+                    <th style={styles.tableHeader}>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTrips.map((trip, index) => (
+                    <tr key={trip.id} style={styles.tableRow}>
+                      <td style={styles.tableCell}>{index + 1}</td>
+                      <td style={styles.tableCell}>
+                        <div>{trip.vehicle}</div>
+                        {trip.vehicle_name && <div style={{ fontSize: "10px", color: "#6b7280" }}>{trip.vehicle_name}</div>}
+                      </td>
+                      <td style={styles.tableCell}>
+                        {trip.client_name && <div style={styles.clientName}>{trip.client_name}</div>}
+                        <div style={styles.clientPurpose}>{trip.purpose || "—"}</div>
+                      </td>
+                      <td style={styles.tableCell}>{trip.date}</td>
+                      <td style={styles.tableCell}>{trip.start_time}</td>
+                      <td style={styles.tableCell}>{trip.end_time}</td>
+                      <td style={styles.tableCell}>{trip.distance}</td>
+                      <td style={styles.tableCell}>₹{trip.fuel_cost}</td>
+                      <td style={styles.tableCell}>
+                        <div style={{
+                          ...styles.statusBadge,
+                          backgroundColor: trip.status === "Started" ? "#fef3c7" : trip.status === "Completed" ? "#dbeafe" : trip.status === "Approved" ? "#d1fae5" : "#fee2e2",
+                          color: trip.status === "Started" ? "#92400e" : trip.status === "Completed" ? "#1e40af" : trip.status === "Approved" ? "#065f46" : "#991b1b",
+                        }}>
+                          {trip.status}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
