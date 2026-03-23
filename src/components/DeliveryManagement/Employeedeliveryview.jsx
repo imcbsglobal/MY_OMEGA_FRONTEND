@@ -8,7 +8,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
 import { notifySuccess, notifyError } from "../../utils/notification";
-import DeliveryProducts from "./DeliveryProducts";
 
 // Status configuration
 const STATUS_META = {
@@ -69,8 +68,6 @@ export default function EmployeeDeliveryView() {
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list"); // list, detail, all_stops, stop_detail, summary 
-  const [activeTab, setActiveTab] = useState("products");
-  
   // Current stop management
   const [currentStop, setCurrentStop] = useState(null);
   const [stopForm, setStopForm] = useState({
@@ -133,17 +130,21 @@ export default function EmployeeDeliveryView() {
     }
   };
 
+
+
   const selectDelivery = async (delivery) => {
     setLoading(true);
     try {
-      console.log(`Fetching delivery details for ID: ${delivery.id}`);
       const res = await api.get(`delivery-management/deliveries/${delivery.id}/`);
-      console.log("Delivery details response:", res.data);
-      setSelectedDelivery(computeDeliveryTotals(res.data || {}));
-      setView("detail"); // Show detailed view first
+      const data = computeDeliveryTotals(res.data || {});
+      setSelectedDelivery(data);
+      // Skip detail view — go straight into the stop workflow
+      if (data.status === "in_progress") {
+        await loadNextStop(data.id);
+      } else {
+        setView("all_stops");
+      }
     } catch (err) {
-      console.error("Failed to load delivery details:", err);
-      console.error("Error details:", err.response?.data);
       notifyError("Failed to load delivery details: " + (err.response?.data?.error || err.message || "Unknown error"));
     } finally {
       setLoading(false);
@@ -713,239 +714,7 @@ export default function EmployeeDeliveryView() {
     );
   }
 
-  // DETAILED VIEW (matches DeliveryDetail component)
-  if (view === "detail" && selectedDelivery) {
-    return (
-      <div style={styles.container}>
-        <style>{FONTS}</style>
-        
-        {/* Header Card */}
-        <div style={detailStyles.headerCard}>
-          <div style={detailStyles.headerLeft}>
-            <div style={detailStyles.iconBox}>
-              <span style={detailStyles.icon}>📦</span>
-            </div>
-            <div>
-              <h1 style={detailStyles.deliveryTitle}>Delivery #{selectedDelivery.id}</h1>
-              <span style={getStatusBadgeStyle(selectedDelivery.status)}>
-                {getStatusLabel(selectedDelivery.status)}
-              </span>
-            </div>
-          </div>
-          <div style={detailStyles.actionButtons}>
-            <button 
-              onClick={() => setView("list")}
-              style={detailStyles.backButton}
-            >
-              ← Back to List
-            </button>
-            {selectedDelivery.status === "in_progress" && (
-              <button 
-                onClick={() => {
-                  if (selectedDelivery.status === "in_progress") {
-                    loadNextStop(selectedDelivery.id);
-                  } else {
-                    setView("all_stops");
-                  }
-                }}
-                style={detailStyles.continueButton}
-              >
-                🚚 Continue Delivery
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Info Grid */}
-        <div style={detailStyles.infoGrid}>
-          <div style={detailStyles.infoCard}>
-            <div style={detailStyles.infoLabel}>DELIVERY NUMBER</div>
-            <div style={detailStyles.infoValue}>{selectedDelivery.delivery_number || "-"}</div>
-          </div>
-          <div style={detailStyles.infoCard}>
-            <div style={detailStyles.infoLabel}>STATUS</div>
-            <div style={detailStyles.infoValue}>{getStatusLabel(selectedDelivery.status)}</div>
-          </div>
-          <div style={detailStyles.infoCard}>
-            <div style={detailStyles.infoLabel}>ASSIGNED TO</div>
-            <div style={detailStyles.infoValue}>
-              {selectedDelivery.employee_details?.full_name || 
-               selectedDelivery.employee_name || "-"}
-            </div>
-          </div>
-          <div style={detailStyles.infoCard}>
-            <div style={detailStyles.infoLabel}>VEHICLE</div>
-            <div style={detailStyles.infoValue}>
-              {selectedDelivery.vehicle_details?.registration_number || 
-               selectedDelivery.vehicle_number || "-"}
-            </div>
-          </div>
-          <div style={detailStyles.infoCard}>
-            <div style={detailStyles.infoLabel}>ROUTE</div>
-            <div style={detailStyles.infoValue}>
-              {selectedDelivery.route_details?.route_name || 
-               selectedDelivery.route_name || "-"}
-            </div>
-          </div>
-          <div style={detailStyles.infoCard}>
-            <div style={detailStyles.infoLabel}>SCHEDULED</div>
-            <div style={detailStyles.infoValue}>
-              {selectedDelivery.scheduled_date} {selectedDelivery.scheduled_time}
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={detailStyles.tabsContainer}>
-          <button
-            onClick={() => setActiveTab("products")}
-            style={activeTab === "products" ? detailStyles.activeTabBtn : detailStyles.tabBtn}
-          >
-            Products
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div style={detailStyles.tabContentArea}>
-          {activeTab === "products" && (
-            <div>
-              <div style={detailStyles.sectionHeader}>
-                <div style={detailStyles.sectionIconBox}>
-                  <span>📦</span>
-                </div>
-                <h3 style={detailStyles.sectionTitle}>Products</h3>
-              </div>
-              <DeliveryProducts deliveryId={selectedDelivery.id} />
-            </div>
-          )}
-        </div>
-
-        {/* Start Delivery Modal */}
-        {showStartModal && selectedDelivery && (
-          <div style={modalStyles.overlay}>
-            <div style={modalStyles.modal}>
-              {/* Modal Header */}
-              <div style={modalStyles.header}>
-                <button 
-                  onClick={() => setShowStartModal(false)}
-                  style={modalStyles.backButton}
-                >
-                  ← Back to delivery
-                </button>
-              </div>
-
-              {/* Delivery Title Card */}
-              <div style={modalStyles.titleCard}>
-                <div style={modalStyles.iconBox}>
-                  <span style={{fontSize: "24px"}}>🚚</span>
-                </div>
-                <div>
-                  <h3 style={modalStyles.title}>Start Delivery</h3>
-                  <p style={modalStyles.deliveryNumber}>#{selectedDelivery.delivery_number}</p>
-                </div>
-              </div>
-
-              {/* Delivery Info Card */}
-              <div style={modalStyles.infoCard}>
-                <div style={modalStyles.infoItem}>
-                  <div style={modalStyles.infoLabel}>EMPLOYEE</div>
-                  <div style={modalStyles.infoValue}>
-                    {selectedDelivery.employee_details?.full_name || 
-                     selectedDelivery.employee_details?.employee_id || 
-                     selectedDelivery.employee_name || "Not assigned"}
-                  </div>
-                </div>
-                <div style={modalStyles.infoItem}>
-                  <div style={modalStyles.infoLabel}>VEHICLE</div>
-                  <div style={modalStyles.infoValue}>
-                    {selectedDelivery.vehicle_details?.registration_number || 
-                     selectedDelivery.vehicle_number || "Not assigned"}
-                  </div>
-                </div>
-                <div style={modalStyles.infoItem}>
-                  <div style={modalStyles.infoLabel}>ROUTE</div>
-                  <div style={modalStyles.infoValue}>
-                    {selectedDelivery.route_details?.route_name || 
-                     selectedDelivery.route_name || "Not assigned"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Starting Location Card */}
-              <div style={modalStyles.locationCard}>
-                <div style={modalStyles.locationHeader}>
-                  <span style={{fontSize: "18px", marginRight: "8px"}}>📍</span>
-                  <span style={{fontSize: "15px", fontWeight: "600", color: "#1e293b"}}>Starting Location</span>
-                </div>
-
-                <div style={modalStyles.locationForm}>
-                  <div style={modalStyles.inputGroup}>
-                    <label style={modalStyles.inputLabel}>Address</label>
-                    <input
-                      type="text"
-                      placeholder="Enter starting address"
-                      value={locationData.address}
-                      onChange={(e) => setLocationData({...locationData, address: e.target.value})}
-                      style={modalStyles.input}
-                    />
-                  </div>
-
-                  <div style={modalStyles.locationInputs}>
-                    <div style={{flex: 1}}>
-                      <label style={modalStyles.inputLabel}>Latitude</label>
-                      <input
-                        type="text"
-                        placeholder="0.0"
-                        value={locationData.latitude}
-                        onChange={(e) => setLocationData({...locationData, latitude: e.target.value})}
-                        style={modalStyles.input}
-                      />
-                    </div>
-                    <div style={{flex: 1, marginLeft: 12}}>
-                      <label style={modalStyles.inputLabel}>Longitude</label>
-                      <input
-                        type="text"
-                        placeholder="0.0"
-                        value={locationData.longitude}
-                        onChange={(e) => setLocationData({...locationData, longitude: e.target.value})}
-                        style={modalStyles.input}
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={getCurrentLocation}
-                    style={modalStyles.locationButton}
-                  >
-                    📍 Get Current Location
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={modalStyles.actionButtons}>
-                <button 
-                  onClick={() => setShowStartModal(false)}
-                  style={modalStyles.cancelButton}
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleStartDelivery}
-                  disabled={loading}
-                  style={modalStyles.startButton}
-                >
-                  🚚 {loading ? "Starting..." : "Start Delivery"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // STOP DETAIL VIEW (Current Stop)
+    // STOP DETAIL VIEW (Current Stop)
   if (view === "stop_detail" && currentStop) {
     const stopMeta = STOP_STATUS[currentStop.status] || STOP_STATUS.pending;
     

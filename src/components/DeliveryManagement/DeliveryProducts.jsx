@@ -14,6 +14,7 @@ export default function DeliveryProducts({
   // ── View/active mode ──
   deliveryId,
   deliveryStatus,
+  hideHeader = false,
 
   // ── Wizard mode ──
   wizardMode = false,
@@ -152,14 +153,22 @@ export default function DeliveryProducts({
   // ─── VIEW / ACTIVE MODE ───────────────────────────────────────────────────────
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h3 style={{ color: "#1e293b", margin: 0, fontSize: 15, fontWeight: 700 }}>Products</h3>
-        {isActive && (
+      {!hideHeader ? (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <h3 style={{ color: "#1e293b", margin: 0, fontSize: 15, fontWeight: 700 }}>Products</h3>
+          {isActive && (
+            <button onClick={handleBulkUpdate} disabled={loading} style={primaryBtn}>
+              {saved === "bulk" ? "✓ Saved!" : loading ? "Saving…" : "Bulk Update"}
+            </button>
+          )}
+        </div>
+      ) : isActive && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <button onClick={handleBulkUpdate} disabled={loading} style={primaryBtn}>
             {saved === "bulk" ? "✓ Saved!" : loading ? "Saving…" : "Bulk Update"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div style={{ background: "#ffffff", borderRadius: 10, border: "1px solid #e2e8f0", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "separate", tableLayout: "fixed", minWidth: 720 }}>
