@@ -21,7 +21,7 @@ export default function AddUser() {
       const list = Array.isArray(payload) ? payload : (payload.results || payload.data || []);
       setUsers(Array.isArray(list) ? list : []);
     } catch (e) {
-      console.error("Error fetching users:", e.response?.data || e.message);
+      console.error("❌ Error fetching users:", e.response?.data || e.message);
     }
   }
 
@@ -144,7 +144,7 @@ export default function AddUser() {
                         onClick={() => { setEditingUser(u); setShowForm(true); }}
                         style={styles.editBtn}
                       >
-                        Edit
+                        ✏️ Edit
                       </button>
                       <button 
                         onClick={() => deleteUser(u.id, u.name || u.email)}
@@ -212,7 +212,7 @@ export default function AddUser() {
                   onClick={() => { setEditingUser(u); setShowForm(true); }}
                   style={styles.editBtnMobile}
                 >
-                  Edit
+                  ✏️ Edit
                 </button>
                 <button 
                   onClick={() => deleteUser(u.id, u.name || u.email)}
@@ -348,22 +348,41 @@ const styles = {
     flexWrap: "wrap"
   },
   editBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
+    padding: "5px 10px",
+    fontSize: "12px",
+    fontWeight: "600",
     background: "#dbeafe",
     color: "#1d4ed8",
-    borderRadius: "6px",
+    borderRadius: "5px",
     border: "1px solid #bfdbfe",
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
-  deleteBtn: {
-    padding: "6px 12px",
-    fontSize: "13px",
-    background: "#fee2e2",
-    color: "#b91c1c",
-    borderRadius: "6px",
-    border: "1px solid #fecaca",
+  statusBadgeActive: {
+    padding: "5px 12px",
+    fontSize: "12px",
+    fontWeight: "600",
+    background: "#dcfce7",
+    color: "#166534",
+    border: "2px solid #86efac",
+    borderRadius: "16px",
     cursor: "pointer",
+    transition: "all 0.3s ease",
+    whiteSpace: "nowrap",
+    opacity: 1,
+  },
+  statusBadgeInactive: {
+    padding: "5px 12px",
+    fontSize: "12px",
+    fontWeight: "600",
+    background: "#fee2e2",
+    color: "#991b1b",
+    border: "2px solid #fca5a5",
+    borderRadius: "16px",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    whiteSpace: "nowrap",
+    opacity: 1,
   },
   
   // Mobile Card Styles
@@ -458,25 +477,41 @@ const styles = {
   },
   editBtnMobile: {
     flex: 1,
-    padding: "10px",
-    fontSize: "14px",
+    padding: "8px 10px",
+    fontSize: "13px",
     fontWeight: "600",
     background: "#dbeafe",
     color: "#1d4ed8",
-    borderRadius: "6px",
+    borderRadius: "5px",
     border: "1px solid #bfdbfe",
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
-  deleteBtnMobile: {
+  statusBadgeActiveMobile: {
     flex: 1,
-    padding: "10px",
-    fontSize: "14px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    fontWeight: "600",
+    background: "#dcfce7",
+    color: "#166534",
+    border: "2px solid #86efac",
+    borderRadius: "16px",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    whiteSpace: "nowrap",
+  },
+  statusBadgeInactiveMobile: {
+    flex: 1,
+    padding: "8px 12px",
+    fontSize: "13px",
     fontWeight: "600",
     background: "#fee2e2",
-    color: "#b91c1c",
-    borderRadius: "6px",
-    border: "1px solid #fecaca",
+    color: "#991b1b",
+    border: "2px solid #fca5a5",
+    borderRadius: "16px",
     cursor: "pointer",
+    transition: "all 0.3s ease",
+    whiteSpace: "nowrap",
   },
   noResultsMobile: {
     padding: "32px",
