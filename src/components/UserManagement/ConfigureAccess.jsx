@@ -2,58 +2,26 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/client";
 
-function collectAllIds(nodes) {
-  const ids = [];
-  const walk = (list) => (list || []).forEach((n) => { ids.push(n.id); walk(n.children || []); });
-  walk(nodes);
-  return ids;
-}
-
-function buildIdMap(nodes) {
-  const map = {};
-  const walk = (list) => (list || []).forEach((n) => { map[n.id] = n; walk(n.children || []); });
-  walk(nodes);
-  return map;
-}
-
-function getAncestorIds(id, idMap) {
-  const ancestors = [];
-  let node = idMap[id];
-  while (node?.parent_id) {
-    ancestors.push(node.parent_id);
-    node = idMap[node.parent_id];
-  }
-  return ancestors;
-}
-
 const emptyPerm = () => ({ can_view: false, can_edit: false, can_delete: false });
 
 export default function ConfigureAccess() {
   const navigate = useNavigate();
   const { id: userId } = useParams();
 
-  const [menuTree,     setMenuTree]  = useState([]);
-  const [idMap,        setIdMap]     = useState({});
-  const [perms,        setPerms]     = useState({});
-  const [openSections, setOpen]      = useState({});
-  const [loading,      setLoading]   = useState(true);
-  const [saving,       setSaving]    = useState(false);
-  const [userName,     setUserName]  = useState(`User #${userId}`);
-  const [toast,        setToast]     = useState(null);
-  const [error,        setError]     = useState(null);
+  const [menuStructure, setMenuStructure] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [perms, setPerms] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [userName, setUserName] = useState("User");
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
-
-  // ── load tree + existing perms ─────────────────────────────────────────────
+  // Load menu tree + user permissions
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        // 1. menu tree
+        // 1. Menu tree
         const treeRes = await api.get("/user-controll/admin/menu-tree/");
         if (!Array.isArray(treeRes.data)) {
           setError(`menu-tree returned unexpected data: ${JSON.stringify(treeRes.data)}`);
@@ -66,7 +34,7 @@ export default function ConfigureAccess() {
           return;
         }
 
-        // attach parent_id to every node
+        // Attach parent_id to every node for tree traversal
         const attachParent = (nodes, parentId = null) =>
           (nodes || []).map((n) => ({
             ...n,
@@ -75,11 +43,9 @@ export default function ConfigureAccess() {
           }));
 
         const tree = attachParent(treeRes.data);
-        setMenuTree(tree);
-        const map = buildIdMap(tree);
-        setIdMap(map);
+        setMenuStructure(tree);
 
-        // 2. existing user perms
+        // 2. Load existing user permissions
         try {
           const userRes = await api.get(`/user-controll/admin/user/${userId}/menus/`);
           console.log("[ConfigureAccess] loaded user perms:", userRes.data);
@@ -90,13 +56,12 @@ export default function ConfigureAccess() {
             const mid = Number(p.menu_id ?? p.id);
             if (!mid) return;
             loaded[mid] = {
-              can_view:   Boolean(p.can_view),
-              can_edit:   Boolean(p.can_edit),
+              can_view: Boolean(p.can_view),
+              can_edit: Boolean(p.can_edit),
               can_delete: Boolean(p.can_delete),
             };
           });
 
-          // Also check menu_ids fallback (simple mode saves)
           const menuIds = userRes.data.menu_ids || [];
           menuIds.forEach((mid) => {
             if (!loaded[mid]) {
@@ -110,7 +75,7 @@ export default function ConfigureAccess() {
           console.warn("[ConfigureAccess] Could not load user perms:", permErr);
         }
 
-        // 3. user name
+        // 3. Get user name
         try {
           const usersRes = await api.get("/user-controll/admin/users/");
           const found = usersRes.data.find((u) => String(u.id) === String(userId));
@@ -132,113 +97,113 @@ export default function ConfigureAccess() {
     load();
   }, [userId]);
 
-  // ── toggle single action ───────────────────────────────────────────────────
+  // Toggle permission checkbox
   const toggleAction = useCallback((nodeId, action) => {
     setPerms((prev) => {
       const current = { ...emptyPerm(), ...prev[nodeId] };
-      const updated  = { ...prev };
+      const updated = { ...prev };
       updated[nodeId] = { ...current, [action]: !current[action] };
 
       const any = updated[nodeId].can_view || updated[nodeId].can_edit || updated[nodeId].can_delete;
       if (!any) {
         delete updated[nodeId];
       } else {
-        updated[nodeId].can_view = true; // always keep view when anything is on
+        updated[nodeId].can_view = true;
       }
-
-      // auto-enable ancestors with can_view
-      if (any) {
-        getAncestorIds(nodeId, idMap).forEach((aid) => {
-          if (!updated[aid]) updated[aid] = emptyPerm();
-          updated[aid].can_view = true;
-        });
-      }
-      return updated;
-    });
-  }, [idMap]);
-
-  // ── grant/remove all in a section ─────────────────────────────────────────
-  const toggleSection = useCallback((sectionNode, grantAll) => {
-    const allIds = collectAllIds([sectionNode]);
-    setPerms((prev) => {
-      const updated = { ...prev };
-      allIds.forEach((id) => {
-        if (grantAll) updated[id] = { can_view: true, can_edit: true, can_delete: true };
-        else          delete updated[id];
-      });
       return updated;
     });
   }, []);
 
-  // ── save ──────────────────────────────────────────────────────────────────
+  // Save permissions to backend
   const handleSave = async () => {
     setSaving(true);
     try {
       const items = Object.entries(perms)
         .filter(([, p]) => p.can_view || p.can_edit || p.can_delete)
         .map(([id, p]) => ({
-          menu_id:    Number(id),
-          can_view:   Boolean(p.can_view),
-          can_edit:   Boolean(p.can_edit),
+          menu_id: Number(id),
+          can_view: Boolean(p.can_view),
+          can_edit: Boolean(p.can_edit),
           can_delete: Boolean(p.can_delete),
         }));
 
       console.log("[ConfigureAccess] saving", items.length, "items:", items);
-      const res = await api.post(`/user-controll/admin/user/${userId}/menus/`, { items });
-      console.log("[ConfigureAccess] save response:", res.data);
-      showToast(`Saved! ${items.length} menus assigned.`, "success");
+      await api.post(`/user-controll/admin/user/${userId}/menus/`, { items });
+      alert(`Saved! ${items.length} menus assigned.`);
     } catch (err) {
       console.error("[ConfigureAccess] save error:", err);
-      showToast(`Save failed: ${err.response?.data?.detail || err.message}`, "error");
+      alert(`Save failed: ${err.response?.data?.detail || err.message}`);
     }
     setSaving(false);
   };
 
-  // ── clear all ─────────────────────────────────────────────────────────────
+  // Clear all permissions
   const handleClearAll = async () => {
     if (!window.confirm("Remove ALL menu access for this user?")) return;
     setSaving(true);
     try {
       await api.post(`/user-controll/admin/user/${userId}/menus/`, { items: [] });
       setPerms({});
-      showToast("All permissions cleared.", "success");
+      alert("All permissions cleared.");
     } catch {
-      showToast("Failed to clear permissions.", "error");
+      alert("Failed to clear permissions.");
     }
     setSaving(false);
   };
 
-  // ── render a single menu row ───────────────────────────────────────────────
+  // Render a single menu row with checkboxes
   const renderRow = (node, depth = 0) => {
-    const p      = perms[node.id] || emptyPerm();
+    const p = perms[node.id] || emptyPerm();
     const hasAny = p.can_view || p.can_edit || p.can_delete;
 
     return (
       <React.Fragment key={node.id}>
         <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "9px 16px", paddingLeft: `${16 + depth * 22}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "9px 16px",
+          paddingLeft: `${16 + depth * 22}px`,
           borderBottom: "1px solid #f1f5f9",
           background: hasAny ? "#f0fdf4" : depth > 0 ? "#fafafa" : "#fff",
           transition: "background 0.1s",
         }}>
-          <span style={{ fontSize: 13, fontWeight: hasAny ? 600 : 400, color: hasAny ? "#166534" : "#374151", flex: 1 }}>
+          <span style={{
+            fontSize: 13,
+            fontWeight: hasAny ? 600 : 400,
+            color: hasAny ? "#166534" : "#374151",
+            flex: 1,
+          }}>
             {node.icon && <span style={{ marginRight: 6 }}>{node.icon}</span>}
             {node.name}
             {node.path && node.path !== "#" && (
-              <span style={{ marginLeft: 8, fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{node.path}</span>
+              <span style={{ marginLeft: 8, fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>
+                {node.path}
+              </span>
             )}
           </span>
           <div style={{ display: "flex", gap: 24, flexShrink: 0 }}>
             {["can_view", "can_edit", "can_delete"].map((action) => (
-              <label key={action} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer", userSelect: "none", width: 60, justifyContent: "center" }}>
+              <label key={action} style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 12,
+                cursor: "pointer",
+                userSelect: "none",
+                width: 60,
+                justifyContent: "center",
+              }}>
                 <input
                   type="checkbox"
                   checked={Boolean(p[action])}
                   onChange={() => toggleAction(node.id, action)}
                   style={{ accentColor: "#16a34a", width: 14, height: 14, cursor: "pointer" }}
                 />
-                <span style={{ color: p[action] ? "#15803d" : "#9ca3af", textTransform: "capitalize" }}>
+                <span style={{
+                  color: p[action] ? "#15803d" : "#9ca3af",
+                  textTransform: "capitalize",
+                }}>
                   {action.replace("can_", "")}
                 </span>
               </label>
@@ -250,68 +215,46 @@ export default function ConfigureAccess() {
     );
   };
 
-  // ── render a top-level section ─────────────────────────────────────────────
-  const renderSection = (section, idx) => {
-    const isOpen     = openSections[idx] ?? false;
-    const allIds     = collectAllIds([section]);
-    const granted    = allIds.filter((id) => perms[id]?.can_view).length;
-    const allGranted = granted === allIds.length && allIds.length > 0;
-
-    return (
-      <div key={section.id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, marginBottom: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-        {/* section header */}
-        <div
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f8fafc", cursor: "pointer", borderBottom: isOpen ? "1px solid #e2e8f0" : "none" }}
-          onClick={() => setOpen((p) => ({ ...p, [idx]: !isOpen }))}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 16 }}>{section.icon || "📁"}</span>
-            <span style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>{section.name}</span>
-            <span style={{
-              fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600,
-              background: granted > 0 ? "#dcfce7" : "#f1f5f9",
-              color: granted > 0 ? "#15803d" : "#64748b",
-            }}>
-              {granted}/{allIds.length}
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleSection(section, !allGranted); }}
-              style={{
-                fontSize: 11, padding: "3px 12px", borderRadius: 6, cursor: "pointer", fontWeight: 600,
-                border: `1px solid ${allGranted ? "#fca5a5" : "#86efac"}`,
-                background: allGranted ? "#fef2f2" : "#f0fdf4",
-                color: allGranted ? "#dc2626" : "#16a34a",
-              }}
-            >
-              {allGranted ? "Remove All" : "Grant All"}
-            </button>
-            <span style={{ color: "#94a3b8", fontSize: 12, width: 16 }}>{isOpen ? "▲" : "▼"}</span>
-          </div>
-        </div>
-
-        {/* column headers + rows */}
-        {isOpen && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", padding: "5px 16px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-              {["View", "Edit", "Delete"].map((h) => (
-                <span key={h} style={{ width: 60, textAlign: "center", fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</span>
-              ))}
-            </div>
-            {(section.children || []).map((child) => renderRow(child, 0))}
-          </div>
-        )}
+  // Render a menu section with header
+  const renderSection = (section) => (
+    <div key={section.id} style={{
+      border: "1px solid #e2e8f0",
+      borderRadius: 10,
+      marginBottom: 12,
+      overflow: "hidden",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    }}>
+      <div style={{
+        padding: "12px 16px",
+        background: "#f8fafc",
+        fontWeight: 700,
+        fontSize: 14,
+        color: "#1e293b",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}>
+        <span>{section.icon || "📁"}</span>
+        {section.name || section.title}
       </div>
-    );
-  };
+      <div>
+        {(section.children || []).map((child) => renderRow(child, 0))}
+      </div>
+    </div>
+  );
 
   const totalAssigned = Object.values(perms).filter((p) => p.can_view || p.can_edit || p.can_delete).length;
 
-  // ── loading ───────────────────────────────────────────────────────────────
+  // Loading state
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        fontFamily: "system-ui, sans-serif",
+      }}>
         <div style={{ textAlign: "center", color: "#64748b" }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
           <div style={{ fontWeight: 600 }}>Loading menu configuration…</div>
@@ -320,72 +263,139 @@ export default function ConfigureAccess() {
     );
   }
 
-  // ── error screen ──────────────────────────────────────────────────────────
+  // Error state
   if (error) {
     return (
       <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-        <button onClick={() => navigate("/user-control")} style={{ padding: "7px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 7, cursor: "pointer", marginBottom: 20 }}>← Back</button>
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: 24, maxWidth: 600 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#dc2626", marginBottom: 8 }}>❌ Error loading menus</div>
+        <button
+          onClick={() => navigate("/user-control")}
+          style={{
+            padding: "7px 14px",
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 7,
+            cursor: "pointer",
+            marginBottom: 20,
+          }}
+        >
+          ← Back
+        </button>
+        <div style={{
+          background: "#fef2f2",
+          border: "1px solid #fecaca",
+          borderRadius: 10,
+          padding: 24,
+          maxWidth: 600,
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#dc2626", marginBottom: 8 }}>
+            ❌ Error loading menus
+          </div>
           <div style={{ fontSize: 14, color: "#7f1d1d" }}>{error}</div>
         </div>
       </div>
     );
   }
 
-  // ── main render ───────────────────────────────────────────────────────────
+  // Main render
   return (
-    <div style={{ padding: 24, background: "#f1f5f9", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
-
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: "fixed", top: 20, right: 20, zIndex: 9999,
-          padding: "12px 20px", borderRadius: 8, fontWeight: 600, fontSize: 14,
-          background: toast.type === "success" ? "#16a34a" : "#dc2626", color: "#fff",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}>
-          {toast.type === "success" ? "✓" : "✗"} {toast.msg}
-        </div>
-      )}
+    <div style={{
+      padding: 24,
+      background: "#f1f5f9",
+      minHeight: "100vh",
+      fontFamily: "system-ui, sans-serif",
+    }}>
+      <div style={{
+        background: "#2563eb",
+        color: "#fff",
+        padding: "12px 18px",
+        borderRadius: "6px",
+        marginBottom: "20px",
+        width: "fit-content",
+      }}>
+        Configure Menu Access for User #{userId}
+      </div>
 
       <div style={{ maxWidth: 920, margin: "0 auto" }}>
-
         {/* Header bar */}
         <div style={{
-          background: "#fff", borderRadius: 12, padding: "16px 24px", marginBottom: 20,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0",
+          background: "#fff",
+          borderRadius: 12,
+          padding: "16px 24px",
+          marginBottom: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          border: "1px solid #e2e8f0",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <button
-              onClick={() => navigate("/user-control")}
-              style={{ padding: "7px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#374151" }}
+              onClick={() => navigate(-1)}
+              style={{
+                padding: "7px 14px",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 7,
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#374151",
+              }}
             >
               ← Back
             </button>
             <div>
-              <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Configure Menu Access</div>
+              <div style={{
+                fontSize: 11,
+                color: "#94a3b8",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}>
+                Configure Menu Access
+              </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{userName}</div>
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#1d4ed8", lineHeight: 1 }}>{totalAssigned}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#1d4ed8", lineHeight: 1 }}>
+                {totalAssigned}
+              </div>
               <div style={{ fontSize: 11, color: "#64748b" }}>menus assigned</div>
             </div>
             <button
               onClick={handleClearAll}
               disabled={saving || totalAssigned === 0}
-              style={{ padding: "8px 16px", background: "#fef2f2", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 8, cursor: totalAssigned === 0 ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: totalAssigned === 0 ? 0.5 : 1 }}
+              style={{
+                padding: "8px 16px",
+                background: "#fef2f2",
+                border: "1px solid #fca5a5",
+                color: "#dc2626",
+                borderRadius: 8,
+                cursor: totalAssigned === 0 ? "not-allowed" : "pointer",
+                fontWeight: 600,
+                fontSize: 13,
+                opacity: totalAssigned === 0 ? 0.5 : 1,
+              }}
             >
               Clear All
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              style={{ padding: "8px 22px", background: saving ? "#86efac" : "#16a34a", border: "none", color: "#fff", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13, boxShadow: "0 2px 6px rgba(22,163,74,0.3)" }}
+              style={{
+                padding: "8px 22px",
+                background: saving ? "#86efac" : "#16a34a",
+                border: "none",
+                color: "#fff",
+                borderRadius: 8,
+                cursor: saving ? "not-allowed" : "pointer",
+                fontWeight: 700,
+                fontSize: 13,
+                boxShadow: "0 2px 6px rgba(22,163,74,0.3)",
+              }}
             >
               {saving ? "Saving…" : "💾 Save Permissions"}
             </button>
@@ -393,29 +403,63 @@ export default function ConfigureAccess() {
         </div>
 
         {/* Info tip */}
-        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: "#1e40af", display: "flex", gap: 8 }}>
+        <div style={{
+          background: "#eff6ff",
+          border: "1px solid #bfdbfe",
+          borderRadius: 8,
+          padding: "10px 16px",
+          marginBottom: 16,
+          fontSize: 13,
+          color: "#1e40af",
+          display: "flex",
+          gap: 8,
+        }}>
           <span>ℹ️</span>
-          <span>Check <strong>View</strong> to grant sidebar visibility. <strong>Edit</strong> and <strong>Delete</strong> control action buttons within the page. Parents are auto-enabled when a child is granted.</span>
+          <span>
+            Check <strong>View</strong> to grant sidebar visibility. <strong>Edit</strong> and{" "}
+            <strong>Delete</strong> control action buttons within the page.
+          </span>
         </div>
 
-        {/* Sections */}
-        {menuTree.length === 0 ? (
-          <div style={{ background: "#fff", borderRadius: 10, padding: "40px 24px", textAlign: "center", color: "#64748b", border: "1px solid #e2e8f0" }}>
+        {/* Menu sections */}
+        {menuStructure.length === 0 ? (
+          <div style={{
+            background: "#fff",
+            borderRadius: 10,
+            padding: "40px 24px",
+            textAlign: "center",
+            color: "#64748b",
+            border: "1px solid #e2e8f0",
+          }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
             <div style={{ fontWeight: 600 }}>No menus in database</div>
-            <div style={{ fontSize: 13, marginTop: 6 }}>Run <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>python manage.py seed_menus</code></div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>
+              Run <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                python manage.py seed_menus
+              </code>
+            </div>
           </div>
         ) : (
-          menuTree.map((section, idx) => renderSection(section, idx))
+          menuStructure.map((section) => renderSection(section))
         )}
 
-        {/* Bottom save */}
-        {menuTree.length > 0 && (
+        {/* Bottom save button */}
+        {menuStructure.length > 0 && (
           <div style={{ textAlign: "center", marginTop: 24, paddingBottom: 40 }}>
             <button
               onClick={handleSave}
               disabled={saving}
-              style={{ padding: "12px 40px", background: saving ? "#86efac" : "#16a34a", border: "none", color: "#fff", borderRadius: 10, cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 15, boxShadow: "0 4px 12px rgba(22,163,74,0.25)" }}
+              style={{
+                padding: "12px 40px",
+                background: saving ? "#86efac" : "#16a34a",
+                border: "none",
+                color: "#fff",
+                borderRadius: 10,
+                cursor: saving ? "not-allowed" : "pointer",
+                fontWeight: 700,
+                fontSize: 15,
+                boxShadow: "0 4px 12px rgba(22,163,74,0.25)",
+              }}
             >
               {saving ? "Saving…" : "💾 Save All Permissions"}
             </button>
