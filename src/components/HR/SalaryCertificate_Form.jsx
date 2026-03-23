@@ -94,7 +94,7 @@ export default function SalaryCertificateForm() {
       console.error("Error loading certificate:", error);
       console.error("Error details:", error.response?.data || error.message);
       alert("Certificate not found. Check console for details.");
-      navigate("/hr/salary-certificate");
+      navigate("/salary-certificate");
     } finally {
       setLoading(false);
     }
@@ -130,7 +130,7 @@ export default function SalaryCertificateForm() {
         alert("Salary Certificate created!");
       }
       console.log("Response:", res);
-      navigate("/hr/salary-certificate");
+      navigate("/salary-certificate");
     } catch (err) {
       console.error("Error saving:", err);
       console.error("Error details:", err.response?.data || err.message);
@@ -139,7 +139,7 @@ export default function SalaryCertificateForm() {
   };
 
   const handleCancel = () => {
-    navigate("/hr/salary-certificate");
+    navigate("/salary-certificate");
   };
 
   if (loading) {
