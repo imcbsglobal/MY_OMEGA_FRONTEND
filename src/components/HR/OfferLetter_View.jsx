@@ -66,6 +66,19 @@ export default function OfferLetterView() {
     (Number(record.house_rent_allowance) || 0) +
     (Number(record.conveyance_earnings) || 0);
 
+  const incentivesRows = Array.isArray(record.incentives_parameters)
+    ? record.incentives_parameters.filter((row) => {
+        const daily = String(row?.daily_target || "").trim();
+        const monthly = String(row?.monthly_target || "").trim();
+        const incentive = String(row?.incentive || "").trim();
+        return daily || monthly || incentive;
+      })
+    : [];
+
+  const showIncentivesSection = incentivesRows.length > 0;
+  const salesDirectorName = String(record.sales_director_name || "").trim();
+  const salesDirectorDesignation = String(record.sales_director_designation || "").trim();
+
   return (
     <>
       <div style={styles.page}>
@@ -182,54 +195,40 @@ export default function OfferLetterView() {
             </div>
 
             {/* Incentives Section */}
-            <div style={styles.incentivesSection}>
-              <p style={styles.sectionTitle}>Incentives parameters monthly are</p>
-              
-              <table style={styles.incentivesTable}>
-                <thead>
-                  <tr>
-                    <th style={styles.tableHeader}>Incentives parameters</th>
-                    <th style={styles.tableHeader}>Daily Target</th>
-                    <th style={styles.tableHeader}>Monthly Target</th>
-                    <th style={styles.tableHeader}>Incentives</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={styles.tableCell}>NO.OF SHOP VISIT</td>
-                    <td style={styles.tableCell}>20</td>
-                    <td style={styles.tableCell}>500</td>
-                    <td style={styles.tableCell}>2,500</td>
-                  </tr>
-                  <tr>
-                    <td style={styles.tableCell}>TOTAL BOXES</td>
-                    <td style={styles.tableCell}>55</td>
-                    <td style={styles.tableCell}>1375</td>
-                    <td style={styles.tableCell}>3,000</td>
-                  </tr>
-                  <tr>
-                    <td style={styles.tableCell}>NEW SHOP</td>
-                    <td style={styles.tableCell}>-</td>
-                    <td style={styles.tableCell}>10</td>
-                    <td style={styles.tableCell}>2,000</td>
-                  </tr>
-                  <tr>
-                    <td style={styles.tableCell}>FOCUS CATAGORY</td>
-                    <td style={styles.tableCell}>20</td>
-                    <td style={styles.tableCell}>500</td>
-                    <td style={styles.tableCell}>2,500</td>
-                  </tr>
-                </tbody>
-              </table>
+            {showIncentivesSection && (
+              <div style={styles.incentivesSection}>
+                <p style={styles.sectionTitle}>Incentives parameters monthly are</p>
+                
+                <table style={styles.incentivesTable}>
+                  <thead>
+                    <tr>
+                      <th style={styles.tableHeader}>Incentives parameters</th>
+                      <th style={styles.tableHeader}>Daily Target</th>
+                      <th style={styles.tableHeader}>Monthly Target</th>
+                      <th style={styles.tableHeader}>Incentives</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {incentivesRows.map((row, index) => (
+                      <tr key={index}>
+                        <td style={styles.tableCell}>{row?.parameter || "-"}</td>
+                        <td style={styles.tableCell}>{row?.daily_target || "-"}</td>
+                        <td style={styles.tableCell}>{row?.monthly_target || "-"}</td>
+                        <td style={styles.tableCell}>{row?.incentive || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
-              <p style={styles.incentiveNote}>Must achieve 70% target to get incentive</p>
+                <p style={styles.incentiveNote}>Must achieve 70% target to get incentive</p>
 
-              <p style={styles.dearnessTitle}>Dearness Allowance:</p>
-              <p style={styles.allowanceText}>
-                • Headquarters - ₹100<br />
-                • Outstation - ₹1000 ( with stay ₹800+200 ); Without stay - ₹200.
-              </p>
-            </div>
+                <p style={styles.dearnessTitle}>Dearness Allowance:</p>
+                <p style={styles.allowanceText}>
+                  • Headquarters - ₹100<br />
+                  • Outstation - ₹1000 ( with stay ₹800+200 ); Without stay - ₹200.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -374,7 +373,8 @@ export default function OfferLetterView() {
                 </div>
                 <div style={styles.sigBlock}>
                   <div style={styles.sigSpace}></div>
-                  <div style={styles.sigName}>Sales Director</div>
+                  <div style={styles.sigName}>{salesDirectorName || "Sales Director"}</div>
+                  <div style={styles.sigDesignation}>{salesDirectorDesignation || "Sales Director"}</div>
                   <div style={styles.sigCompany}>Basil Enterprises</div>
                 </div>
               </div>
@@ -886,6 +886,11 @@ const styles = {
   sigName: {
     fontSize: "11px",
     fontWeight: "700",
+    marginBottom: "3px",
+  },
+  sigDesignation: {
+    fontSize: "11px",
+    color: "#1f2937",
     marginBottom: "3px",
   },
   sigCompany: {

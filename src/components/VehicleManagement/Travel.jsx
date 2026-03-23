@@ -28,7 +28,21 @@ export default function Travel() {
     route: '',
     odometer_start_image: null,
     odometer_start_preview: null,
+    maintenance_cost: '0',
+    maintenance_washing: false,
+    maintenance_alignment: false,
+    maintenance_air_checking: false,
+    maintenance_grease_oil: false,
   });
+
+  const DEFAULT_PURPOSES = ['Collection&deliver', 'Sales&collection', 'Product delivery&collection'];
+  const [purposeOptions, setPurposeOptions] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('trip_purpose_options'));
+      return saved && saved.length ? saved : DEFAULT_PURPOSES;
+    } catch { return DEFAULT_PURPOSES; }
+  });
+  const [purposeManual, setPurposeManual] = useState(false);
 
   const [compressingStart, setCompressingStart] = useState(false);
   const [compressingEnd, setCompressingEnd] = useState(false);
@@ -213,6 +227,11 @@ export default function Travel() {
       submitData.append('client_name', formData.client_name || '');
       submitData.append('purpose', formData.purpose || '');
       submitData.append('route', formData.route || '');
+      submitData.append('maintenance_cost', formData.maintenance_cost || '0');
+      submitData.append('maintenance_washing', formData.maintenance_washing);
+      submitData.append('maintenance_alignment', formData.maintenance_alignment);
+      submitData.append('maintenance_air_checking', formData.maintenance_air_checking);
+      submitData.append('maintenance_grease_oil', formData.maintenance_grease_oil);
       
       if (formData.odometer_start_image) {
         submitData.append('odometer_start_image', formData.odometer_start_image);
@@ -229,6 +248,14 @@ export default function Travel() {
 
       setSuccessMessage('Trip started successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Save new custom purpose to localStorage
+      if (formData.purpose && !purposeOptions.includes(formData.purpose)) {
+        const updated = [...purposeOptions, formData.purpose];
+        setPurposeOptions(updated);
+        localStorage.setItem('trip_purpose_options', JSON.stringify(updated));
+      }
+      setPurposeManual(false);
       
       // Reset form
       setFormData({
@@ -241,6 +268,11 @@ export default function Travel() {
         purpose: '',
         route: '',
         odometer_start_image: null,
+        maintenance_cost: '0',
+        maintenance_washing: false,
+        maintenance_alignment: false,
+        maintenance_air_checking: false,
+        maintenance_grease_oil: false,
       });
       
       setView('list');
@@ -390,33 +422,40 @@ export default function Travel() {
                 />
                 {errors.start_time && <span style={styles.errorText}>{errors.start_time}</span>}
               </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Time Period *</label>
-                <select
-                  value={formData.time_period}
-                  onChange={(e) => setFormData({...formData, time_period: e.target.value})}
-                  style={styles.select}
-                  required
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
             </div>
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Purpose of Trip</label>
-              <select
-                value={formData.purpose}
-                onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-                style={styles.select}
-              >
-                <option value="">Select purpose</option>
-                <option value="Collection&deliver">Collection&deliver</option>
-                <option value="Sales7/collection">Sales&collection</option>
-                <option value="Product delivery&collection">Product delivery&collection</option>
-              </select>
+              {!purposeManual ? (
+                <select
+                  value={formData.purpose}
+                  onChange={(e) => {
+                    if (e.target.value === '__manual__') {
+                      setPurposeManual(true);
+                      setFormData({...formData, purpose: ''});
+                    } else {
+                      setFormData({...formData, purpose: e.target.value});
+                    }
+                  }}
+                  style={styles.select}
+                >
+                  <option value="">Select purpose</option>
+                  {purposeOptions.map(p => <option key={p} value={p}>{p}</option>)}
+                  <option value="__manual__">Other (type manually)...</option>
+                </select>
+              ) : (
+                <div style={{display: 'flex', gap: 6}}>
+                  <input
+                    type="text"
+                    value={formData.purpose}
+                    onChange={(e) => setFormData({...formData, purpose: e.target.value})}
+                    style={{...styles.input, flex: 1}}
+                    placeholder="Enter purpose"
+                    autoFocus
+                  />
+                  <button type="button" onClick={() => { setPurposeManual(false); setFormData({...formData, purpose: ''}); }} style={{...styles.cancelButton, padding: '6px 10px', fontSize: 12}}>✕</button>
+                </div>
+              )}
               {errors.purpose && <span style={styles.errorText}>{errors.purpose}</span>}
             </div>
 
@@ -430,6 +469,69 @@ export default function Travel() {
                 placeholder="e.g. Kochi → Thrissur → Palakkad"
               />
               {errors.route && <span style={styles.errorText}>{errors.route}</span>}
+            </div>
+          </div>
+
+          {/* MAINTENANCE COST SECTION */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>MAINTENANCE COST (Optional)</h3>
+            
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Maintenance Cost (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.maintenance_cost}
+                onChange={(e) => setFormData({...formData, maintenance_cost: e.target.value})}
+                placeholder="0.00"
+                style={styles.input}
+              />
+            </div>
+
+            <div style={{marginTop: '12px'}}>
+              <p style={{fontSize: '13px', fontWeight: '500', color: '#6B6B6B', marginBottom: '12px'}}>Select services (optional):</p>
+              
+              <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.maintenance_washing}
+                    onChange={(e) => setFormData({...formData, maintenance_washing: e.target.checked})}
+                    style={{width: '16px', height: '16px', marginRight: '10px', cursor: 'pointer'}}
+                  />
+                  <span style={{color: '#2D2D2D'}}>Washing</span>
+                </label>
+
+                <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.maintenance_alignment}
+                    onChange={(e) => setFormData({...formData, maintenance_alignment: e.target.checked})}
+                    style={{width: '16px', height: '16px', marginRight: '10px', cursor: 'pointer'}}
+                  />
+                  <span style={{color: '#2D2D2D'}}>Alignment</span>
+                </label>
+
+                <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.maintenance_air_checking}
+                    onChange={(e) => setFormData({...formData, maintenance_air_checking: e.target.checked})}
+                    style={{width: '16px', height: '16px', marginRight: '10px', cursor: 'pointer'}}
+                  />
+                  <span style={{color: '#2D2D2D'}}>Air Checking</span>
+                </label>
+
+                <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.maintenance_grease_oil}
+                    onChange={(e) => setFormData({...formData, maintenance_grease_oil: e.target.checked})}
+                    style={{width: '16px', height: '16px', marginRight: '10px', cursor: 'pointer'}}
+                  />
+                  <span style={{color: '#2D2D2D'}}>Grease Oil</span>
+                </label>
+              </div>
             </div>
           </div>
 

@@ -13,6 +13,7 @@ export default function VehicleMaster() {
   const [searchQuery, setSearchQuery] = useState('');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [listLayout, setListLayout] = useState('grid'); // 'grid' | 'table'
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
@@ -24,6 +25,7 @@ export default function VehicleMaster() {
     company: '',
     registration_number: '',
     vehicle_type: 'car',
+    ownership_type: 'company',
     fuel_type: 'petrol',
     color: '',
     manufacturing_year: '',
@@ -32,6 +34,7 @@ export default function VehicleMaster() {
     owner_name: '',
     insurance_number: '',
     insurance_expiry_date: '',
+    pollution_expiry_date: '',
     last_service_date: '',
     next_service_date: '',
     current_odometer: '0',
@@ -63,6 +66,7 @@ export default function VehicleMaster() {
         company: selectedVehicle.company || '',
         registration_number: selectedVehicle.registration_number || '',
         vehicle_type: selectedVehicle.vehicle_type || 'car',
+        ownership_type: selectedVehicle.ownership_type || 'company',
         fuel_type: selectedVehicle.fuel_type || 'petrol',
         color: selectedVehicle.color || '',
         manufacturing_year: selectedVehicle.manufacturing_year || '',
@@ -71,6 +75,7 @@ export default function VehicleMaster() {
         owner_name: selectedVehicle.owner_name || '',
         insurance_number: selectedVehicle.insurance_number || '',
         insurance_expiry_date: selectedVehicle.insurance_expiry_date || '',
+        pollution_expiry_date: selectedVehicle.pollution_expiry_date || '',
         last_service_date: selectedVehicle.last_service_date || '',
         next_service_date: selectedVehicle.next_service_date || '',
         current_odometer: selectedVehicle.current_odometer || '0',
@@ -115,6 +120,19 @@ export default function VehicleMaster() {
     setTimeout(() => fetchVehicles(), 100);
   };
 
+  const getInsuranceDaysLeft = (vehicle) => {
+    if (typeof vehicle.insurance_days_left === 'number' && !Number.isNaN(vehicle.insurance_days_left)) {
+      return vehicle.insurance_days_left;
+    }
+
+    if (!vehicle.insurance_expiry_date) return null;
+
+    const today = new Date();
+    const expiry = new Date(vehicle.insurance_expiry_date);
+    const diffMs = expiry.getTime() - today.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  };
+
   // Reset form
   const resetForm = () => {
     setFormData({
@@ -122,6 +140,7 @@ export default function VehicleMaster() {
       company: '',
       registration_number: '',
       vehicle_type: 'car',
+      ownership_type: 'company',
       fuel_type: 'petrol',
       color: '',
       manufacturing_year: '',
@@ -130,6 +149,7 @@ export default function VehicleMaster() {
       owner_name: '',
       insurance_number: '',
       insurance_expiry_date: '',
+      pollution_expiry_date: '',
       last_service_date: '',
       next_service_date: '',
       current_odometer: '0',
@@ -263,6 +283,109 @@ export default function VehicleMaster() {
     }
   };
 
+  const renderVehicleTable = () => {
+    if (loading) {
+      return <div style={styles.noData}>Loading vehicles...</div>;
+    }
+
+    if (vehicles.length === 0) {
+      return <div style={styles.noData}>No vehicles found. Add your first vehicle!</div>;
+    }
+
+    return (
+      <div style={styles.tableWrapper}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.tableHeader}>REG. NO</th>
+              <th style={styles.tableHeader}>VEHICLE</th>
+              <th style={styles.tableHeader}>OWNERSHIP</th>
+              <th style={styles.tableHeader}>TYPE</th>
+              <th style={styles.tableHeader}>INSURANCE EXPIRY</th>
+              <th style={styles.tableHeader}>DAYS LEFT</th>
+              <th style={styles.tableHeader}>POLLUTION EXPIRY</th>
+              <th style={styles.tableHeader}>STATUS</th>
+              <th style={styles.tableHeader}>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vehicles.map(vehicle => {
+              const daysLeft = getInsuranceDaysLeft(vehicle);
+              const badgeColor = daysLeft === null
+                ? '#e5e7eb'
+                : daysLeft < 0
+                  ? '#fee2e2'
+                  : daysLeft <= 30
+                    ? '#fef3c7'
+                    : '#dcfce7';
+              const badgeTextColor = daysLeft === null
+                ? '#374151'
+                : daysLeft < 0
+                  ? '#991b1b'
+                  : daysLeft <= 30
+                    ? '#92400e'
+                    : '#166534';
+
+              return (
+                <tr key={vehicle.id} style={styles.tableRow}>
+                  <td style={styles.tableCell}>{vehicle.registration_number}</td>
+                  <td style={styles.tableCell}>
+                    <div style={{ fontWeight: 600 }}>{vehicle.vehicle_name}</div>
+                    <div style={{ color: '#6b7280', fontSize: '12px' }}>{vehicle.company || 'N/A'}</div>
+                  </td>
+                  <td style={styles.tableCell}>
+                    {vehicle.ownership_type === 'private' ? 'Private' : 'Company'}
+                  </td>
+                  <td style={styles.tableCell}>{vehicle.vehicle_type || '—'}</td>
+                  <td style={styles.tableCell}>{vehicle.insurance_expiry_date || '—'}</td>
+                  <td style={styles.tableCell}>
+                    {daysLeft === null ? '—' : (
+                      <span style={{
+                        ...styles.pill,
+                        backgroundColor: badgeColor,
+                        color: badgeTextColor,
+                      }}>
+                        {daysLeft} day{Math.abs(daysLeft) === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </td>
+                  <td style={styles.tableCell}>{vehicle.pollution_expiry_date || '—'}</td>
+                  <td style={styles.tableCell}>
+                    <span style={{
+                      ...styles.pill,
+                      backgroundColor: vehicle.is_active ? '#d1fae5' : '#fee2e2',
+                      color: vehicle.is_active ? '#065f46' : '#991b1b',
+                    }}>
+                      {vehicle.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td style={styles.tableCell}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => openEditForm(vehicle)}
+                        style={styles.editButton}
+                      >
+                        <Edit size={14} />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteVehicle(vehicle.id)}
+                        style={styles.deleteButton}
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   // Render vehicle form
   const renderVehicleForm = () => (
     <div style={styles.container}>
@@ -329,6 +452,18 @@ export default function VehicleMaster() {
                   <option value="truck">Truck</option>
                   <option value="bus">Bus</option>
                   <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Ownership</label>
+                <select
+                  value={formData.ownership_type}
+                  onChange={(e) => setFormData({...formData, ownership_type: e.target.value})}
+                  style={styles.select}
+                >
+                  <option value="company">Company Vehicle</option>
+                  <option value="private">Private Vehicle</option>
                 </select>
               </div>
 
@@ -423,6 +558,16 @@ export default function VehicleMaster() {
                   type="date"
                   value={formData.insurance_expiry_date}
                   onChange={(e) => setFormData({...formData, insurance_expiry_date: e.target.value})}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Pollution Expiry Date</label>
+                <input
+                  type="date"
+                  value={formData.pollution_expiry_date}
+                  onChange={(e) => setFormData({...formData, pollution_expiry_date: e.target.value})}
                   style={styles.input}
                 />
               </div>
@@ -554,14 +699,22 @@ export default function VehicleMaster() {
           <h1 style={styles.pageTitle}>Vehicle Master</h1>
           <p style={styles.pageDescription}>Manage your fleet of vehicles</p>
         </div>
-        <button onClick={() => {
-          resetForm();
-          setSelectedVehicle(null);
-          setView('add');
-        }} style={styles.addButton}>
-          <Plus size={18} />
-          Add New Vehicle
-        </button>
+        <div style={styles.headerActions}>
+          <button
+            onClick={() => setListLayout(listLayout === 'grid' ? 'table' : 'grid')}
+            style={styles.toggleButton}
+          >
+            {listLayout === 'grid' ? 'Table View' : 'Card View'}
+          </button>
+          <button onClick={() => {
+            resetForm();
+            setSelectedVehicle(null);
+            setView('add');
+          }} style={styles.addButton}>
+            <Plus size={18} />
+            Add New Vehicle
+          </button>
+        </div>
       </div>
 
       {successMessage && <div style={styles.successMessage}>{successMessage}</div>}
@@ -630,83 +783,98 @@ export default function VehicleMaster() {
         {vehicles.length} vehicle(s) found
       </div>
 
-      {/* Vehicle Grid */}
-      <div style={styles.vehicleGrid}>
-        {loading ? (
-          <div style={styles.noData}>Loading vehicles...</div>
-        ) : vehicles.length === 0 ? (
-          <div style={styles.noData}>No vehicles found. Add your first vehicle!</div>
-        ) : (
-          vehicles.map(vehicle => (
-            <div key={vehicle.id} style={styles.vehicleCard}>
-              <div style={styles.vehicleImageContainer}>
-                {vehicle.photo ? (
-                  <img src={vehicle.photo_url} alt={vehicle.vehicle_name} style={styles.vehicleImage} />
-                ) : (
-                  <div style={styles.vehiclePlaceholder}>
-                    <Car size={48} color="#9ca3af" />
+      {listLayout === 'table' ? (
+        renderVehicleTable()
+      ) : (
+        <div style={styles.vehicleGrid}>
+          {loading ? (
+            <div style={styles.noData}>Loading vehicles...</div>
+          ) : vehicles.length === 0 ? (
+            <div style={styles.noData}>No vehicles found. Add your first vehicle!</div>
+          ) : (
+            vehicles.map(vehicle => (
+              <div key={vehicle.id} style={styles.vehicleCard}>
+                <div style={styles.vehicleImageContainer}>
+                  {vehicle.photo ? (
+                    <img src={vehicle.photo_url} alt={vehicle.vehicle_name} style={styles.vehicleImage} />
+                  ) : (
+                    <div style={styles.vehiclePlaceholder}>
+                      <Car size={48} color="#9ca3af" />
+                    </div>
+                  )}
+                  <div style={{
+                    ...styles.statusBadge,
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    backgroundColor: vehicle.is_active ? '#d1fae5' : '#fee2e2',
+                    color: vehicle.is_active ? '#065f46' : '#991b1b'
+                  }}>
+                    {vehicle.is_active ? 'Active' : 'Inactive'}
                   </div>
-                )}
-                <div style={{
-                  ...styles.statusBadge,
-                  position: 'absolute',
-                  top: '10px',
-                  right: '10px',
-                  backgroundColor: vehicle.is_active ? '#d1fae5' : '#fee2e2',
-                  color: vehicle.is_active ? '#065f46' : '#991b1b'
-                }}>
-                  {vehicle.is_active ? 'Active' : 'Inactive'}
                 </div>
-              </div>
-              
-              <div style={styles.vehicleContent}>
-                <h3 style={styles.vehicleTitle}>{vehicle.vehicle_name}</h3>
-                <p style={styles.vehicleRegNo}>{vehicle.registration_number}</p>
                 
-                <div style={styles.vehicleDetails}>
-                  <div style={styles.detailRow}>
-                    <span style={styles.detailLabel}>Company:</span>
-                    <span style={styles.detailValue}>{vehicle.company || 'N/A'}</span>
+                <div style={styles.vehicleContent}>
+                  <h3 style={styles.vehicleTitle}>{vehicle.vehicle_name}</h3>
+                  <p style={styles.vehicleRegNo}>{vehicle.registration_number}</p>
+                  
+                  <div style={styles.vehicleDetails}>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Company:</span>
+                      <span style={styles.detailValue}>{vehicle.company || 'N/A'}</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Ownership:</span>
+                      <span style={styles.detailValue}>{vehicle.ownership_type === 'private' ? 'Private' : 'Company'}</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Type:</span>
+                      <span style={styles.detailValue}>{vehicle.vehicle_type || 'N/A'}</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Fuel:</span>
+                      <span style={styles.detailValue}>{vehicle.fuel_type || 'N/A'}</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Insurance Expiry:</span>
+                      <span style={styles.detailValue}>{vehicle.insurance_expiry_date || 'N/A'}</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Pollution Expiry:</span>
+                      <span style={styles.detailValue}>{vehicle.pollution_expiry_date || 'N/A'}</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Odometer:</span>
+                      <span style={styles.detailValue}>{parseFloat(vehicle.current_odometer).toFixed(2)} KM</span>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <span style={styles.detailLabel}>Total Trips:</span>
+                      <span style={styles.detailValue}>{vehicle.total_trips || 0}</span>
+                    </div>
                   </div>
-                  <div style={styles.detailRow}>
-                    <span style={styles.detailLabel}>Type:</span>
-                    <span style={styles.detailValue}>{vehicle.vehicle_type || 'N/A'}</span>
-                  </div>
-                  <div style={styles.detailRow}>
-                    <span style={styles.detailLabel}>Fuel:</span>
-                    <span style={styles.detailValue}>{vehicle.fuel_type || 'N/A'}</span>
-                  </div>
-                  <div style={styles.detailRow}>
-                    <span style={styles.detailLabel}>Odometer:</span>
-                    <span style={styles.detailValue}>{parseFloat(vehicle.current_odometer).toFixed(2)} KM</span>
-                  </div>
-                  <div style={styles.detailRow}>
-                    <span style={styles.detailLabel}>Total Trips:</span>
-                    <span style={styles.detailValue}>{vehicle.total_trips || 0}</span>
-                  </div>
-                </div>
 
-                <div style={styles.vehicleActions}>
-                  <button
-                    onClick={() => openEditForm(vehicle)}
-                    style={styles.editButton}
-                  >
-                    <Edit size={16} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteVehicle(vehicle.id)}
-                    style={styles.deleteButton}
-                  >
-                    <Trash2 size={16} />
-                    Delete
-                  </button>
+                  <div style={styles.vehicleActions}>
+                    <button
+                      onClick={() => openEditForm(vehicle)}
+                      style={styles.editButton}
+                    >
+                      <Edit size={16} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteVehicle(vehicle.id)}
+                      style={styles.deleteButton}
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -730,6 +898,11 @@ const styles = {
     padding: '20px',
     borderRadius: '8px',
     border: '1px solid #e5e7eb',
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
   },
   pageTitle: {
     fontSize: '24px',
@@ -755,6 +928,16 @@ const styles = {
     borderRadius: '6px',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+  },
+  toggleButton: {
+    padding: '10px 16px',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#374151',
+    backgroundColor: '#f3f4f6',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    cursor: 'pointer',
   },
   successMessage: {
     backgroundColor: '#d1fae5',
@@ -864,6 +1047,46 @@ const styles = {
     marginBottom: '20px',
     border: '1px solid #e5e7eb',
     borderRadius: '8px',
+  },
+  tableWrapper: {
+    backgroundColor: '#ffffff',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb',
+    overflowX: 'auto',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    minWidth: '800px',
+  },
+  tableHeader: {
+    textAlign: 'left',
+    fontSize: '12px',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    padding: '12px 16px',
+    borderBottom: '1px solid #e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  tableRow: {
+    borderBottom: '1px solid #f3f4f6',
+  },
+  tableCell: {
+    padding: '12px 16px',
+    fontSize: '14px',
+    color: '#111827',
+    verticalAlign: 'middle',
+  },
+  pill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px 10px',
+    fontSize: '12px',
+    fontWeight: '600',
+    borderRadius: '9999px',
+    minWidth: '60px',
   },
   vehicleGrid: {
     display: 'grid',

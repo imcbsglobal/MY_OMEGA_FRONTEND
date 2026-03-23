@@ -78,31 +78,42 @@ export default function FuelManagement() {
 
   // Format trips data for display
   const formatTripsData = (data) => {
-    return data.map(trip => ({
-      id: trip.id,
-      vehicle: trip.vehicle_info?.registration_number || 'N/A',
-      vehicle_name: trip.vehicle_info?.vehicle_name || '',
-      traveler_name: trip.employee_info?.full_name || trip.employee_info?.email || 'N/A',
-      traveler_email: trip.employee_info?.email || '',
-      client_name: trip.client_name || '—',
-      purpose: trip.purpose || '',
-      client_purpose: trip.client_name && trip.purpose 
-        ? `${trip.client_name}\n${trip.purpose}` 
-        : trip.purpose || '—',
-      date: formatDate(trip.date),
-      start_time: formatTime(trip.start_time, trip.time_period),
-      end_time: trip.end_time ? formatTime(trip.end_time, trip.time_period) : '—',
-      odo_start: parseFloat(trip.odometer_start || 0).toFixed(2),
-      odo_end: trip.odometer_end ? parseFloat(trip.odometer_end).toFixed(2) : '—',
-      distance: trip.distance_km ? parseFloat(trip.distance_km).toFixed(2) : '—',
-      fuel_cost: parseFloat(trip.fuel_cost || 0).toFixed(2),
-      status: trip.status.charAt(0).toUpperCase() + trip.status.slice(1),
-      start_image: !!trip.odometer_start_url,
-      end_image: !!trip.odometer_end_url,
-      start_image_url: trip.odometer_start_url,
-      end_image_url: trip.odometer_end_url,
-      raw_data: trip
-    }));
+    return data.map(trip => {
+      // Format maintenance info
+      const maintenanceItems = [];
+      if (trip.maintenance_washing) maintenanceItems.push('Washing');
+      if (trip.maintenance_alignment) maintenanceItems.push('Alignment');
+      if (trip.maintenance_air_checking) maintenanceItems.push('Air Checking');
+      if (trip.maintenance_grease_oil) maintenanceItems.push('Grease Oil');
+
+      return {
+        id: trip.id,
+        vehicle: trip.vehicle_info?.registration_number || 'N/A',
+        vehicle_name: trip.vehicle_info?.vehicle_name || '',
+        traveler_name: trip.employee_info?.full_name || trip.employee_info?.email || 'N/A',
+        traveler_email: trip.employee_info?.email || '',
+        client_name: trip.client_name || '—',
+        purpose: trip.purpose || '',
+        client_purpose: trip.client_name && trip.purpose 
+          ? `${trip.client_name}\n${trip.purpose}` 
+          : trip.purpose || '—',
+        date: formatDate(trip.date),
+        start_time: formatTime(trip.start_time, trip.time_period),
+        end_time: trip.end_time ? formatTime(trip.end_time, trip.time_period) : '—',
+        odo_start: parseFloat(trip.odometer_start || 0).toFixed(2),
+        odo_end: trip.odometer_end ? parseFloat(trip.odometer_end).toFixed(2) : '—',
+        distance: trip.distance_km ? parseFloat(trip.distance_km).toFixed(2) : '—',
+        fuel_cost: parseFloat(trip.fuel_cost || 0).toFixed(2),
+        maintenance_cost: parseFloat(trip.maintenance_cost || 0).toFixed(2),
+        maintenance_items: maintenanceItems.length > 0 ? maintenanceItems.join(', ') : 'None',
+        status: trip.status.charAt(0).toUpperCase() + trip.status.slice(1),
+        start_image: !!trip.odometer_start_url,
+        end_image: !!trip.odometer_end_url,
+        start_image_url: trip.odometer_start_url,
+        end_image_url: trip.odometer_end_url,
+        raw_data: trip
+      };
+    });
   };
 
   // Format date to DD-MMM-YYYY
@@ -431,6 +442,8 @@ export default function FuelManagement() {
                 <th style={styles.tableHeader}>ODO END</th>
                 <th style={styles.tableHeader}>DISTANCE (KM)</th>
                 <th style={styles.tableHeader}>FUEL COST (₹)</th>
+                <th style={styles.tableHeader}>MAINTENANCE COST (₹)</th>
+                <th style={styles.tableHeader}>MAINTENANCE</th>
                 <th style={styles.tableHeader}>START IMAGE</th>
                 <th style={styles.tableHeader}>END IMAGE</th>
                 <th style={styles.tableHeader}>MORE</th>
@@ -440,11 +453,11 @@ export default function FuelManagement() {
             <tbody>
             {loading ? (
               <tr>
-                <td colSpan="15" style={styles.noData}>Loading trips...</td>
+                <td colSpan="17" style={styles.noData}>Loading trips...</td>
               </tr>
             ) : filteredTrips.length === 0 ? (
               <tr>
-                <td colSpan="15" style={styles.noData}>No trips found</td>
+                <td colSpan="17" style={styles.noData}>No trips found</td>
               </tr>
             ) : (
               filteredTrips.map((trip, index) => (
@@ -483,6 +496,12 @@ export default function FuelManagement() {
                   <td style={styles.tableCell}>{trip.odo_end}</td>
                   <td style={styles.tableCell}>{trip.distance}</td>
                   <td style={styles.tableCell}>₹{trip.fuel_cost}</td>
+                  <td style={styles.tableCell}>₹{trip.maintenance_cost}</td>
+                  <td style={styles.tableCell}>
+                    <div style={{fontSize: '13px', color: trip.maintenance_items === 'None' ? '#9CA3AF' : '#2D2D2D'}}>
+                      {trip.maintenance_items}
+                    </div>
+                  </td>
                   <td style={styles.tableCell}>
                     {trip.start_image ? (
                       <button 

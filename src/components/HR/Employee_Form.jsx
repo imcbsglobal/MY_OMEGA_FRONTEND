@@ -30,6 +30,7 @@ export default function EmployeeForm() {
     allowances: "",
     gross_salary: "",
     pf_number: "",
+    uan_number: "",
     esi_number: "",
     pan_number: "",
     aadhar_number: "",
@@ -55,7 +56,8 @@ export default function EmployeeForm() {
     district: "",
     organization: "",
     avatar: null,
-    avatar_preview: null
+    avatar_preview: null,
+    work_type: "",
   });
 
   const fetchUsers = async () => {
@@ -248,6 +250,9 @@ export default function EmployeeForm() {
   employment_type: formData.employment_type,
   organization: formData.organization || "",
 
+  // 🏠 WORK TYPE
+  work_type: formData.work_type || "",
+
   // 💰 SALARY
   basic_salary: formData.basic_salary,
   allowances: formData.allowances,
@@ -262,6 +267,7 @@ export default function EmployeeForm() {
 
   // 🆔 IDS
   pf_number: formData.pf_number,
+  uan_number: formData.uan_number,
   esi_number: formData.esi_number,
   pan_number: formData.pan_number,
   aadhar_number: formData.aadhar_number,
@@ -756,6 +762,20 @@ export default function EmployeeForm() {
               </div>
 
               <div style={styles.formGroup}>
+                <label style={styles.label}>Work Type</label>
+                <select
+                  name="work_type"
+                  value={formData.work_type}
+                  onChange={handleChange}
+                  style={styles.input}
+                >
+                  <option value="">Select Work Type</option>
+                  <option value="in_house">In House</option>
+                  <option value="out_house">Out House</option>
+                </select>
+              </div>
+
+              <div style={styles.formGroup}>
                 <label style={styles.label}>Employment Status</label>
                 <select
                   name="employment_status"
@@ -878,6 +898,17 @@ export default function EmployeeForm() {
                   type="text"
                   name="pf_number"
                   value={formData.pf_number}
+                  onChange={handleChange}
+                  style={styles.input}
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>UAN Number</label>
+                <input
+                  type="text"
+                  name="uan_number"
+                  value={formData.uan_number}
                   onChange={handleChange}
                   style={styles.input}
                 />

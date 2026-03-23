@@ -422,12 +422,11 @@ function EmployeeDetail({ employee, onEdit, onDelete }) {
           <Info label="Department" value={employee.department || employee.job_info?.department} />
           <Info label="Employment Status" value={employee.employment_status || employee.job_info?.employment_status} />
           <Info label="Employment Type" value={employee.employment_type || employee.job_info?.employment_type} />
+          <Info label="Work Type" value={employee.work_type === 'in_house' ? 'In House' : employee.work_type === 'out_house' ? 'Out House' : employee.work_type} />
           <Info label="Location" value={employee.location || employee.job_info?.location} />
           <Info label="Duty Time" value={employee.duty_time || employee.job_info?.duty_time} />
           <Info label="Reporting Manager" value={employee.reporting_manager || employee.job_info?.reporting_manager} />
           <Info label="Date of Joining" value={employee.date_of_joining || employee.job_info?.date_of_joining} />
-
-          <Info label="Probation End Date" value={employee.probation_end_date || employee.job_info?.probation_end_date} />
           <Info label="Confirmation Date" value={employee.confirmation_date || employee.job_info?.confirmation_date} />
         </div>
       </div>

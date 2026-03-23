@@ -85,6 +85,7 @@ import DeliveryStops from "./components/DeliveryManagement/DeliveryStops";
 import DeliveryProducts from "./components/DeliveryManagement/DeliveryProducts";
 import DeliveryWorkflow from "./components/DeliveryManagement/Deliveryworkflow";  // ✅ Correct path
 import Employeedeliveryview from "./components/DeliveryManagement/Employeedeliveryview";
+import Courier from "./components/DeliveryManagement/Courier";
 import MarketingList from "./components/TargetManagement/MarketingList";
 
 // Target Management - Existing Components
@@ -260,6 +261,7 @@ function App() {
           {/* Delivery Management */}
           <Route path="delivery-management/deliveries" element={<DeliveryList />} />
           <Route path="delivery-management/report" element={<DeliveryReport />} />
+          <Route path="delivery-management/courier" element={<Courier />} />
 
           {/* Warehouse Management */}
           <Route path="warehouse/assign" element={<WarehouseAssign />} />
